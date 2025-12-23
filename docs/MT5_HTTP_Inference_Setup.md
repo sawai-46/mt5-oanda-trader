@@ -40,6 +40,17 @@ Antigravity 実体が `mt4-pullback-trader` 側にある場合は、以下いず
 - リポジトリ内に配置（サブモジュール/コピー）
   - `external/mt4-pullback-trader/python/antigravity/...` の形で置く（`external` 配下を推奨）
 
+#### `mt4-pullback-trader` を submodule として追加（推奨）
+
+このリポジトリのルートで、以下のように追加します。
+
+- `git submodule add https://github.com/sawai-46/mt4-pullback-trader external/mt4-pullback-trader`
+- `git submodule update --init --recursive`
+
+この配置にすると、`python/inference_server_7module.py` が `external/mt4-pullback-trader/python` を自動的に `sys.path` に追加し、`antigravity.core.*` の import を試みます。
+
+※ サブモジュールが private の場合は、認証（SSH鍵/トークン）設定が必要です。
+
 - 依存が解決できているか確認例: `python -c "from antigravity.core.orchestrator import AntigravityOrchestrator; print('ok')"`
 - 有効化: `USE_ANTIGRAVITY=1`
 - モデル指定（必要に応じて）:
