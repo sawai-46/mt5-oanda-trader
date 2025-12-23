@@ -1,0 +1,3 @@
+[submodule "external/mt4-pullback-trader"]
+	path = external/mt4-pullback-trader
+	url = https://github.com/sawai-46/mt4-pullback-trader
