@@ -24,3 +24,6 @@ PyYAML>=6.0
 
 # Options Market Data
 yfinance>=0.2.33
+
+# MT5 Native Integration (OANDA)
+MetaTrader5>=5.0.45
