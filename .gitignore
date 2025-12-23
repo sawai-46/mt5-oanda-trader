@@ -65,5 +65,3 @@ docker-compose.override.yml
 *.sqlite
 *.db
 
-# Antigravity datasets / artifacts (keep code, ignore large data)
-python/antigravity/data/
