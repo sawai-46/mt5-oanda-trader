@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  # Original inference server (GRU-based, HTTP)
+  inference-server:
+    build:
+      context: ..
+      dockerfile: python_gpu/Dockerfile
+    image: mt4-pullback-trader-gpu
+    container_name: mt4-ai-server
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./models:/app/models
+      - ./results:/app/results
+      - ./data:/app/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Tokyo # Set Timezone to JST
+    command: python inference_improved.py --host 0.0.0.0 --port 5555 --type gru --model models/gru_best.pth
+
+  # File-based Inference Server (Antigravity Core v3.0)
+  inference-file:
+    build:
+      context: ..
+      dockerfile: python_gpu/Dockerfile
+    image: mt4-pullback-trader-gpu
+    container_name: mt4-ai-file-server
+    volumes:
+      # Docker用設定ファイル
+      - ../python/config.docker.yaml:/app/config.yaml:ro
+      # MT4データディレクトリ - 各ターミナルのデータフォルダを個別にマウント
+      # 10900k-A / matsu-A (ターミナルA)
+      - C:/Users/chanm/AppData/Roaming/MetaQuotes/Terminal/A84B568DA10F82FE5A8FF6A859153D6F/MQL4/Files/OneDriveLogs/data:/mt4_data/10900k-A
+      - C:/Users/chanm/AppData/Roaming/MetaQuotes/Terminal/A84B568DA10F82FE5A8FF6A859153D6F/MQL4/Files/OneDriveLogs/data:/mt4_data/matsu-A
+      # 10900k-B / matsu-B (ターミナルB)
+      - C:/Users/chanm/AppData/Roaming/MetaQuotes/Terminal/F350723F1EC14B9854EACE771AE0C0F3/MQL4/Files/OneDriveLogs/data:/mt4_data/10900k-B
+      - C:/Users/chanm/AppData/Roaming/MetaQuotes/Terminal/F350723F1EC14B9854EACE771AE0C0F3/MQL4/Files/OneDriveLogs/data:/mt4_data/matsu-B
+      # トレード履歴ログ
+      - C:/Users/chanm/OneDrive/EA_Logs:/ea_logs:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Tokyo # Set Timezone to JST
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import torch; print('OK')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    command: python inference_server_7module.py
+
+  # Optional: Training service (run manually or via override)
+  trainer:
+    build:
+      context: ..
+      dockerfile: python_gpu/Dockerfile
+    image: mt4-pullback-trader-gpu
+    container_name: mt4-ai-trainer
+    volumes:
+      - ./models:/app/models
+      - ./results:/app/results
+      - ./data:/app/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Tokyo # Set Timezone to JST
+    command: python train_improved.py
+    profiles:
+      - training # Only start when explicitly requested (docker-compose --profile training up)

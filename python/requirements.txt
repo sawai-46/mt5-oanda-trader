@@ -1,0 +1,26 @@
+# Core Web Framework
+flask>=3.0.0
+requests>=2.31.0
+
+# Machine Learning
+torch>=2.0.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Visualization
+matplotlib>=3.7.0
+plotly>=5.18.0
+
+# Statistical Models (GARCH)
+arch>=6.3.0
+scipy>=1.10.0
+
+# Dashboard (Optional)
+streamlit>=1.29.0
+
+PyYAML>=6.0
+
+# Options Market Data
+yfinance>=0.2.33
