@@ -19,7 +19,6 @@ import sys
 import time
 import json
 import csv
-import os
 import tempfile
 import re
 import numpy as np
@@ -64,8 +63,45 @@ from strategy_presets import (
 )
 
 # ★NEW: Antigravity Orchestrator（Transformer/KAN/VPIN/GARCH統合）
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
+def _extend_sys_path_for_antigravity() -> None:
+    """Try to make `antigravity.core.*` importable.
+
+    Antigravity 実装は別リポジトリ（mt4-pullback-trader）側にある想定。
+    このリポジトリ単体でも動くよう、環境変数 or 代表的な相対パスを sys.path に追加する。
+    """
+
+    def _add(p: Path) -> None:
+        try:
+            pp = str(p.resolve())
+        except Exception:
+            pp = str(p)
+        if pp and pp not in sys.path:
+            sys.path.insert(0, pp)
+
+    # 1) 明示指定（推奨）
+    # - MT4_PULLBACK_TRADER_ROOT: mt4-pullback-trader のリポジトリルート
+    # - MT4_PULLBACK_TRADER_PYTHON: mt4-pullback-trader の python/ 直下
+    env_root = os.getenv("MT4_PULLBACK_TRADER_ROOT", "").strip()
+    env_py = os.getenv("MT4_PULLBACK_TRADER_PYTHON", "").strip()
+    if env_py:
+        _add(Path(env_py))
+    if env_root:
+        _add(Path(env_root) / "python")
+
+    # 2) よくある配置（このリポジトリ配下にサブモジュール/コピーした場合）
+    repo_root = Path(__file__).resolve().parent.parent
+    candidates = [
+        repo_root / "external" / "mt4-pullback-trader" / "python",
+        repo_root / "vendor" / "mt4-pullback-trader" / "python",
+        repo_root / "mt4-pullback-trader" / "python",
+        repo_root.parent / "mt4-pullback-trader" / "python",
+    ]
+    for c in candidates:
+        if c.exists() and c.is_dir():
+            _add(c)
+
+
+_extend_sys_path_for_antigravity()
 try:
     from antigravity.core.orchestrator import AntigravityOrchestrator
     ANTIGRAVITY_AVAILABLE = True

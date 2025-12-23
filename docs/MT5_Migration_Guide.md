@@ -182,6 +182,15 @@ public:
 
 ---
 
+## MT5の推論サーバー接続（HTTP方針）
+
+MT5側はファイル通信ではなく、WebRequestでHTTP/HTTPSに接続する方針。
+
+- 手順: [docs/MT5_HTTP_Inference_Setup.md](MT5_HTTP_Inference_Setup.md)
+- Python側HTTPサーバー: `python/inference_server_http_7module.py`
+
+---
+
 ## 参考ファイル（mt4-pullback-trader内）
 
 - `mql4/Include/Lib_PullbackEngine.mqh` - Pullback戦略のコアロジック
