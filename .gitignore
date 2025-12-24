@@ -26,6 +26,7 @@ MANIFEST
 venv/
 ENV/
 env/
+.venv/
 .venv
 
 # IDE
@@ -42,6 +43,11 @@ env/
 *.onnx
 *.h5
 *.pkl
+*.ckpt
+*.pb
+*.bin
+*.safetensors
+*.gguf
 
 # MQL5 compiled files
 *.ex4
@@ -50,11 +56,13 @@ env/
 # Temporary files
 *.tmp
 *.bak
+*.old
 *.cache
 
 # Environment variables
 .env
 .env.local
+.env.*.local
 
 # Docker
 docker-compose.override.yml
@@ -63,5 +71,52 @@ docker-compose.override.yml
 *.log
 *.sql
 *.sqlite
+*.sqlite3
 *.db
+compilemql4.log
 
+# ============================================
+# Training Data & Runtime Files (DO NOT TRACK)
+# ============================================
+
+# Antigravity data folder
+antigravity/data/
+antigravity/data/*.csv
+antigravity/data/*.png
+antigravity/data/*.pt
+
+# Python data folder
+python/data/
+python/**/request_*.csv
+python/**/response_*.csv
+python/**/server_status.txt
+python/**/trade_history*.json
+python/**/*.db
+python/**/*.sqlite
+python/**/*.sqlite3
+
+# Models folder (trained models)
+python/models/
+models/
+
+# Checkpoints
+checkpoints/
+runs/
+wandb/
+
+# MT4/MT5 specific
+*.hst
+*.fxt
+*.set
+
+# Local config (machine-specific)
+python/config.local.yaml
+config.local.yaml
+
+# Node.js
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

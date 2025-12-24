@@ -513,6 +513,260 @@ def predict():
         return jsonify({'error': str(e), 'timestamp': datetime.now().isoformat()}), 500
 
 
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    """
+    分析エンドポイント（MT4/MT5 HTTP EA互換）
+    
+    リクエスト形式:
+    {
+        "symbol": "USD/JPY",
+        "timeframe": "M15",
+        "ohlcv": {
+            "open": [...],
+            "high": [...],
+            "low": [...],
+            "close": [...],
+            "volume": [...]
+        },
+        "current_price": 150.123
+    }
+    
+    レスポンス形式:
+    {
+        "signal": 1/-1/0,
+        "confidence": 0.75,
+        "entry_allowed": true/false,
+        "reason": "...",
+        "module_breakdown": {...}
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        symbol = data.get('symbol', 'USDJPY')
+        timeframe = data.get('timeframe', 'M15')
+        ohlcv = data.get('ohlcv', {})
+        
+        if not ohlcv:
+            return jsonify({
+                'signal': 0,
+                'confidence': 0.0,
+                'entry_allowed': False,
+                'reason': 'No OHLCV data provided'
+            }), 400
+        
+        # OHLCV データを numpy 配列に変換
+        opens = np.array(ohlcv.get('open', []), dtype=float)
+        highs = np.array(ohlcv.get('high', []), dtype=float)
+        lows = np.array(ohlcv.get('low', []), dtype=float)
+        closes = np.array(ohlcv.get('close', []), dtype=float)
+        volumes = np.array(ohlcv.get('volume', []), dtype=float)
+        
+        if len(closes) < 20:
+            return jsonify({
+                'signal': 0,
+                'confidence': 0.0,
+                'entry_allowed': False,
+                'reason': f'Insufficient data: {len(closes)} bars (need >= 20)'
+            }), 400
+        
+        # モジュール分析実行
+        if analyzer is None or not MODULES_AVAILABLE:
+            # 簡易分析
+            result = simple_analyze(opens, highs, lows, closes, symbol)
+        else:
+            # 16モジュール分析
+            result = full_module_analyze(opens, highs, lows, closes, volumes, symbol, timeframe)
+        
+        logger.info(f"Analyze: {symbol} {timeframe} -> signal={result['signal']} conf={result['confidence']:.3f}")
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        logger.error(f"Analyze error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'signal': 0,
+            'confidence': 0.0,
+            'entry_allowed': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+
+def simple_analyze(opens, highs, lows, closes, symbol):
+    """モジュールがない場合の簡易分析"""
+    # EMA計算
+    def calc_ema(data, period):
+        alpha = 2 / (period + 1)
+        result = np.zeros_like(data, dtype=float)
+        result[0] = data[0]
+        for i in range(1, len(data)):
+            result[i] = alpha * data[i] + (1 - alpha) * result[i-1]
+        return result
+    
+    ema12 = calc_ema(closes, 12)
+    ema25 = calc_ema(closes, 25)
+    
+    signal = 0
+    confidence = 0.5
+    reason = "Simple EMA analysis"
+    
+    if ema12[-1] > ema25[-1] and closes[-1] > closes[-2] > closes[-3]:
+        signal = 1
+        confidence = 0.65
+        reason = "EMA12 > EMA25 + 3-bar uptrend"
+    elif ema12[-1] < ema25[-1] and closes[-1] < closes[-2] < closes[-3]:
+        signal = -1
+        confidence = 0.65
+        reason = "EMA12 < EMA25 + 3-bar downtrend"
+    
+    return {
+        'signal': signal,
+        'confidence': confidence,
+        'entry_allowed': abs(signal) > 0 and confidence >= 0.6,
+        'reason': reason,
+        'module_breakdown': {},
+        'timestamp': datetime.now().isoformat()
+    }
+
+
+def full_module_analyze(opens, highs, lows, closes, volumes, symbol, timeframe):
+    """16モジュール分析"""
+    # テクニカル指標計算
+    def calc_ema(data, period):
+        alpha = 2 / (period + 1)
+        result = np.zeros_like(data, dtype=float)
+        result[0] = data[0]
+        for i in range(1, len(data)):
+            result[i] = alpha * data[i] + (1 - alpha) * result[i-1]
+        return result
+    
+    def calc_rsi(closes, period=14):
+        if len(closes) < period + 1:
+            return np.ones_like(closes) * 50.0
+        deltas = np.diff(closes)
+        gains = np.where(deltas > 0, deltas, 0)
+        losses = np.where(deltas < 0, -deltas, 0)
+        rsi = np.zeros(len(closes))
+        rsi[:period] = 50.0
+        avg_gain = np.mean(gains[:period])
+        avg_loss = np.mean(losses[:period])
+        for i in range(period, len(closes) - 1):
+            avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+            avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+            if avg_loss > 0:
+                rs = avg_gain / avg_loss
+                rsi[i + 1] = 100 - (100 / (1 + rs))
+            else:
+                rsi[i + 1] = 100
+        return rsi
+    
+    ema12 = calc_ema(closes, 12)
+    ema25 = calc_ema(closes, 25)
+    ema100 = calc_ema(closes, 100)
+    macd_main = ema12 - ema25
+    macd_signal = calc_ema(macd_main, 9)
+    rsi = calc_rsi(closes, 14)
+    
+    module_scores = {}
+    
+    # 各モジュールで分析
+    try:
+        from modules import (
+            CandlePatternsModule, ChartPatternsModule, FalseBreakoutModule,
+            TechnicalModule, TrendModule, WaveStructureModule, StructuralModule
+        )
+        
+        candle = CandlePatternsModule(min_confidence=0.5)
+        module_scores['candle_patterns'] = candle.analyze(
+            opens=opens, highs=highs, lows=lows, closes=closes, volumes=volumes
+        )
+    except Exception as e:
+        logger.warning(f"Candle module error: {e}")
+    
+    try:
+        chart = ChartPatternsModule()
+        module_scores['chart_patterns'] = chart.analyze(
+            opens=opens, highs=highs, lows=lows, closes=closes
+        )
+    except Exception as e:
+        logger.warning(f"Chart module error: {e}")
+    
+    try:
+        technical = TechnicalModule()
+        module_scores['technical'] = technical.analyze(
+            closes=closes, macd_main=macd_main, macd_signal=macd_signal, rsi=rsi
+        )
+    except Exception as e:
+        logger.warning(f"Technical module error: {e}")
+    
+    try:
+        trend = TrendModule()
+        module_scores['trend'] = trend.analyze(
+            closes=closes, ema12=ema12, ema25=ema25, ema100=ema100
+        )
+    except Exception as e:
+        logger.warning(f"Trend module error: {e}")
+    
+    # シグナル統合
+    weights = {
+        'chart_patterns': 0.25,
+        'candle_patterns': 0.20,
+        'technical': 0.20,
+        'trend': 0.15,
+        'wave_structure': 0.10,
+        'structural': 0.10,
+    }
+    
+    total_score = 0.0
+    total_weight = 0.0
+    breakdown = {}
+    
+    for name, score in module_scores.items():
+        if name not in weights:
+            continue
+        
+        weight = weights[name]
+        signal_value = score.signal.value if hasattr(score.signal, 'value') else int(score.signal)
+        weighted = signal_value * score.confidence * weight
+        total_score += weighted
+        total_weight += weight
+        
+        breakdown[name] = {
+            'signal': signal_value,
+            'confidence': round(score.confidence, 3),
+            'reason': score.reason,
+            'weighted': round(weighted, 3)
+        }
+    
+    # 最終シグナル
+    if total_weight > 0:
+        avg_score = total_score / total_weight
+    else:
+        avg_score = 0.0
+    
+    if avg_score > 0.3:
+        signal = 1
+    elif avg_score < -0.3:
+        signal = -1
+    else:
+        signal = 0
+    
+    confidence = min(abs(avg_score) * 1.5, 1.0)
+    entry_allowed = abs(signal) > 0 and confidence >= 0.6
+    
+    return {
+        'signal': signal,
+        'confidence': round(confidence, 3),
+        'entry_allowed': entry_allowed,
+        'reason': f"Module analysis: avg_score={avg_score:.3f}",
+        'module_breakdown': breakdown,
+        'timestamp': datetime.now().isoformat()
+    }
+
+
 @app.route('/test_data/<symbol>', methods=['GET'])
 def test_data(symbol: str):
     """MT5データ取得テスト"""
