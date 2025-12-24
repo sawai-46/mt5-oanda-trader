@@ -1473,6 +1473,11 @@ void CheckPartialClose()
 void ExecutePartialClose(int level, double percent)
 {
    if (!OrderSelect(current_ticket, SELECT_BY_TICKET)) return;
+
+   int old_ticket = current_ticket;
+   string direction = (OrderType() == OP_BUY) ? "BUY" : "SELL";
+   double old_sl = OrderStopLoss();
+   double old_tp = OrderTakeProfit();
    
    double current_lots = OrderLots();
    double close_lots = NormalizeDouble(current_lots * percent / 100.0, 2);
@@ -1489,15 +1494,28 @@ void ExecutePartialClose(int level, double percent)
       // 一部決済後、残ポジションの新しいチケット番号を取得
       Sleep(100);  // サーバー処理待機
       current_ticket = -1;
+      int new_ticket = -1;
+      double remaining_lots = 0.0;
       for (int i = OrdersTotal() - 1; i >= 0; i--) {
          if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES)) {
             if (OrderSymbol() == Symbol() && OrderMagicNumber() == g_ActiveMagicNumber) {
                current_ticket = OrderTicket();
+               new_ticket = current_ticket;
+               remaining_lots = OrderLots();
                Print("★ 一部決済後の新チケット: #", current_ticket, ", 残ロット: ", DoubleToString(OrderLots(), 2));
                break;
             }
          }
       }
+
+      string details = "Level=" + IntegerToString(level)
+                       + ";percent=" + DoubleToString(percent, 1)
+                       + ";closed_lots=" + DoubleToString(close_lots, 2)
+                       + ";close_price=" + DoubleToString(close_price, Digits)
+                       + ";old_ticket=" + IntegerToString(old_ticket)
+                       + ";new_ticket=" + IntegerToString(new_ticket)
+                       + ";remaining_lots=" + DoubleToString(remaining_lots, 2);
+      LogTrade("PARTIAL_CLOSE", direction, "", old_ticket, close_price, old_sl, old_tp, details);
       
       if (level == 1) {
          partial1_executed = true;
@@ -1520,6 +1538,15 @@ void ExecutePartialClose(int level, double percent)
       } else if (level == 3) {
          partial3_executed = true;
       }
+   } else {
+      int err = GetLastError();
+      string details = "Level=" + IntegerToString(level)
+                       + ";percent=" + DoubleToString(percent, 1)
+                       + ";close_lots=" + DoubleToString(close_lots, 2)
+                       + ";close_price=" + DoubleToString(close_price, Digits)
+                       + ";ticket=" + IntegerToString(old_ticket)
+                       + ";err=" + IntegerToString(err);
+      LogTrade("PARTIAL_CLOSE_FAILED", direction, "", old_ticket, close_price, old_sl, old_tp, details);
    }
 }
 
@@ -1830,7 +1857,7 @@ string GetTimeframeString(int period)
 //| トレードログ記録                                                  |
 //+------------------------------------------------------------------+
 void LogTrade(string event, string direction, string pullback, int ticket,
-              double price, double sl, double tp)
+              double price, double sl, double tp, string details = "")
 {
    if (!EnableCsvLogging) return;
    
@@ -1846,7 +1873,7 @@ void LogTrade(string event, string direction, string pullback, int ticket,
              DoubleToString(price, Digits),
              DoubleToString(sl, Digits),
              DoubleToString(tp, Digits),
-             "");
+             details);
    
    FileClose(file_handle);
 }
