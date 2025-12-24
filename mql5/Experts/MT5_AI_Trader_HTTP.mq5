@@ -5,28 +5,52 @@
 //+------------------------------------------------------------------+
 #property copyright "2025"
 #property link      ""
-#property version   "1.00"
+#property version   "2.00"
 #property strict
+
+#include <Trade\Trade.mqh>
+
+//--- 推論サーバー戦略プリセット
+enum PresetOption
+{
+   PRESET_antigravity_pullback = 0,   // antigravity_pullback (推奨)
+   PRESET_antigravity_only,           // antigravity_only
+   PRESET_antigravity_hedge,          // antigravity_hedge
+   PRESET_quantitative_pure,          // quantitative_pure
+   PRESET_full,                       // full (全モジュール)
+   PRESET_custom                      // custom (カスタム)
+};
 
 //--- HTTP設定
 input string InpMT5_ID = "OANDA-MT5";                 // MT5識別ID
+input bool   InpAutoAppendSymbol = true;              // MT5_IDにSymbolを自動追加
 input string InpInferenceServerURL = "http://localhost:5001";  // 推論サーバーURL
 input int    InpServerTimeout = 30000;                          // タイムアウト(ms)
+
+//--- プリセット設定
+input PresetOption InpPreset = PRESET_antigravity_pullback;  // 戦略プリセット
+input string InpCustomPresetName = "";                        // カスタムプリセット名
 
 //--- 基本トレード設定
 input double InpRiskPercent = 1.0;         // リスク率(%)
 input double InpBaseLotSize = 0.10;        // 基本ロット
+input double InpMaxLotSize = 1.0;          // 最大ロット（上限）
+input bool   InpEnableLotAdjustment = true; // ロット自動調整有効化
 input int    InpMaxSlippagePoints = 50;    // 最大スリッページ(points)
 input int    InpMaxSpreadPoints = 200;     // 最大スプレッド(points)
 input double InpStopLossPoints = 150.0;    // SL(points)
 input double InpTakeProfitPoints = 300.0;  // TP(points)
-input ulong  InpMagicNumber = 20251224;    // マジックナンバー
+input bool   InpAutoMagicNumber = true;    // マジックナンバー自動生成
+input ulong  InpMagicNumber = 20251224;    // マジックナンバー（自動生成時は無視）
 
 //--- 時間フィルター設定
 input bool   InpEnable_Time_Filter = true;         // 時間フィルター有効化
 input int    InpGMT_Offset = 3;                    // GMTオフセット
+input bool   InpUse_DST = false;                   // 夏時間適用（+1時間）
 input int    InpCustom_Start_Hour = 8;             // 稼働開始時(JST)
+input int    InpCustom_Start_Minute = 0;           // 稼働開始分
 input int    InpCustom_End_Hour = 21;              // 稼働終了時(JST)
+input int    InpCustom_End_Minute = 0;             // 稼働終了分
 input bool   InpTradeOnFriday = true;              // 金曜取引許可
 
 //--- フィルター設定
@@ -40,33 +64,116 @@ input double InpATRThresholdPoints = 30.0; // ATR最低閾値(points)
 
 //--- Partial Close設定
 input bool   InpEnablePartialClose = true;     // 部分決済有効化
+input int    InpPartialCloseStages = 2;        // 段階数(2=二段階, 3=三段階)
 input double InpPartialClose1Points = 150.0;   // 1段階目(points)
 input double InpPartialClose1Percent = 50.0;   // 1段階目決済率(%)
 input double InpPartialClose2Points = 300.0;   // 2段階目(points)
+input double InpPartialClose2Percent = 100.0;  // 2段階目決済率(%)
+input double InpPartialClose3Points = 450.0;   // 3段階目(points)
+input double InpPartialClose3Percent = 100.0;  // 3段階目決済率(%)
 input bool   InpMoveToBreakEvenAfterLevel1 = true; // Level1後にSL移動(建値へ)
+input bool   InpMoveSLAfterLevel2 = true;      // Level2後にSL移動(Level1利益位置へ)
+
+//--- SL/TP設定
+input bool   InpUse_ATR_SLTP = false;          // ATR倍率使用
+input double InpStopLoss_ATR_Multi = 1.5;      // SL用ATR倍率
+input double InpTakeProfit_ATR_Multi = 2.0;    // TP用ATR倍率
+
+//--- AI学習データ記録設定
+input bool   InpEnable_AI_Learning_Log = true; // AI学習データ記録有効化
 
 //--- グローバル変数
 datetime g_lastBarTime = 0;
 int g_lastTradeBar = 0;
+ulong g_ActiveMagicNumber = 0;
+string g_uniqueId = "";
 CTrade m_trade;
 
 // Partial Close状態管理
 int g_partialCloseLevel[];
 
 //+------------------------------------------------------------------+
+//| プリセット名取得                                                  |
+//+------------------------------------------------------------------+
+string GetPresetName()
+{
+   switch(InpPreset)
+   {
+      case PRESET_antigravity_only:   return "antigravity_only";
+      case PRESET_antigravity_hedge:  return "antigravity_hedge";
+      case PRESET_quantitative_pure:  return "quantitative_pure";
+      case PRESET_full:               return "full";
+      case PRESET_custom:
+      {
+         string name = InpCustomPresetName;
+         StringTrimLeft(name);
+         StringTrimRight(name);
+         if(StringLen(name) > 0)
+            return name;
+         return "antigravity_pullback";
+      }
+      case PRESET_antigravity_pullback:
+      default: return "antigravity_pullback";
+   }
+}
+
+//+------------------------------------------------------------------+
+//| マジックナンバー生成（簡易版）                                    |
+//+------------------------------------------------------------------+
+ulong GenerateMagicNumber()
+{
+   // Symbol + Timeframe からハッシュ生成
+   string key = _Symbol + "_" + PeriodToString(PERIOD_CURRENT);
+   ulong hash = 0;
+   for(int i = 0; i < StringLen(key); i++)
+   {
+      hash = hash * 31 + StringGetCharacter(key, i);
+   }
+   // OANDA MT5 用プレフィックス (50) + ハッシュ
+   return 50000000 + (hash % 1000000);
+}
+
+//+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
 int OnInit()
 {
+   // マジックナンバー初期化
+   if(InpAutoMagicNumber)
+   {
+      g_ActiveMagicNumber = GenerateMagicNumber();
+      Print("マジックナンバー自動生成: ", g_ActiveMagicNumber);
+   }
+   else
+   {
+      g_ActiveMagicNumber = InpMagicNumber;
+      Print("マジックナンバー手動設定: ", g_ActiveMagicNumber);
+   }
+   
    // Trade設定
-   m_trade.SetExpertMagicNumber(InpMagicNumber);
+   m_trade.SetExpertMagicNumber(g_ActiveMagicNumber);
    m_trade.SetDeviationInPoints(InpMaxSlippagePoints);
    m_trade.SetTypeFilling(ORDER_FILLING_IOC);
    
-   Print("=== MT5 AI Trader v1.0 HTTP (OANDA) ===");
+   // ユニークID生成
+   g_uniqueId = InpMT5_ID;
+   if(InpAutoAppendSymbol || StringLen(InpMT5_ID) == 0)
+   {
+      string tfStr = PeriodToString(PERIOD_CURRENT);
+      if(StringLen(InpMT5_ID) == 0)
+         g_uniqueId = _Symbol + "_" + tfStr;
+      else
+         g_uniqueId = InpMT5_ID + "_" + _Symbol + "_" + tfStr;
+   }
+   
+   Print("=== MT5 AI Trader v2.0 HTTP (OANDA) ===");
    Print("シグナル生成: Python推論サーバー (16モジュール)");
    Print("Inference Server: ", InpInferenceServerURL);
    Print("Symbol: ", _Symbol);
+   Print("Unique ID: ", g_uniqueId);
+   Print("Preset: ", GetPresetName());
+   Print("Magic Number: ", g_ActiveMagicNumber, InpAutoMagicNumber ? " (自動生成)" : " (手動設定)");
+   Print("Partial Close: ", InpEnablePartialClose ? "ON" : "OFF", " (", InpPartialCloseStages, "段階)");
    
    // Partial Close配列初期化
    if(InpEnablePartialClose)
@@ -143,6 +250,11 @@ void AnalyzeAndTrade()
    
    // OHLCV データ準備 (100本)
    string jsonData = PrepareOHLCVJson(100);
+   if(StringLen(jsonData) == 0)
+   {
+      Print("OHLCVデータの準備に失敗");
+      return;
+   }
    
    // HTTP POSTリクエスト送信
    string responseStr = "";
@@ -201,7 +313,7 @@ void ExecuteTrade(int signal, double confidence)
    CalculateSLTP(is_long, entry_price, sl, tp);
    
    double lotSize = CalculateLotSize();
-   string comment = "AI_" + (is_long ? "BUY" : "SELL") + "_" + DoubleToString(confidence, 2);
+   string comment = "AI_" + (is_long ? "BUY" : "SELL") + "_" + DoubleToString(confidence, 2) + "_" + GetPresetName();
    
    bool result = false;
    if(is_long)
@@ -216,7 +328,8 @@ void ExecuteTrade(int signal, double confidence)
    if(result)
    {
       Print("★ ", (is_long ? "BUY" : "SELL"), "注文成功: Conf=", DoubleToString(confidence, 3),
-            " SL=", DoubleToString(sl, _Digits), " TP=", DoubleToString(tp, _Digits));
+            " SL=", DoubleToString(sl, _Digits), " TP=", DoubleToString(tp, _Digits),
+            " Preset=", GetPresetName());
       g_lastTradeBar = 0;
    }
    else
@@ -243,6 +356,7 @@ string PrepareOHLCVJson(int bars)
    string json = "{";
    json += "\"symbol\":\"" + _Symbol + "\",";
    json += "\"timeframe\":\"" + PeriodToString(PERIOD_CURRENT) + "\",";
+   json += "\"preset\":\"" + GetPresetName() + "\",";
    json += "\"ohlcv\":{";
    
    // Open
@@ -336,7 +450,6 @@ bool SendHttpRequest(string url, string postData, string &response)
 bool TestServerConnection()
 {
    string response = "";
-   // GETリクエストでヘルスチェック
    uchar post[];
    uchar result[];
    string headers = "";
@@ -409,17 +522,19 @@ bool ParseAnalyzeResponse(string response, int &signal, double &confidence, bool
 void CheckPartialClose()
 {
    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   int maxLevel = (InpPartialCloseStages >= 3) ? 3 : 2;
    
    for(int i = PositionsTotal() - 1; i >= 0; i--)
    {
       ulong ticket = PositionGetTicket(i);
       if(ticket == 0) continue;
       
-      if(PositionGetInteger(POSITION_MAGIC) != InpMagicNumber) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != g_ActiveMagicNumber) continue;
       if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
       
-      int currentLevel = g_partialCloseLevel[(int)(ticket % 100)];
-      if(currentLevel >= 2) continue;  // 全レベル完了
+      int ticketIndex = (int)(ticket % 100);
+      int currentLevel = g_partialCloseLevel[ticketIndex];
+      if(currentLevel >= maxLevel) continue;
       
       double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
       double currentPrice = PositionGetDouble(POSITION_PRICE_CURRENT);
@@ -434,16 +549,25 @@ void CheckPartialClose()
       // レベル判定
       int newLevel = currentLevel;
       double closePercent = 0;
+      double targetPoints = 0;
       
       if(currentLevel == 0 && profitPoints >= InpPartialClose1Points)
       {
+         targetPoints = InpPartialClose1Points;
          closePercent = InpPartialClose1Percent;
          newLevel = 1;
       }
       else if(currentLevel == 1 && profitPoints >= InpPartialClose2Points)
       {
-         closePercent = 100.0;  // 残り全決済
+         targetPoints = InpPartialClose2Points;
+         closePercent = (maxLevel == 2) ? 100.0 : InpPartialClose2Percent;
          newLevel = 2;
+      }
+      else if(maxLevel >= 3 && currentLevel == 2 && profitPoints >= InpPartialClose3Points)
+      {
+         targetPoints = InpPartialClose3Points;
+         closePercent = InpPartialClose3Percent;
+         newLevel = 3;
       }
       else
       {
@@ -462,21 +586,44 @@ void CheckPartialClose()
                " Lots=", DoubleToString(lotsToClose, 2),
                " Profit=", DoubleToString(profitPoints, 1), " points");
          
-         g_partialCloseLevel[(int)(ticket % 100)] = newLevel;
+         g_partialCloseLevel[ticketIndex] = newLevel;
          
-         // Level 1後にBreakEven移動
+         // Level1後にBreakEven移動
          if(newLevel == 1 && InpMoveToBreakEvenAfterLevel1)
          {
             Sleep(100);
-            // 新しいポジションを検索してSL修正
             for(int j = PositionsTotal() - 1; j >= 0; j--)
             {
                ulong newTicket = PositionGetTicket(j);
-               if(PositionGetInteger(POSITION_MAGIC) == InpMagicNumber && 
+               if(PositionGetInteger(POSITION_MAGIC) == g_ActiveMagicNumber && 
                   PositionGetString(POSITION_SYMBOL) == _Symbol)
                {
                   m_trade.PositionModify(newTicket, openPrice, PositionGetDouble(POSITION_TP));
                   Print(">>> SLを建値へ移動: ", DoubleToString(openPrice, _Digits));
+                  g_partialCloseLevel[(int)(newTicket % 100)] = newLevel;
+                  break;
+               }
+            }
+         }
+         
+         // Level2後にSL移動（3段階モード）
+         if(newLevel == 2 && maxLevel >= 3 && InpMoveSLAfterLevel2)
+         {
+            Sleep(100);
+            for(int j = PositionsTotal() - 1; j >= 0; j--)
+            {
+               ulong newTicket = PositionGetTicket(j);
+               if(PositionGetInteger(POSITION_MAGIC) == g_ActiveMagicNumber && 
+                  PositionGetString(POSITION_SYMBOL) == _Symbol)
+               {
+                  double level1Price;
+                  if(posType == POSITION_TYPE_BUY)
+                     level1Price = openPrice + InpPartialClose1Points * point;
+                  else
+                     level1Price = openPrice - InpPartialClose1Points * point;
+                  
+                  m_trade.PositionModify(newTicket, level1Price, PositionGetDouble(POSITION_TP));
+                  Print(">>> SLをLevel1利益位置へ移動: ", DoubleToString(level1Price, _Digits));
                   g_partialCloseLevel[(int)(newTicket % 100)] = newLevel;
                   break;
                }
@@ -502,14 +649,25 @@ bool PassesTimeFilter()
    
    // JST変換
    int gmt_offset_seconds = InpGMT_Offset * 3600;
+   if(InpUse_DST) gmt_offset_seconds += 3600;
    datetime jst_time = TimeCurrent() - gmt_offset_seconds + (9 * 3600);
    MqlDateTime jst_dt;
    TimeToStruct(jst_time, jst_dt);
    
-   if(jst_dt.hour >= InpCustom_Start_Hour && jst_dt.hour < InpCustom_End_Hour)
-      return true;
+   int current_minutes = jst_dt.hour * 60 + jst_dt.min;
+   int start_minutes = InpCustom_Start_Hour * 60 + InpCustom_Start_Minute;
+   int end_minutes = InpCustom_End_Hour * 60 + InpCustom_End_Minute;
    
-   return false;
+   if(start_minutes <= end_minutes)
+   {
+      // 通常パターン (例: 8:00 - 21:00)
+      return (current_minutes >= start_minutes && current_minutes <= end_minutes);
+   }
+   else
+   {
+      // 深夜をまたぐパターン (例: 22:00 - 6:00)
+      return (current_minutes >= start_minutes || current_minutes <= end_minutes);
+   }
 }
 
 int CountOpenPositions()
@@ -518,7 +676,7 @@ int CountOpenPositions()
    for(int i = 0; i < PositionsTotal(); i++)
    {
       ulong ticket = PositionGetTicket(i);
-      if(PositionGetInteger(POSITION_MAGIC) == InpMagicNumber && 
+      if(PositionGetInteger(POSITION_MAGIC) == g_ActiveMagicNumber && 
          PositionGetString(POSITION_SYMBOL) == _Symbol)
          count++;
    }
@@ -530,33 +688,50 @@ double CalculateLotSize()
    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
    double riskAmount = balance * InpRiskPercent / 100.0;
    double tickValue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
-   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
    
-   double lotSize = riskAmount / (InpStopLossPoints * tickValue);
-   lotSize = NormalizeDouble(lotSize, 2);
+   double lotSize;
+   if(InpEnableLotAdjustment && tickValue > 0)
+   {
+      lotSize = riskAmount / (InpStopLossPoints * tickValue);
+      lotSize = NormalizeDouble(lotSize, 2);
+   }
+   else
+   {
+      lotSize = InpBaseLotSize;
+   }
    
    double minLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
    double maxLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
    
    if(lotSize < minLot) lotSize = minLot;
    if(lotSize > maxLot) lotSize = maxLot;
+   if(lotSize > InpMaxLotSize) lotSize = InpMaxLotSize;
    
-   return MathMax(lotSize, InpBaseLotSize);
+   return MathMax(lotSize, minLot);
 }
 
 void CalculateSLTP(bool is_long, double entry_price, double &sl, double &tp)
 {
    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   double slPoints = InpStopLossPoints;
+   double tpPoints = InpTakeProfitPoints;
+   
+   if(InpUse_ATR_SLTP)
+   {
+      double atr = GetATR(InpATRPeriod);
+      slPoints = atr / point * InpStopLoss_ATR_Multi;
+      tpPoints = atr / point * InpTakeProfit_ATR_Multi;
+   }
    
    if(is_long)
    {
-      sl = entry_price - InpStopLossPoints * point;
-      tp = entry_price + InpTakeProfitPoints * point;
+      sl = entry_price - slPoints * point;
+      tp = entry_price + tpPoints * point;
    }
    else
    {
-      sl = entry_price + InpStopLossPoints * point;
-      tp = entry_price - InpTakeProfitPoints * point;
+      sl = entry_price + slPoints * point;
+      tp = entry_price - tpPoints * point;
    }
    
    sl = NormalizeDouble(sl, _Digits);
@@ -587,7 +762,7 @@ string PeriodToString(ENUM_TIMEFRAMES period)
       case PERIOD_D1:  return "D1";
       case PERIOD_W1:  return "W1";
       case PERIOD_MN1: return "MN1";
-      default:         return "M15";
+      default: return "M15";
    }
 }
 //+------------------------------------------------------------------+
