@@ -198,11 +198,36 @@ private:
             continue;  // No level reached
          }
          
-         // Execute partial close
+         // Execute partial close (残ポジション％方式)
          double currentLots = PositionGetDouble(POSITION_VOLUME);
-         double lotsToClose = NormalizeDouble(currentLots * closePercent / 100.0, 2);
+         double lotStep = SymbolInfoDouble(m_cfg.Symbol, SYMBOL_VOLUME_STEP);
+         if(lotStep <= 0) lotStep = 0.01;
          double minLot = SymbolInfoDouble(m_cfg.Symbol, SYMBOL_VOLUME_MIN);
+         
+         double lotsToClose = currentLots * closePercent / 100.0;
+         // 余計に閉じてしまうのを避けるため、ロットは切り捨てでステップに合わせる
+         lotsToClose = MathFloor(lotsToClose / lotStep) * lotStep;
+         lotsToClose = NormalizeDouble(lotsToClose, 2);
          if(lotsToClose < minLot) lotsToClose = minLot;
+         
+         // 三段階運用で中間レベルの場合、次のレベル用に最小ロットを必ず残す
+         if(maxLevel >= 3 && newLevel < maxLevel)
+         {
+            double remainingLots = currentLots - lotsToClose;
+            if(remainingLots < minLot)
+            {
+               lotsToClose = currentLots - minLot;
+               lotsToClose = MathFloor(lotsToClose / lotStep) * lotStep;
+               lotsToClose = NormalizeDouble(lotsToClose, 2);
+               
+               if(lotsToClose < minLot)
+               {
+                  Print("!!! Partial Close L", newLevel, " skipped: lots too small (current=", 
+                        DoubleToString(currentLots, 2), ", minLot=", DoubleToString(minLot, 2), ")");
+                  continue;
+               }
+            }
+         }
          
          if(m_trade.PositionClosePartial(ticket, lotsToClose))
          {
