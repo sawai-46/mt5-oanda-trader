@@ -682,9 +682,35 @@ void CheckPartialClose()
       
       // 部分決済実行
       int orderType = OrderType();  // SL移動用に保存
-      double lotsToClose = NormalizeDouble(OrderLots() * closePercent / 100.0, 2);
-      if(lotsToClose < MarketInfo(Symbol(), MODE_MINLOT))
-         lotsToClose = MarketInfo(Symbol(), MODE_MINLOT);
+      double currentLots = OrderLots();
+      double lotStep = MarketInfo(Symbol(), MODE_LOTSTEP);
+      if(lotStep <= 0) lotStep = 0.01;
+      double minLot = MarketInfo(Symbol(), MODE_MINLOT);
+
+      double lotsToClose = currentLots * closePercent / 100.0;
+      // 余計に閉じてしまうのを避けるため、ロットは切り捨てでステップに合わせる
+      lotsToClose = MathFloor(lotsToClose / lotStep) * lotStep;
+      lotsToClose = NormalizeDouble(lotsToClose, 2);
+      if(lotsToClose < minLot)
+         lotsToClose = minLot;
+
+      // 三段階運用で中間レベルの場合、次のレベル用に最小ロットを必ず残す
+      if(maxLevel >= 3 && newLevel < maxLevel)
+      {
+         double remainingLots = currentLots - lotsToClose;
+         if(remainingLots < minLot)
+         {
+            lotsToClose = currentLots - minLot;
+            lotsToClose = MathFloor(lotsToClose / lotStep) * lotStep;
+            lotsToClose = NormalizeDouble(lotsToClose, 2);
+
+            if(lotsToClose < minLot)
+            {
+               Print("!!! Partial Close Level ", newLevel, " skipped: lots too small for staging (current=", DoubleToString(currentLots, 2), ", minLot=", DoubleToString(minLot, 2), ", step=", DoubleToString(lotStep, 2), ")");
+               continue;
+            }
+         }
+      }
       
       // スリッページ
       int slippage = EffectiveSlippagePoints();
