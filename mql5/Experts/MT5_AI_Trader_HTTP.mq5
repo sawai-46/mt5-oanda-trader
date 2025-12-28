@@ -93,6 +93,41 @@ CTrade m_trade;
 // Partial Close状態管理
 int g_partialCloseLevel[];
 
+string BoolStr(const bool v)
+{
+   return v ? "true" : "false";
+}
+
+void DumpEffectiveConfig_AI_HTTP()
+{
+   long spreadPoints = 0;
+   SymbolInfoInteger(_Symbol, SYMBOL_SPREAD, spreadPoints);
+
+   const double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   const double atr = GetATR(InpATRPeriod);
+   const double atrPoints = (point > 0.0) ? (atr / point) : 0.0;
+
+   Print(StringFormat("[CONFIG][AI_HTTP_MT5] Symbol=%s TF=%s Digits=%d Point=%g SpreadPoints=%d",
+                      _Symbol, PeriodToString((ENUM_TIMEFRAMES)_Period), _Digits, point, spreadPoints));
+   Print(StringFormat("[CONFIG][AI_HTTP_MT5] MT5_ID=%s UniqueID=%s Preset=%s URL=%s Timeout=%dms",
+                      InpMT5_ID, g_uniqueId, GetPresetName(), g_inferenceServerUrl, InpServerTimeout));
+   Print(StringFormat("[CONFIG][AI_HTTP_MT5] Risk=%.2f BaseLot=%.2f MaxLot=%.2f LotAdjust=%s",
+                      InpRiskPercent, InpBaseLotSize, InpMaxLotSize, BoolStr(InpEnableLotAdjustment)));
+   Print(StringFormat("[CONFIG][AI_HTTP_MT5] Slippage=%dpt MaxSpread=%dpt MaxPos=%d MinBars=%d MinConf=%.2f",
+                      InpMaxSlippagePoints, InpMaxSpreadPoints, InpMaxPositions, InpMinBarsSinceLastTrade, InpMinConfidence));
+   Print(StringFormat("[CONFIG][AI_HTTP_MT5] SL=%.1fpt TP=%.1fpt ATR_Period=%d ATR_Th=%.1fpt (%.5f price) ATR_now=%.1fpt",
+                      InpStopLossPoints, InpTakeProfitPoints, InpATRPeriod, InpATRThresholdPoints, InpATRThresholdPoints * point, atrPoints));
+   Print(StringFormat("[CONFIG][AI_HTTP_MT5] TimeFilter=%s GMT_Offset=%d DST=%s Start=%02d:%02d End=%02d:%02d Fri=%s",
+                      BoolStr(InpEnable_Time_Filter), InpGMT_Offset, BoolStr(InpUse_DST),
+                      InpCustom_Start_Hour, InpCustom_Start_Minute, InpCustom_End_Hour, InpCustom_End_Minute,
+                      BoolStr(InpTradeOnFriday)));
+   Print(StringFormat("[CONFIG][AI_HTTP_MT5] PartialClose=%s Stages=%d MoveBE1=%s MoveSL2=%s",
+                      BoolStr(InpEnablePartialClose), InpPartialCloseStages,
+                      BoolStr(InpMoveToBreakEvenAfterLevel1), BoolStr(InpMoveSLAfterLevel2)));
+   Print(StringFormat("[CONFIG][AI_HTTP_MT5] SLTP_ATR=%s SLx=%.2f TPx=%.2f",
+                      BoolStr(InpUse_ATR_SLTP), InpStopLoss_ATR_Multi, InpTakeProfit_ATR_Multi));
+}
+
 //+------------------------------------------------------------------+
 //| プリセット名取得                                                  |
 //+------------------------------------------------------------------+
@@ -177,6 +212,8 @@ int OnInit()
    Print("Preset: ", GetPresetName());
    Print("Magic Number: ", g_ActiveMagicNumber, InpAutoMagicNumber ? " (自動生成)" : " (手動設定)");
    Print("Partial Close: ", InpEnablePartialClose ? "ON" : "OFF", " (", InpPartialCloseStages, "段階)");
+
+   DumpEffectiveConfig_AI_HTTP();
    
    // Partial Close配列初期化
    if(InpEnablePartialClose)
@@ -796,12 +833,18 @@ void CalculateSLTP(bool is_long, double entry_price, double &sl, double &tp)
 
 double GetATR(int period)
 {
+   if(period <= 0) return 0.0;
    double atr[];
    ArraySetAsSeries(atr, true);
    int handle = iATR(_Symbol, PERIOD_CURRENT, period);
-   if(handle == INVALID_HANDLE) return 0;
-   CopyBuffer(handle, 0, 0, 1, atr);
+   if(handle == INVALID_HANDLE) return 0.0;
+   if(CopyBuffer(handle, 0, 0, 1, atr) != 1)
+   {
+      IndicatorRelease(handle);
+      return 0.0;
+   }
    IndicatorRelease(handle);
+   if(ArraySize(atr) < 1) return 0.0;
    return atr[0];
 }
 

@@ -93,9 +93,9 @@ input double MaxLotSize = 1.0;          // 最大ロットサイズ（上限）
 input bool   EnableLotAdjustment = true; // ロット自動調整有効化
 input double MaxSlippagePips = 50.0;      // 最大スリッページ(ドル) ※推奨
 input int    MaxSlippagePoints = 0;       // 最大スリッページ(points) ※互換用、0=SlippagePips使用
-input double MaxSpreadPoints = 20.0;    // 最大スプレッド(ドル) ※銘柄別自動設定
-input int    DefaultSLPoints = 100;     // デフォルトSL(points) ※銘柄別自動設定
-input int    DefaultTPPoints = 200;     // デフォルトTP(points) ※銘柄別自動設定
+input double MaxSpreadPoints = 20.0;    // 最大スプレッド(ドル) ※銘柄別推奨値あり（自動上書きはしない）
+input int    DefaultSLPoints = 100;     // デフォルトSL(points) ※銘柄別推奨値あり（自動上書きはしない）
+input int    DefaultTPPoints = 200;     // デフォルトTP(points) ※銘柄別推奨値あり（自動上書きはしない）
 input bool   AutoMagicNumber = true;    // マジックナンバー自動生成
 input int    MagicNumber = 20250124;    // マジックナンバー（自動生成時は無視）
 

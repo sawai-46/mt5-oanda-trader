@@ -62,7 +62,7 @@ public:
       // モメンタム・イグニッション検出
       if(abnormal_price_move && abnormal_volume)
       {
-         // ファンダメンタルズチェック（簡易版: 時間帯チェック）
+         // ニュース時間帯チェック（簡易版: 時間帯ベース。外部ファンダ連携はしない）
          bool likely_news_time = IsLikelyNewsTime();
          
          if(!likely_news_time)

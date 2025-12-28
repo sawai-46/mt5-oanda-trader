@@ -266,6 +266,7 @@ class SevenModuleAnalyzer:
     def __init__(self, 
                  atr_threshold_fx: float = 7.0,
                  atr_threshold_index: float = 70.0,
+                 symbol_atr_thresholds: dict = None,
                  strategy: str = 'antigravity',
                  preset_name: str = 'antigravity_pullback',  # ★NEW
                  enabled_modules: dict = None,  # ★NEW: 個別指定
@@ -348,14 +349,19 @@ class SevenModuleAnalyzer:
         )
         
         # ボラティリティモジュール（補助フィルター）
+        # ATR閾値（デフォルト + 銘柄別上書き）
+        self.atr_threshold_fx = float(atr_threshold_fx)
+        self.atr_threshold_index = float(atr_threshold_index)
+        self.symbol_atr_thresholds = symbol_atr_thresholds or {}
+
         self.volatility_fx = VolatilityModule(
             atr_period=14,
-            threshold_pips=atr_threshold_fx,
+            threshold_pips=self.atr_threshold_fx,
             is_index=False
         )
         self.volatility_index = VolatilityModule(
             atr_period=14,
-            threshold_pips=atr_threshold_index,
+            threshold_pips=self.atr_threshold_index,
             is_index=True
         )
         
@@ -424,7 +430,11 @@ class SevenModuleAnalyzer:
                 self.use_antigravity = False
         
         modules_count = "9+Antigravity" if self.use_antigravity else "9"
-        logger.info(f"{modules_count}-Module Analyzer initialized (Strategy={strategy}, ATR: FX={atr_threshold_fx}pips, Index={atr_threshold_index}points)")
+        logger.info(
+            f"{modules_count}-Module Analyzer initialized (Strategy={strategy}, "
+            f"ATR: FX={self.atr_threshold_fx}pips, Index={self.atr_threshold_index}points, "
+            f"SymbolOverrides={len(self.symbol_atr_thresholds)})"
+        )
     
     def analyze(self, data: Dict) -> Tuple[int, float, str, Dict]:
         """
@@ -1073,30 +1083,26 @@ Antigravity予測を重視しつつ、Sub-Modulesによるフィルタリング�
         else:
             raise ValueError("data_dirs or data_dir must be specified")
 
-        # 同一ディレクトリの重複定義を除去（同じフォルダを複数IDで監視すると二重処理の温床になる）
-        deduped_dirs = []
-        seen_dirs = set()
+        # data_dir は見た目が同じでも「別マシンのローカル」を表す運用があり得るため、
+        # ここでは重複排除しない（= 設定どおり保持）。
+        # 二重処理は run() 側で "実際のパス" をキーに抑止する。
+        cleaned_dirs = []
         for d in self.data_dirs:
             dir_str = str(d.get('data_dir', '')).strip()
             if not dir_str:
                 continue
-
-            try:
-                norm = str(Path(dir_str).resolve()).lower()
-            except Exception:
-                norm = dir_str.lower()
-
-            if norm in seen_dirs:
-                logger.warning(f"Duplicate data_dir ignored: id={d.get('id')} dir={dir_str}")
-                continue
-
-            seen_dirs.add(norm)
-            deduped_dirs.append(d)
-
-        if not deduped_dirs:
+            cleaned_dirs.append(d)
+        if not cleaned_dirs:
             raise ValueError("No valid data_dir entries found")
+        self.data_dirs = cleaned_dirs
 
-        self.data_dirs = deduped_dirs
+        # 監視キー（mtime追跡用）：実際のパスを正規化して作る
+        for d in self.data_dirs:
+            dir_str = str(d.get('data_dir', '')).strip()
+            try:
+                d['_dir_key'] = str(Path(dir_str).resolve()).lower()
+            except Exception:
+                d['_dir_key'] = dir_str.lower()
         
         # 各ディレクトリを作成
         for d in self.data_dirs:
@@ -1458,7 +1464,8 @@ ATR: {atr}
         logger.info("Waiting for requests from MT4 (multi-terminal mode)...")
         logger.info(f"Monitoring {len(self.data_dirs)} data directories:")
         for d in self.data_dirs:
-            logger.info(f"  - {d['id']}: {d['data_dir']}")
+            dir_key = d.get('_dir_key')
+            logger.info(f"  - id={d['id']} dir={d['data_dir']} dir_key={dir_key}")
         self.update_status("running")
         
         try:
@@ -1476,7 +1483,15 @@ ATR: {atr}
                         for request_file in request_files:
                             mt4_id = self._get_mt4_id_from_filename(request_file.name)
                             # ディレクトリIDとMT4_IDを組み合わせてユニークキー作成
-                            unique_key = f"{dir_info['id']}_{mt4_id}"
+                            # NOTE: config の id はラベル用途のため、同一パスが複数定義されても二重処理しないよう
+                            #       "実際の data_dir" をユニークキーに含める
+                            dir_key = dir_info.get('_dir_key')
+                            if not dir_key:
+                                try:
+                                    dir_key = str(data_path.resolve()).lower()
+                                except Exception:
+                                    dir_key = str(data_path).lower()
+                            unique_key = f"{dir_key}__{mt4_id}"
                             
                             current_mtime = request_file.stat().st_mtime
                             last_mtime = self.request_mtimes.get(unique_key, 0)
@@ -1484,6 +1499,11 @@ ATR: {atr}
                             if current_mtime > last_mtime:
                                 self.request_mtimes[unique_key] = current_mtime
                                 self.request_count += 1
+
+                                logger.info(
+                                    f"[REQUEST_FILE] dir_id={dir_info.get('id')} dir_key={dir_key} "
+                                    f"mt4_id={mt4_id} file={request_file.name}"
+                                )
                                 
                                 data = self.parse_request(request_file)
                                 

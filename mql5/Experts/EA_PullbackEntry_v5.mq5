@@ -91,6 +91,63 @@ CPullbackStrategy *g_strategy = NULL;
 CPositionManager  *g_posManager = NULL;
 CFilterManager    *g_filterManager = NULL;
 
+string BoolStr(const bool v){ return v ? "true" : "false"; }
+
+void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
+                         const CPullbackConfig &cfg,
+                         const SFilterConfig &filterCfg,
+                         const SPositionConfig &posCfg)
+{
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   long spreadPts = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+   double spreadPrice = spreadPts * point;
+
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5] Preset=%s Symbol=%s TF=%s Digits=%d Point=%g Spread=%lld pts (%.5f)",
+                                       GetPresetName(preset), _Symbol, EnumToString(PERIOD_CURRENT), digits, point, spreadPts, spreadPrice));
+
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] Magic=%lld Lot=%.2f DeviationPoints=%d",
+                                       cfg.MagicNumber, cfg.LotSize, cfg.DeviationPoints));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] EMA: short=%d mid=%d long=%d PerfectOrder=%s Pullback(ref=%d touch=%s cross=%s break=%s)",
+                                       cfg.EmaShortPeriod, cfg.EmaMidPeriod, cfg.EmaLongPeriod,
+                                       BoolStr(cfg.RequirePerfectOrder),
+                                       (int)cfg.PullbackEmaRef,
+                                       BoolStr(cfg.UseTouchPullback), BoolStr(cfg.UseCrossPullback), BoolStr(cfg.UseBreakPullback)));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] Filters: MaxSpreadPoints=%d ATR(period=%d min=%.1f) ADX(en=%s period=%d min=%.1f)",
+                                       cfg.MaxSpreadPoints,
+                                       cfg.ATRPeriod, cfg.ATRThresholdPoints,
+                                       BoolStr(cfg.UseADXFilter), cfg.ADXPeriod, cfg.ADXMinLevel));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] SLTP: useSL=%s useTP=%s mode=%d SL_fixed=%.1f TP_fixed=%.1f SL_ATR=%.2f TP_ATR=%.2f",
+                                       BoolStr(cfg.UseStopLoss), BoolStr(cfg.UseTakeProfit), (int)cfg.SLTPMode,
+                                       cfg.StopLossFixedPoints, cfg.TakeProfitFixedPoints,
+                                       cfg.StopLossAtrMulti, cfg.TakeProfitAtrMulti));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] AiLearning: enabled=%s terminalId=%s folder=%s",
+                                       BoolStr(cfg.EnableAiLearningLog), cfg.TerminalId, cfg.AiLearningFolder));
+
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][filter] Time(en=%s GMTOffset=%d Start=%02d:%02d End=%02d:%02d Fri=%s DST=%s)",
+                                       BoolStr(filterCfg.EnableTimeFilter),
+                                       filterCfg.GMTOffset,
+                                       filterCfg.StartHour, filterCfg.StartMinute,
+                                       filterCfg.EndHour, filterCfg.EndMinute,
+                                       BoolStr(filterCfg.TradeOnFriday), BoolStr(filterCfg.UseDST)));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][filter] Spread(en=%s max=%d) ADX(en=%s period=%d min=%.1f) ATR(en=%s period=%d min=%.1f)",
+                                       BoolStr(filterCfg.EnableSpreadFilter), filterCfg.MaxSpreadPoints,
+                                       BoolStr(filterCfg.EnableADXFilter), filterCfg.ADXPeriod, filterCfg.ADXMinLevel,
+                                       BoolStr(filterCfg.EnableATRFilter), filterCfg.ATRPeriod, filterCfg.ATRMinPoints));
+
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][pos] Partial(en=%s stages=%d L1=%.1f(%.1f%%) L2=%.1f(%.1f%%) L3=%.1f(%.1f%%) BE_after_L1=%s SL_after_L2=%s)",
+                                       BoolStr(posCfg.EnablePartialClose), posCfg.PartialCloseStages,
+                                       posCfg.PartialClose1Points, posCfg.PartialClose1Percent,
+                                       posCfg.PartialClose2Points, posCfg.PartialClose2Percent,
+                                       posCfg.PartialClose3Points, posCfg.PartialClose3Percent,
+                                       BoolStr(posCfg.MoveToBreakEvenAfterLevel1), BoolStr(posCfg.MoveSLAfterLevel2)));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][pos] Trailing(mode=%d start=%.1f step=%.1f atrMulti=%.2f atrPeriod=%d) SlippagePoints=%d",
+                                       (int)posCfg.TrailingMode,
+                                       posCfg.TrailingStartPoints, posCfg.TrailingStepPoints,
+                                       posCfg.TrailingATRMulti, posCfg.ATRPeriod,
+                                       posCfg.MaxSlippagePoints));
+}
+
 //+------------------------------------------------------------------+
 //| Expert initialization                                            |
 //+------------------------------------------------------------------+
@@ -151,6 +208,9 @@ int OnInit()
    filterCfg.Symbol = _Symbol;
    filterCfg.EnableTimeFilter = InpEnableTimeFilter;
    filterCfg.GMTOffset = InpGMTOffset;
+   filterCfg.UseDST = false;
+   filterCfg.StartMinute = 0;
+   filterCfg.EndMinute = 0;
    filterCfg.StartHour = InpStartHour;
    filterCfg.EndHour = InpEndHour;
    filterCfg.TradeOnFriday = InpTradeOnFriday;
@@ -177,10 +237,15 @@ int OnInit()
    posCfg.PartialClose2Points = InpPartial2Points;
    posCfg.PartialClose2Percent = InpPartial2Percent;
    posCfg.MoveToBreakEvenAfterLevel1 = InpMoveToBreakEven;
+   posCfg.MoveSLAfterLevel2 = true;
    posCfg.TrailingMode = InpTrailingMode;
    posCfg.TrailingStartPoints = InpTrailStartPoints;
    posCfg.TrailingStepPoints = InpTrailStepPoints;
+   posCfg.TrailingATRMulti = 1.0;
+   posCfg.ATRPeriod = InpATRPeriod;
    posCfg.MaxSlippagePoints = InpDeviationPoints;
+
+   DumpEffectiveConfig(InpPreset, cfg, filterCfg, posCfg);
    
    g_posManager = new CPositionManager();
    g_posManager.Init(posCfg);

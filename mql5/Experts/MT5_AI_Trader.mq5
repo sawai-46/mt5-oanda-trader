@@ -7,6 +7,32 @@
 
 #include <Strategies/Pullback/PullbackStrategy.mqh>
 
+string BoolStr(const bool v)
+{
+   return v ? "true" : "false";
+}
+
+void DumpEffectiveConfig_AI_Minimal(const CPullbackConfig &cfg)
+{
+   long spreadPoints = 0;
+   SymbolInfoInteger(_Symbol, SYMBOL_SPREAD, spreadPoints);
+
+   Print(StringFormat("[CONFIG][AI_MIN] Symbol=%s TF=%d Digits=%d Point=%g SpreadPoints=%d",
+                      _Symbol, (int)_Period, _Digits, _Point, spreadPoints));
+   Print(StringFormat("[CONFIG][AI_MIN] Magic=%I64d Lot=%.2f Deviation=%d",
+                      cfg.MagicNumber, cfg.LotSize, cfg.DeviationPoints));
+   Print(StringFormat("[CONFIG][AI_MIN] EMA=%d/%d/%d PerfectOrder=%s Pullback(Touch=%s Cross=%s Break=%s Ref=%d)",
+                      cfg.EmaShortPeriod, cfg.EmaMidPeriod, cfg.EmaLongPeriod, BoolStr(cfg.RequirePerfectOrder),
+                      BoolStr(cfg.UseTouchPullback), BoolStr(cfg.UseCrossPullback), BoolStr(cfg.UseBreakPullback),
+                      (int)cfg.PullbackEmaRef));
+   Print(StringFormat("[CONFIG][AI_MIN] Filters MaxSpread=%d ATR_Period=%d ATR_Th=%.1f ADX=%s(%d/%.1f)",
+                      (int)cfg.MaxSpreadPoints, cfg.ATRPeriod, cfg.ATRThresholdPoints,
+                      BoolStr(cfg.UseADXFilter), cfg.ADXPeriod, cfg.ADXMinLevel));
+   Print(StringFormat("[CONFIG][AI_MIN] SLTP UseSL=%s UseTP=%s Mode=%d SL=%.1f TP=%.1f SLx=%.2f TPx=%.2f",
+                      BoolStr(cfg.UseStopLoss), BoolStr(cfg.UseTakeProfit), (int)cfg.SLTPMode,
+                      cfg.StopLossFixedPoints, cfg.TakeProfitFixedPoints, cfg.StopLossAtrMulti, cfg.TakeProfitAtrMulti));
+}
+
 //--- Inputs (Points単位: OANDA MT5)
 input long   InpMagicNumber           = 22501;
 input double InpLotSize               = 0.10;
@@ -70,6 +96,8 @@ int OnInit()
    cfg.TakeProfitFixedPoints = InpTakeProfitFixedPoints;
    cfg.StopLossAtrMulti = InpStopLossAtrMulti;
    cfg.TakeProfitAtrMulti = InpTakeProfitAtrMulti;
+
+   DumpEffectiveConfig_AI_Minimal(cfg);
 
    g_strategy = new CPullbackStrategy(_Symbol, (ENUM_TIMEFRAMES)_Period, cfg);
    if(CheckPointer(g_strategy) != POINTER_DYNAMIC)

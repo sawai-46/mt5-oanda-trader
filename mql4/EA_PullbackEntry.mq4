@@ -8,13 +8,13 @@
 #property version   "1.11"
 #property strict
 
-// Market Sentinel連携（経済指標・要人発言による売買制御）
+// Market Sentinel連携（経済指標・要人発言による売買制御）※サービス削除済み - 無効
 // #include <MarketSentinel.mqh>  // サービス削除済み - 不要
 
 // マジックナンバー自動生成
 #include <MagicNumberGenerator.mqh>
 
-// TradeOptimizer連携（パラメータ自動最適化）
+// TradeOptimizer連携（パラメータ自動最適化）※サービス削除済み - 無効
 // #include <EAParamsLoader.mqh>  // サービス削除済み - 不要
 
 //+------------------------------------------------------------------+
