@@ -168,6 +168,8 @@ input int    Entry_Confirmations = 2;            // 必要な補助条件数(0-6
 //--- エントリー基本設定
 input double Entry_Buffer_Pips = 1.0;            // ブレイクバッファ(pips)
 input int    Max_Slippage_Pips = 3;              // 最大スリッページ(pips)
+input int    Max_Slippage_Points = 0;            // 最大スリッページ(points) ※互換用、0=pips換算を使用
+input bool   Use_Slippage_Pips_Conversion = false; // スリッページのpips→points換算を有効化（true推奨）※互換のため既定false
 input double Max_Spread_Pips = 5.0;              // 最大スプレッド(pips)
 
 //--- 相場環境フィルター
@@ -1373,7 +1375,7 @@ void ExecuteEntry(bool is_long)
    if (!Use_StopLoss) sl_price = 0;
    if (!Use_TakeProfit) tp_price = 0;
    
-   ticket = OrderSend(Symbol(), cmd, adjusted_lot, entry_price, Max_Slippage_Pips,
+   ticket = OrderSend(Symbol(), cmd, adjusted_lot, entry_price, EffectiveSlippagePoints(),
                       NormalizeDouble(sl_price, Digits),
                       NormalizeDouble(tp_price, Digits),
                       "PullbackEntry_" + pullback_type, g_ActiveMagicNumber, 0, clrBlue);
@@ -1486,7 +1488,7 @@ void ExecutePartialClose(int level, double percent)
    
    double close_price = (OrderType() == OP_BUY) ? Bid : Ask;
    
-   bool result = OrderClose(current_ticket, close_lots, close_price, Max_Slippage_Pips, clrRed);
+   bool result = OrderClose(current_ticket, close_lots, close_price, EffectiveSlippagePoints(), clrRed);
    
    if (result) {
       Print("第", level, "利確成功: ", close_lots, " lots @ ", DoubleToString(close_price, Digits));
@@ -1948,6 +1950,31 @@ string GetEMAName(PullbackEMAReference ref)
       case PULLBACK_EMA_100: return "EMA100";
    }
    return "EMA25";
+}
+
+//+------------------------------------------------------------------+
+//| ヘルパー関数: スリッページ(points)換算                           |
+//+------------------------------------------------------------------+
+int EffectiveSlippagePoints()
+{
+   if (Point <= 0.0) return 0;
+   if (Max_Slippage_Points > 0) return Max_Slippage_Points;
+   // 互換性維持: 既定では「入力値をそのままpoints扱い」（従来挙動）
+   if (!Use_Slippage_Pips_Conversion) {
+      int legacy_points = Max_Slippage_Pips;
+      if (legacy_points < 0) legacy_points = 0;
+      return legacy_points;
+   }
+
+   // 推奨: pips入力をMT4 API用pointsへ換算
+   if (pip <= 0.0) {
+      int fallback = Max_Slippage_Pips;
+      if (fallback < 0) fallback = 0;
+      return fallback;
+   }
+   int points = (int)MathRound(Max_Slippage_Pips * pip / Point);
+   if (points < 0) points = 0;
+   return points;
 }
 
 //+------------------------------------------------------------------+

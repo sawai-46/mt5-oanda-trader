@@ -353,6 +353,19 @@ class SevenModuleAnalyzer:
         self.atr_threshold_fx = float(atr_threshold_fx)
         self.atr_threshold_index = float(atr_threshold_index)
         self.symbol_atr_thresholds = symbol_atr_thresholds or {}
+        self._symbol_atr_thresholds_norm: Dict[str, float] = {}
+        if isinstance(self.symbol_atr_thresholds, dict):
+            for k, v in self.symbol_atr_thresholds.items():
+                if k is None:
+                    continue
+                kk = str(k).strip().upper()
+                if not kk:
+                    continue
+                try:
+                    vv = float(v)
+                except Exception:
+                    continue
+                self._symbol_atr_thresholds_norm[kk] = vv
 
         self.volatility_fx = VolatilityModule(
             atr_period=14,
@@ -380,6 +393,48 @@ class SevenModuleAnalyzer:
             atr_period=14,
             k_factor=0.5
         )
+
+        if self._symbol_atr_thresholds_norm:
+            keys = sorted(self._symbol_atr_thresholds_norm.keys())
+            suffix = "..." if len(keys) > 10 else ""
+            logger.info(f"ATR symbol overrides loaded: {keys[:10]}{suffix}")
+
+    def _resolve_atr_threshold(self, symbol: str, is_index: bool) -> Tuple[float, str]:
+        sym = (symbol or "").strip().upper()
+        if not sym:
+            return (self.atr_threshold_index if is_index else self.atr_threshold_fx), "default(no_symbol)"
+
+        # 1) configの銘柄別上書き（最優先）
+        if sym in self._symbol_atr_thresholds_norm:
+            return self._symbol_atr_thresholds_norm[sym], f"config_exact:{sym}"
+
+        best_key = None
+        best_val = None
+        best_kind = None
+        for key, val in self._symbol_atr_thresholds_norm.items():
+            if sym.startswith(key):
+                kind = "config_prefix"
+            elif key in sym:
+                kind = "config_contains"
+            else:
+                continue
+
+            if best_key is None or len(key) > len(best_key):
+                best_key = key
+                best_val = val
+                best_kind = kind
+
+        if best_key is not None:
+            return float(best_val), f"{best_kind}:{best_key}"
+
+        # 2) 既存プリセット（strategy_presets）フォールバック
+        try:
+            return float(get_atr_threshold(sym)), "preset_get_atr_threshold"
+        except Exception:
+            pass
+
+        # 3) 最終フォールバック（引数デフォルト）
+        return (self.atr_threshold_index if is_index else self.atr_threshold_fx), "default(param)"
 
     def set_preset(self, preset_name: str) -> bool:
         """プリセットを動的に切り替える（単一スレッド想定）。
@@ -701,9 +756,17 @@ class SevenModuleAnalyzer:
             # ATRベースのボラティリティ（volatility）
             if self.enabled_modules.get('volatility', False):
                 try:
+                    effective_thr, thr_source = self._resolve_atr_threshold(symbol, is_index)
                     # 適切なモジュールを選択
                     vol_module = self.volatility_index if is_index else self.volatility_fx
+                    # リクエストごとに閾値を差し替え（銘柄別対応）
+                    vol_module.threshold_pips = float(effective_thr)
                     pip_value = pip_size
+
+                    logger.info(
+                        f"[ATR_THRESHOLD] symbol={symbol} is_index={is_index} pip_size={pip_size} "
+                        f"threshold={vol_module.threshold_pips} source={thr_source}"
+                    )
                     
                     volatility_result = vol_module.analyze(
                         closes=closes,
@@ -1043,6 +1106,7 @@ Antigravity予測を重視しつつ、Sub-Modulesによるフィルタリング�
                  preset_name: str = 'antigravity_pullback',  # ★NEW
                  atr_threshold_fx: float = 7.0,
                  atr_threshold_index: float = 70.0,
+                 symbol_atr_thresholds: dict = None,
                  use_antigravity: bool = True,
                  model_type: str = 'ensemble',
                  transformer_model_path: str = None,
@@ -1125,6 +1189,7 @@ Antigravity予測を重視しつつ、Sub-Modulesによるフィルタリング�
         self.module_analyzer = SevenModuleAnalyzer(
             atr_threshold_fx=atr_threshold_fx,
             atr_threshold_index=atr_threshold_index,
+            symbol_atr_thresholds=symbol_atr_thresholds,
             strategy=strategy,
             preset_name=preset_name,  # ★NEW
             use_antigravity=use_antigravity,
@@ -1617,6 +1682,9 @@ if __name__ == "__main__":
     preset_name = strategy_config.get('preset', 'antigravity_pullback')  # ★NEW
     atr_threshold_fx = strategy_config.get('atr_threshold_fx', 7.0)
     atr_threshold_index = strategy_config.get('atr_threshold_index', 70.0)
+    symbol_atr_thresholds = strategy_config.get('atr_thresholds', {})
+    if not isinstance(symbol_atr_thresholds, dict):
+        symbol_atr_thresholds = {}
     
     # Antigravity Orchestrator設定を取得
     # host config.yaml:   antigravity_orchestrator: { enabled, model_type, transformer_model_path, kan_model_path, ... }
@@ -1654,7 +1722,10 @@ if __name__ == "__main__":
     for d in data_dirs:
         logger.info(f"  - {d['id']}: {d['data_dir']}")
     logger.info(f"LM Studio URL: {lm_url}")
-    logger.info(f"Strategy: {strategy_pattern} (ATR FX={atr_threshold_fx}, Index={atr_threshold_index})")
+    logger.info(
+        f"Strategy: {strategy_pattern} (ATR FX={atr_threshold_fx}, Index={atr_threshold_index}, "
+        f"SymbolOverrides={len(symbol_atr_thresholds)})"
+    )
     if use_antigravity:
         logger.info(f"Antigravity Orchestrator: ENABLED (model={model_type})")
         logger.info(f"  Transformer: {transformer_model_path}")
@@ -1680,6 +1751,7 @@ if __name__ == "__main__":
         preset_name=preset_name,  # ★NEW
         atr_threshold_fx=atr_threshold_fx,
         atr_threshold_index=atr_threshold_index,
+        symbol_atr_thresholds=symbol_atr_thresholds,
         use_antigravity=use_antigravity,
         model_type=model_type,
         transformer_model_path=transformer_model_path,
