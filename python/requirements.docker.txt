@@ -1,0 +1,8 @@
+# Minimal deps for MT5 HTTP inference (Docker)
+# Note: MetaTrader5 package is Windows-only; keep it out of Docker.
+
+flask>=3.0.0
+requests>=2.31.0
+numpy>=1.24.0
+pandas>=2.0.0
+PyYAML>=6.0

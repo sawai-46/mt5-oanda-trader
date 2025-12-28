@@ -3,11 +3,51 @@
 ## 目的
 MT5側はファイル通信ではなく **HTTP(WebRequest)** でPython推論サーバーを呼び出す。
 
-このリポジトリでは、7module/antigravity系のロジックをHTTPで受けるために [python/inference_server_http_7module.py](../python/inference_server_http_7module.py) を追加してある。
+このリポジトリにはHTTP推論サーバーが複数あり、EA/スクリプトによって叩くAPIが異なる。
+
+- [mql5/Experts/MT5_AI_Trader_HTTP.mq5](../mql5/Experts/MT5_AI_Trader_HTTP.mq5)
+  - `GET /health`（起動時に疎通確認）
+  - `POST /analyze`（OHLCV配列を送る）
+  - 対応サーバー: [python/inference_server_mt5.py](../python/inference_server_mt5.py)
+
+- [mql5/Scripts/InferenceHttpSmoke.mq5](../mql5/Scripts/InferenceHttpSmoke.mq5)
+  - `GET /health`
+  - `POST /predict`（フラット形式で送る）
+  - 対応サーバー: [python/inference_server_http_7module.py](../python/inference_server_http_7module.py)
 
 ---
 
 ## 1. Pythonサーバー起動（HTTP）
+
+### A) MT5_AI_Trader_HTTP（/analyze）用
+
+PowerShellで以下。
+
+- `cd python`
+- `python -m pip install -r requirements.txt`
+- `python inference_server_mt5.py`
+
+デフォルト:
+- `http://127.0.0.1:5001`
+- `GET /health`
+- `POST /analyze`
+
+※ `inference_server_mt5.py` は MT5 Python API（`MetaTrader5`）が未導入でも起動する（ただし機能は限定）。
+
+#### Dockerで起動（おすすめ：MT4と同じ運用に寄せる）
+このリポジトリには MT5用の `docker-compose.yml` を追加してある。
+
+- `cd mt5-oanda-trader`
+- `docker compose up -d --build`
+
+確認:
+- `http://127.0.0.1:5001/health`
+
+注意:
+- `MetaTrader5` Pythonパッケージは基本的にWindows向けのため、Docker（Linux）ではMT5ネイティブ接続は使えない前提。
+- ただし `MT5_AI_Trader_HTTP.mq5` が使う `/analyze` は「EAがOHLCV配列を送る」ので、Dockerでも問題なく動く。
+
+### B) 7module/antigravity（/predict）用
 
 PowerShellで以下。
 
@@ -71,6 +111,9 @@ MT5はデフォルトで外部URLへのWebRequestがブロックされる。
   - （必要なら）`http://localhost:5001`
   を追加
 
+補足:
+- 混乱しやすいので、EA側のURLも `http://127.0.0.1:5001` に揃えるのが安全。
+
 ---
 
 ## 3. MT5から疎通確認（売買なし）
@@ -82,6 +125,38 @@ MT5のスクリプト [mql5/Scripts/InferenceHttpSmoke.mq5](../mql5/Scripts/Infe
   - `InpPreset = antigravity_pullback`
 
 ログに `HTTP status=200` と `signal/conf/reason` が出ればOK。
+
+### MT5_AI_Trader_HTTP の疎通確認（売買なし）
+このEAは `OnInit()` で `GET /health` を叩き、失敗すると `INIT_FAILED` で止まる。
+
+- EA入力例:
+  - `InpInferenceServerURL = http://127.0.0.1:5001`
+  - `InpMT5_ID = 10900k-mt5-live`（あなたの命名案に合わせる）
+
+ログに `✓ 推論サーバー接続OK` が出ればOK。
+
+MT5を介さずに確認したい場合（PowerShell例）:
+
+```powershell
+# health
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:5001/health" | ConvertTo-Json -Depth 5
+
+# analyze（最低限の形：20本以上が必要）
+$payload = @{
+  symbol = "USDJPY"
+  timeframe = "M15"
+  ohlcv = @{
+    open   = @(1..25 | ForEach-Object { 150.0 + $_ * 0.01 })
+    high   = @(1..25 | ForEach-Object { 150.1 + $_ * 0.01 })
+    low    = @(1..25 | ForEach-Object { 149.9 + $_ * 0.01 })
+    close  = @(1..25 | ForEach-Object { 150.0 + $_ * 0.01 })
+    volume = @(1..25 | ForEach-Object { 1000 + $_ })
+  }
+  current_price = 150.25
+} | ConvertTo-Json -Depth 6
+
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5001/analyze" -ContentType "application/json" -Body $payload | ConvertTo-Json -Depth 6
+```
 
 ---
 

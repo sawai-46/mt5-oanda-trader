@@ -299,8 +299,8 @@ private:
       int atrN = 0;
       for(int i = 2; i <= 11; i++)
       {
-         double a = iATR(m_symbol, m_timeframe, m_cfg.ATRPeriod, i);
-         if(a > 0.0)
+         double a = 0.0;
+         if(Copy1(m_handleATR, i, a) && a > 0.0)
          {
             atrSum += a;
             atrN++;

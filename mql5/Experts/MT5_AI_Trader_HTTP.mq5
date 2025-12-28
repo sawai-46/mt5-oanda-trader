@@ -24,7 +24,7 @@ enum PresetOption
 //--- HTTP設定
 input string InpMT5_ID = "OANDA-MT5";                 // MT5識別ID
 input bool   InpAutoAppendSymbol = true;              // MT5_IDにSymbolを自動追加
-input string InpInferenceServerURL = "http://localhost:5001";  // 推論サーバーURL
+input string InpInferenceServerURL = "http://127.0.0.1:5001";  // 推論サーバーURL
 input int    InpServerTimeout = 30000;                          // タイムアウト(ms)
 
 //--- プリセット設定
@@ -87,6 +87,7 @@ datetime g_lastBarTime = 0;
 int g_lastTradeBar = 0;
 ulong g_ActiveMagicNumber = 0;
 string g_uniqueId = "";
+string g_inferenceServerUrl = "";
 CTrade m_trade;
 
 // Partial Close状態管理
@@ -123,7 +124,7 @@ string GetPresetName()
 ulong GenerateMagicNumber()
 {
    // Symbol + Timeframe からハッシュ生成
-   string key = _Symbol + "_" + PeriodToString(PERIOD_CURRENT);
+   string key = _Symbol + "_" + PeriodToString((ENUM_TIMEFRAMES)_Period);
    ulong hash = 0;
    for(int i = 0; i < StringLen(key); i++)
    {
@@ -138,6 +139,8 @@ ulong GenerateMagicNumber()
 //+------------------------------------------------------------------+
 int OnInit()
 {
+   g_inferenceServerUrl = InpInferenceServerURL;
+
    // マジックナンバー初期化
    if(InpAutoMagicNumber)
    {
@@ -159,7 +162,7 @@ int OnInit()
    g_uniqueId = InpMT5_ID;
    if(InpAutoAppendSymbol || StringLen(InpMT5_ID) == 0)
    {
-      string tfStr = PeriodToString(PERIOD_CURRENT);
+      string tfStr = PeriodToString((ENUM_TIMEFRAMES)_Period);
       if(StringLen(InpMT5_ID) == 0)
          g_uniqueId = _Symbol + "_" + tfStr;
       else
@@ -168,7 +171,7 @@ int OnInit()
    
    Print("=== MT5 AI Trader v2.0 HTTP (OANDA) ===");
    Print("シグナル生成: Python推論サーバー (16モジュール)");
-   Print("Inference Server: ", InpInferenceServerURL);
+   Print("Inference Server: ", g_inferenceServerUrl);
    Print("Symbol: ", _Symbol);
    Print("Unique ID: ", g_uniqueId);
    Print("Preset: ", GetPresetName());
@@ -185,7 +188,7 @@ int OnInit()
    // HTTP接続テスト
    if(!TestServerConnection())
    {
-      Alert("推論サーバーへの接続に失敗しました: ", InpInferenceServerURL);
+      Alert("推論サーバーへの接続に失敗しました: ", g_inferenceServerUrl);
       Print("URLを'ツール > オプション > エキスパートアドバイザ > WebRequestを許可するURLリスト'に追加してください");
       return(INIT_FAILED);
    }
@@ -258,7 +261,7 @@ void AnalyzeAndTrade()
    
    // HTTP POSTリクエスト送信
    string responseStr = "";
-   if(!SendHttpRequest(InpInferenceServerURL + "/analyze", jsonData, responseStr))
+   if(!SendHttpRequest(g_inferenceServerUrl + "/analyze", jsonData, responseStr))
    {
       Print("推論サーバーとの通信に失敗しました");
       return;
@@ -355,7 +358,7 @@ string PrepareOHLCVJson(int bars)
    
    string json = "{";
    json += "\"symbol\":\"" + _Symbol + "\",";
-   json += "\"timeframe\":\"" + PeriodToString(PERIOD_CURRENT) + "\",";
+   json += "\"timeframe\":\"" + PeriodToString((ENUM_TIMEFRAMES)_Period) + "\",";
    json += "\"preset\":\"" + GetPresetName() + "\",";
    json += "\"ohlcv\":{";
    
@@ -457,30 +460,59 @@ bool TestServerConnection()
    
    ArrayResize(post, 0);
    
-   int res = WebRequest(
-      "GET",
-      InpInferenceServerURL + "/health",
-      headers,
-      5000,
-      post,
-      result,
-      result_headers
-   );
-   
+   string url = g_inferenceServerUrl + "/health";
+
+   int res = WebRequest("GET", url, headers, 5000, post, result, result_headers);
    if(res == -1)
    {
-      Print("Health check failed: ", GetLastError());
+      int err = GetLastError();
+      Print("Health check failed: ", err, " url=", url);
+
+      // 4014: WebRequestが許可されていない（URLリスト不一致が多い）
+      if(err == 4014)
+      {
+         string altBase = g_inferenceServerUrl;
+         if(StringFind(altBase, "localhost") >= 0)
+            StringReplace(altBase, "localhost", "127.0.0.1");
+         else if(StringFind(altBase, "127.0.0.1") >= 0)
+            StringReplace(altBase, "127.0.0.1", "localhost");
+
+         if(altBase != g_inferenceServerUrl)
+         {
+            string altUrl = altBase + "/health";
+            Print("Retrying health with alt url=", altUrl);
+            ArrayResize(result, 0);
+            result_headers = "";
+
+            int res2 = WebRequest("GET", altUrl, headers, 5000, post, result, result_headers);
+            if(res2 != -1)
+            {
+               response = CharArrayToString(result, 0, ArraySize(result));
+               if(StringFind(response, "ok") >= 0 || StringFind(response, "status") >= 0)
+               {
+                  g_inferenceServerUrl = altBase;
+                  Print("✓ 推論サーバー接続OK (using ", g_inferenceServerUrl, ")");
+                  return true;
+               }
+            }
+            else
+            {
+               Print("Health retry failed: ", GetLastError(), " url=", altUrl);
+            }
+         }
+      }
+
       return false;
    }
-   
+
    response = CharArrayToString(result, 0, ArraySize(result));
-   
    if(StringFind(response, "ok") >= 0 || StringFind(response, "status") >= 0)
    {
-      Print("✓ 推論サーバー接続OK");
+      Print("✓ 推論サーバー接続OK (using ", g_inferenceServerUrl, ")");
       return true;
    }
-   
+
+   Print("Health check returned unexpected body. url=", url, " body=", response);
    return false;
 }
 
