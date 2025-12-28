@@ -14,6 +14,7 @@
 #include <Strategies/Pullback/PullbackStrategy.mqh>
 #include <Position/PositionManager.mqh>
 #include <Filters/FilterManager.mqh>
+#include <Integration/Logger.mqh>
 
 //=== INPUT PARAMETERS ===
 
@@ -73,6 +74,18 @@ input ENUM_TRAILING_MODE InpTrailingMode = TRAILING_DISABLED;  // トレーリ�
 input double InpTrailStartPoints = 200.0;    // トレーリング開始(points)
 input double InpTrailStepPoints = 50.0;      // トレーリングステップ(points)
 
+//--- Logging
+input bool   InpEnableLogging = true;                 // ログ出力有効
+input ENUM_LOG_LEVEL InpLogMinLevel = LOG_INFO;       // 最小ログレベル
+input bool   InpLogToFile = true;                     // ファイル出力
+input bool   InpLogUseCommonFolder = true;            // Commonフォルダ使用
+input string InpLogFileName = "EA_PullbackEntry_v5.log"; // ログファイル名
+
+//--- Data collection (MT4 log sync compatible)
+input bool   InpEnableAiLearningCsv = true;                    // AI学習CSV出力（DB同期用）
+input string InpTerminalId = "";                              // 端末固定ID（例: 10900k-mt5-A）
+input string InpAiLearningFolder = "OneDriveLogs\\data\\AI_Learning"; // MQL5/Files配下
+
 //=== GLOBAL OBJECTS ===
 CPullbackStrategy *g_strategy = NULL;
 CPositionManager  *g_posManager = NULL;
@@ -83,10 +96,13 @@ CFilterManager    *g_filterManager = NULL;
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   Print("=== EA_PullbackEntry v5.0 (MQL5 OOP) ===");
-   Print("Preset: ", GetPresetName(InpPreset));
-   Print("Symbol: ", _Symbol);
-   Print("Magic: ", InpMagicNumber);
+   string instanceId = "EA_PullbackEntry_v5|" + _Symbol + "|Magic:" + (string)InpMagicNumber + "|CID:" + (string)ChartID();
+   CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, InpLogFileName, InpLogUseCommonFolder);
+
+   CLogger::Log(LOG_INFO, "=== EA_PullbackEntry v5.0 (MQL5 OOP) ===");
+   CLogger::Log(LOG_INFO, "Preset: " + GetPresetName(InpPreset));
+   CLogger::Log(LOG_INFO, "Symbol: " + _Symbol);
+   CLogger::Log(LOG_INFO, "Magic: " + (string)InpMagicNumber);
    
    // Build Config
    CPullbackConfig cfg;
@@ -98,6 +114,11 @@ int OnInit()
    cfg.MagicNumber = InpMagicNumber;
    cfg.LotSize = InpLotSize;
    cfg.DeviationPoints = InpDeviationPoints;
+
+   // Data collection
+   cfg.EnableAiLearningLog = InpEnableAiLearningCsv;
+   cfg.TerminalId = InpTerminalId;
+   cfg.AiLearningFolder = InpAiLearningFolder;
    
    if(InpPreset == PRESET_CUSTOM)
    {
@@ -164,7 +185,7 @@ int OnInit()
    g_posManager = new CPositionManager();
    g_posManager.Init(posCfg);
    
-   Print("Initialization complete");
+   CLogger::Log(LOG_INFO, "Initialization complete");
    return(INIT_SUCCEEDED);
 }
 
@@ -176,8 +197,8 @@ void OnDeinit(const int reason)
    if(g_strategy != NULL)    { delete g_strategy;     g_strategy = NULL; }
    if(g_posManager != NULL)  { delete g_posManager;   g_posManager = NULL; }
    if(g_filterManager != NULL) { delete g_filterManager; g_filterManager = NULL; }
-   
-   Print("EA_PullbackEntry deinitialized - reason: ", reason);
+
+   CLogger::Log(LOG_INFO, "EA_PullbackEntry deinitialized - reason: " + IntegerToString(reason));
 }
 
 //+------------------------------------------------------------------+
@@ -192,8 +213,8 @@ void OnTick()
    // Skip if filters fail
    if(g_filterManager != NULL && !g_filterManager.CheckAll())
    {
-      // Optionally log rejection reason
-      // Print("Filter rejected: ", g_filterManager.GetLastRejectReason());
+      if(InpEnableLogging && InpLogMinLevel == LOG_DEBUG)
+         CLogger::Log(LOG_DEBUG, "Filter rejected: " + g_filterManager.GetLastRejectReason());
       return;
    }
    
