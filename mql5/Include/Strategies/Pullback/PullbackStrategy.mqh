@@ -228,7 +228,7 @@ public:
      m_handleATR(INVALID_HANDLE),
      m_lastBarTime(0)
    {
-      m_trade->Configure(m_cfg.MagicNumber, m_cfg.DeviationPoints, ORDER_FILLING_IOC);
+      m_trade.Configure(m_cfg.MagicNumber, m_cfg.DeviationPoints, ORDER_FILLING_IOC);
 
       m_handleEmaShort = iMA(m_symbol, m_timeframe, m_cfg.EmaShortPeriod, 0, MODE_EMA, PRICE_CLOSE);
       m_handleEmaMid   = iMA(m_symbol, m_timeframe, m_cfg.EmaMidPeriod, 0, MODE_EMA, PRICE_CLOSE);
@@ -264,7 +264,7 @@ public:
          double sl, tp;
          if(!CalcSLTP(ORDER_TYPE_BUY, ask, sl, tp)) return;
 
-         if(m_trade->Buy(m_cfg.LotSize, m_symbol, ask, sl, tp, "PullbackBuy"))
+         if(m_trade.Buy(m_cfg.LotSize, m_symbol, ask, sl, tp, "PullbackBuy"))
             CLogger::Log(LOG_INFO, "BUY placed");
          else
             CLogger::Log(LOG_ERROR, "BUY failed: " + (string)GetLastError());
@@ -278,7 +278,7 @@ public:
          double sl, tp;
          if(!CalcSLTP(ORDER_TYPE_SELL, bid, sl, tp)) return;
 
-         if(m_trade->Sell(m_cfg.LotSize, m_symbol, bid, sl, tp, "PullbackSell"))
+         if(m_trade.Sell(m_cfg.LotSize, m_symbol, bid, sl, tp, "PullbackSell"))
             CLogger::Log(LOG_INFO, "SELL placed");
          else
             CLogger::Log(LOG_ERROR, "SELL failed: " + (string)GetLastError());

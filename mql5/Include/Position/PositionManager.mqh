@@ -20,7 +20,7 @@ enum ENUM_TRAILING_MODE
 //--- Position Manager Config
 struct SPositionConfig
 {
-   ulong    MagicNumber;
+   long     MagicNumber;
    string   Symbol;
    
    // Partial Close Settings
@@ -107,7 +107,7 @@ public:
    void Init(const SPositionConfig &cfg)
    {
       m_cfg = cfg;
-      m_trade.SetExpertMagicNumber(m_cfg.MagicNumber);
+      m_trade.SetExpertMagicNumber((ulong)m_cfg.MagicNumber);
       m_trade.SetDeviationInPoints(m_cfg.MaxSlippagePoints);
       m_trade.SetTypeFilling(ORDER_FILLING_IOC);
       

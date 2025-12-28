@@ -6,11 +6,11 @@
 class CTradeManager : public CTrade
 {
 private:
-   long m_magic;
+   long m_magicNumber;
 
 public:
    CTradeManager()
-   : m_magic(0)
+   : m_magicNumber(0)
    {
       SetAsyncMode(false);
       SetTypeFilling(ORDER_FILLING_IOC); // OANDA向け
@@ -19,12 +19,13 @@ public:
 
    void Configure(long magic, int deviationPoints=10, ENUM_ORDER_TYPE_FILLING filling=ORDER_FILLING_IOC)
    {
-      m_magic = magic;
+      m_magicNumber = magic;
+      SetExpertMagicNumber((ulong)magic);
       SetDeviationInPoints(deviationPoints);
       SetTypeFilling(filling);
    }
 
-   long Magic() const { return m_magic; }
+   long Magic() const { return m_magicNumber; }
 };
 
 #endif

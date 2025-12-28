@@ -22,7 +22,7 @@ input ENUM_PULLBACK_PRESET InpPreset = PRESET_STANDARD;  // 戦略プリセッ�
 
 //--- Basic Settings
 input double InpLotSize = 0.10;              // ロットサイズ
-input ulong  InpMagicNumber = 55000001;      // マジックナンバー
+input long   InpMagicNumber = 55000001;      // マジックナンバー
 input int    InpDeviationPoints = 50;        // 最大スリッページ(points)
 
 //--- EMA Settings
