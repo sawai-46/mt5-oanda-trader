@@ -252,14 +252,14 @@ void ApplySymbolDefaults()
    {
       Print("=== US30推奨設定 ===");
       Print("  SL: 100-150 points, TP: 200-300 points");
-      Print("  ATR閾値: 30-50 points");
+      Print("  ATR閾値: 30-50 (price units)  ※MT4pt換算は /Point");
       Print("  最小ロット: 0.01");
    }
    else if(g_indexType == INDEX_US500)
    {
       Print("=== US500推奨設定 ===");
       Print("  SL: 30-50 points, TP: 60-100 points");
-      Print("  ATR閾値: 15-30 points");
+      Print("  ATR閾値: 15-30 (price units)  ※MT4pt換算は /Point");
       Print("  最小ロット: 0.1");
       Print("  ※現在の設定はUS30向けです。US500ではパラメータ調整を推奨します。");
    }
@@ -267,7 +267,7 @@ void ApplySymbolDefaults()
    {
       Print("=== NQ100推奨設定 ===");
       Print("  SL: 50-100 points, TP: 100-200 points");
-      Print("  ATR閾値: 20-40 points");
+      Print("  ATR閾値: 20-40 (price units)  ※MT4pt換算は /Point");
       Print("  最小ロット: 0.01");
       Print("  ※現在の設定はUS30向けです。NQ100ではパラメータ調整を推奨します。");
    }

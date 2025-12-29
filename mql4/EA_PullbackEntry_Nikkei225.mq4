@@ -173,7 +173,7 @@ input double Max_Spread_Points = 30.0;             // 最大スプレッド(円)
 
 //--- ATR設定
 input int    ATR_Period = 14;                    // ATR期間
-input double ATR_Threshold_Points = 70.0;        // ATR最低値(Points) ※実運用最適値
+input double ATR_Threshold_Points = 70.0;        // ATR最低値(price units) ※ログは price units / MT4pt を併記
 
 //--- 相場環境フィルター（レンジ相場回避）
 input bool   Use_ADX_Filter = true;              // ADXフィルター使用

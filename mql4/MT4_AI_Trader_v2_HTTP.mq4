@@ -58,7 +58,7 @@ input double ATRSpikeMultiplier = 1.5;      // ATRスパイク倍率
 input double VolumeSpikeMultiplier = 2.0;   // 出来高スパイク倍率
 input int    ADXPeriod = 14;                // ADX期間
 input int    ATRPeriod = 14;                // ATR期間
-input double ATRThresholdPips = 7.0;        // ATR最低閾値（FX:7.0pips, JP225:70point推奨）
+input double ATRThresholdPips = 7.0;        // ATR最低閾値（price units。ログは price units / MT4pt を併記）
 
 //--- Partial Close設定（現在ロットに対する%、合計100%になるよう設定）
 input bool   EnablePartialClose = true;     // 部分決済有効化
@@ -286,12 +286,22 @@ void AnalyzeAndTrade()
    // ATR閾値チェック
    double atr_current = iATR(Symbol(), 0, ATRPeriod, 0);
    double atr_pips = atr_current / g_pipValue;
+   double atr_mt4pt = (Point > 0.0) ? (atr_current / Point) : 0.0;
+   double thr_price = ATRThresholdPips * g_pipValue;
+   double thr_mt4pt = (Point > 0.0) ? (thr_price / Point) : 0.0;
    string unit_name = "pips/points";
    
    if(atr_pips < ATRThresholdPips)
    {
-      Print("ATR不足: ", DoubleToString(atr_pips, 1), " ", unit_name, " < ", 
-            DoubleToString(ATRThresholdPips, 1), " ", unit_name, " (エントリー見送り)");
+      Print(StringFormat("ATR不足: %s (price units) / %s MT4pt (%s %s) < %s (price units) / %s MT4pt (%s %s) (エントリー見送り)",
+                         DoubleToString(atr_current, Digits),
+                         DoubleToString(atr_mt4pt, 0),
+                         DoubleToString(atr_pips, 1),
+                         unit_name,
+                         DoubleToString(thr_price, Digits),
+                         DoubleToString(thr_mt4pt, 0),
+                         DoubleToString(ATRThresholdPips, 1),
+                         unit_name));
       if(EnableCsvLogging)
          LogTradeEvent("SKIP", 0, 0, signal, confidence, "ATR too low: " + DoubleToString(atr_pips, 1));
       return;

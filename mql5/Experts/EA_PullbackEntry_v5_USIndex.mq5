@@ -129,9 +129,11 @@ void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
                                        BoolStr(cfg.RequirePerfectOrder),
                                        (int)cfg.PullbackEmaRef,
                                        BoolStr(cfg.UseTouchPullback), BoolStr(cfg.UseCrossPullback), BoolStr(cfg.UseBreakPullback)));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] Filters: MaxSpreadPoints=%d ATR(period=%d min=%.1f) ADX(en=%s period=%d min=%.1f)",
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] Filters: MaxSpreadPoints=%d ATR(period=%d min=%s (price units) / %s MT5pt) ADX(en=%s period=%d min=%.1f)",
                                        cfg.MaxSpreadPoints,
-                                       cfg.ATRPeriod, cfg.ATRThresholdPoints,
+                                       cfg.ATRPeriod,
+                                       DoubleToString(cfg.ATRThresholdPoints * point, digits),
+                                       DoubleToString(cfg.ATRThresholdPoints, 1),
                                        BoolStr(cfg.UseADXFilter), cfg.ADXPeriod, cfg.ADXMinLevel));
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] SLTP: useSL=%s useTP=%s mode=%d SL_fixed=%.1f TP_fixed=%.1f SL_ATR=%.2f TP_ATR=%.2f",
                                        BoolStr(cfg.UseStopLoss), BoolStr(cfg.UseTakeProfit), (int)cfg.SLTPMode,
@@ -146,10 +148,12 @@ void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
                                        filterCfg.StartHour, filterCfg.StartMinute,
                                        filterCfg.EndHour, filterCfg.EndMinute,
                                        BoolStr(filterCfg.TradeOnFriday), BoolStr(filterCfg.UseDST)));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][filter] Spread(en=%s max=%d) ADX(en=%s period=%d min=%.1f) ATR(en=%s period=%d min=%.1f)",
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][filter] Spread(en=%s max=%d) ADX(en=%s period=%d min=%.1f) ATR(en=%s period=%d min=%s (price units) / %s MT5pt)",
                                        BoolStr(filterCfg.EnableSpreadFilter), filterCfg.MaxSpreadPoints,
                                        BoolStr(filterCfg.EnableADXFilter), filterCfg.ADXPeriod, filterCfg.ADXMinLevel,
-                                       BoolStr(filterCfg.EnableATRFilter), filterCfg.ATRPeriod, filterCfg.ATRMinPoints));
+                                       BoolStr(filterCfg.EnableATRFilter), filterCfg.ATRPeriod,
+                                       DoubleToString(filterCfg.ATRMinPoints * point, digits),
+                                       DoubleToString(filterCfg.ATRMinPoints, 1)));
 
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][pos] Partial(en=%s stages=%d L1=%.1f(%.1f%%) L2=%.1f(%.1f%%) L3=%.1f(%.1f%%) BE_after_L1=%s SL_after_L2=%s)",
                                        BoolStr(posCfg.EnablePartialClose), posCfg.PartialCloseStages,

@@ -125,8 +125,14 @@ void DumpEffectiveConfig_AI_HTTP()
                       InpRiskPercent, InpBaseLotSize, InpMaxLotSize, BoolStr(InpEnableLotAdjustment)));
    Print(StringFormat("[CONFIG][AI_HTTP_MT5] Slippage=%dpt MaxSpread=%dpt MaxPos=%d MinBars=%d MinConf=%.2f",
                       InpMaxSlippagePoints, g_MaxSpreadPoints, InpMaxPositions, InpMinBarsSinceLastTrade, InpMinConfidence));
-   Print(StringFormat("[CONFIG][AI_HTTP_MT5] SL=%.1fpt TP=%.1fpt ATR_Period=%d ATR_Th=%.1fpt (%.5f price) ATR_now=%.1fpt",
-                      g_StopLossPoints, g_TakeProfitPoints, InpATRPeriod, g_ATRThresholdPoints, g_ATRThresholdPoints * point, atrPoints));
+   Print(StringFormat("[CONFIG][AI_HTTP_MT5] SL=%.1fpt TP=%.1fpt ATR_Period=%d ATR_Th=%s (price units) / %s MT5pt ATR_now=%s (price units) / %s MT5pt",
+                      g_StopLossPoints,
+                      g_TakeProfitPoints,
+                      InpATRPeriod,
+                      DoubleToString(g_ATRThresholdPoints * point, _Digits),
+                      DoubleToString(g_ATRThresholdPoints, 1),
+                      DoubleToString(atr, _Digits),
+                      DoubleToString(atrPoints, 1)));
    Print(StringFormat("[CONFIG][AI_HTTP_MT5] TimeFilter=%s GMT_Offset=%d DST=%s Start=%02d:%02d End=%02d:%02d Fri=%s",
                       BoolStr(InpEnable_Time_Filter), InpGMT_Offset, BoolStr(InpUse_DST),
                       InpCustom_Start_Hour, InpCustom_Start_Minute, InpCustom_End_Hour, InpCustom_End_Minute,
@@ -353,7 +359,11 @@ void AnalyzeAndTrade()
    
    if(atr_points < g_ATRThresholdPoints)
    {
-      Print("ATR不足: ", DoubleToString(atr_points, 1), " points < ", g_ATRThresholdPoints);
+      Print(StringFormat("ATR不足: %s (price units) / %s MT5pt < %s (price units) / %s MT5pt",
+                         DoubleToString(atr, _Digits),
+                         DoubleToString(atr_points, 1),
+                         DoubleToString(g_ATRThresholdPoints * point, _Digits),
+                         DoubleToString(g_ATRThresholdPoints, 1)));
       return;
    }
    

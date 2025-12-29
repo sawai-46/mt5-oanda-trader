@@ -183,7 +183,7 @@ input double Min_Channel_Width_Pips = 30.0;      // 最低チャネル幅（pips
 
 //--- ATR設定
 input int    ATR_Period = 14;                    // ATR期間
-input double ATR_Threshold_Pips = 7.0;           // ATR最低値（FX:7.0pips, JP225:70point推奨）
+input double ATR_Threshold_Pips = 7.0;           // ATR最低値（互換用。ログは price units / MT4pt を併記）
 
 //--- SL/TP設定
 input bool   Use_StopLoss = true;                // SL使用
@@ -510,6 +510,10 @@ int OnInit()
    // 初期ATR確認
    double init_atr = iATR(Symbol(), 0, ATR_Period, 1);
    double init_atr_pips = init_atr / pip;
+   double init_atr_mt4pt = (Point > 0.0) ? (init_atr / Point) : 0.0;
+
+   double atr_thr_price = g_ATR_Threshold_Pips * pip;
+   double atr_thr_mt4pt = (Point > 0.0) ? (atr_thr_price / Point) : 0.0;
    
    Print("===== EA_PullbackEntry 初期化完了 =====");
    Print("シンボル: ", Symbol());
@@ -523,8 +527,14 @@ int OnInit()
    Print("EMAクロス: ", Use_Cross_Pullback);
    Print("EMA完全ブレイク: ", g_Use_Break_Pullback);
    Print("ATR期間: ", ATR_Period);
-   Print("ATR閾値設定: ", g_ATR_Threshold_Pips, " pips");
-   Print("現在のATR: ", DoubleToString(init_atr, Digits), " (", DoubleToString(init_atr_pips, 2), " pips)");
+   Print(StringFormat("ATR閾値設定: %s (price units) / %s MT4pt (%s pips)",
+                      DoubleToString(atr_thr_price, Digits),
+                      DoubleToString(atr_thr_mt4pt, 0),
+                      DoubleToString(g_ATR_Threshold_Pips, 1)));
+   Print(StringFormat("現在のATR: %s (price units) / %s MT4pt (%s pips)",
+                      DoubleToString(init_atr, Digits),
+                      DoubleToString(init_atr_mt4pt, 0),
+                      DoubleToString(init_atr_pips, 2)));
    
    // 補助条件情報
    Print("===== 補助条件設定 =====");
@@ -694,11 +704,22 @@ void CheckForPullbackEntry()
    
    // 4. ATRチェック
    double atr_pips = current_atr / pip;
+   double atr_mt4pt = (Point > 0.0) ? (current_atr / Point) : 0.0;
+   double thr_price = g_ATR_Threshold_Pips * pip;
+   double thr_mt4pt = (Point > 0.0) ? (thr_price / Point) : 0.0;
    if (EnableDebugLog) {
-      Print("ATRチェック: 現在=", DoubleToString(atr_pips, 2), " pips, 閾値=", g_ATR_Threshold_Pips, " pips");
+      Print(StringFormat("ATRチェック: 現在=%s (price units) / %s MT4pt (%s pips), 閾値=%s (price units) / %s MT4pt (%s pips)",
+                         DoubleToString(current_atr, Digits),
+                         DoubleToString(atr_mt4pt, 0),
+                         DoubleToString(atr_pips, 2),
+                         DoubleToString(thr_price, Digits),
+                         DoubleToString(thr_mt4pt, 0),
+                         DoubleToString(g_ATR_Threshold_Pips, 1)));
    }
    if (atr_pips < g_ATR_Threshold_Pips) {
-      LogSkipReason("ATR不足: " + DoubleToString(atr_pips, 2) + " pips < " + DoubleToString(g_ATR_Threshold_Pips, 1) + " pips");
+      LogSkipReason("ATR不足: "
+                    + DoubleToString(current_atr, Digits) + " (price) / " + DoubleToString(atr_mt4pt, 0) + " MT4pt (" + DoubleToString(atr_pips, 2) + " pips) < "
+                    + DoubleToString(thr_price, Digits) + " (price) / " + DoubleToString(thr_mt4pt, 0) + " MT4pt (" + DoubleToString(g_ATR_Threshold_Pips, 1) + " pips)");
       return;
    }
    
