@@ -20,6 +20,7 @@
 
 //--- Preset Selection
 input ENUM_PULLBACK_PRESET InpPreset = PRESET_STANDARD;  // 戦略プリセット
+input int InpPresetApplyMode = 1;  // Preset適用モード: 0=使わない(Input優先), 1=未設定のみ補完★推奨, 2=全上書き
 
 //--- Basic Settings
 input double InpLotSize = 0.10;              // ロットサイズ
@@ -83,7 +84,7 @@ input string InpLogFileName = "EA_PullbackEntry_v5.log"; // ログファイル�
 
 //--- Data collection (MT4 log sync compatible)
 input bool   InpEnableAiLearningCsv = true;                    // AI学習CSV出力（DB同期用）
-input string InpTerminalId = "";                              // 端末固定ID（例: 10900k-mt5-A）
+input string InpTerminalId = "10900k-mt5-live";               // 端末固定ID（10900k-mt5-live, 10900k-mt5-demo, matsu-mt5-live, matsu-mt5-demo）
 input string InpAiLearningFolder = "OneDriveLogs\\data\\AI_Learning"; // MQL5/Files配下
 
 //=== GLOBAL OBJECTS ===
@@ -164,10 +165,24 @@ int OnInit()
    // Build Config
    CPullbackConfig cfg;
    
-   // Apply preset first
-   ApplyPreset(cfg, InpPreset);
+   // ★★★ 3レイヤーモデル: InpPresetApplyModeによる制御 ★★★
+   // mode=0: Input優先（Preset適用なし）- 常にInputを使用
+   // mode=1: Input優先（未設定のみ補完）- 常にInputを使用
+   // mode=2: Preset全上書き（旧互換）- Presetを先に適用、CUSTOMの時のみInput
    
-   // Override with input parameters if CUSTOM or user wants to fine-tune
+   if(InpPresetApplyMode == 2)
+   {
+      // 旧互換モード: Preset先適用
+      ApplyPreset(cfg, InpPreset);
+      CLogger::Log(LOG_INFO, "PresetApplyMode=2: Preset全上書き（旧互換モード）");
+   }
+   else
+   {
+      // mode=0/1: Input優先（Preset適用なし）
+      CLogger::Log(LOG_INFO, StringFormat("PresetApplyMode=%d: Input優先（.set尊重）", InpPresetApplyMode));
+   }
+   
+   // 常にInput値を適用（mode=0/1ではこれがメイン、mode=2ではCUSTOM用上書き）
    cfg.MagicNumber = InpMagicNumber;
    cfg.LotSize = InpLotSize;
    cfg.DeviationPoints = InpDeviationPoints;
@@ -177,7 +192,8 @@ int OnInit()
    cfg.TerminalId = InpTerminalId;
    cfg.AiLearningFolder = InpAiLearningFolder;
    
-   if(InpPreset == PRESET_CUSTOM)
+   // mode=0/1 または PRESET_CUSTOM: Inputから全パラメータを読み込み
+   if(InpPresetApplyMode != 2 || InpPreset == PRESET_CUSTOM)
    {
       cfg.EmaShortPeriod = InpEmaShort;
       cfg.EmaMidPeriod = InpEmaMid;

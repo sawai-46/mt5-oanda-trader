@@ -22,7 +22,7 @@ enum PresetOption
 };
 
 //--- HTTP設定
-input string InpMT5_ID = "OANDA-MT5";                 // MT5識別ID
+input string InpMT5_ID = "10900k-mt5-live";            // MT5識別ID（10900k-mt5-live, 10900k-mt5-demo, matsu-mt5-live, matsu-mt5-demo）
 input bool   InpAutoAppendSymbol = true;              // MT5_IDにSymbolを自動追加
 input string InpInferenceServerURL = "http://127.0.0.1:5001";  // 推論サーバーURL
 input int    InpServerTimeout = 30000;                          // タイムアウト(ms)
