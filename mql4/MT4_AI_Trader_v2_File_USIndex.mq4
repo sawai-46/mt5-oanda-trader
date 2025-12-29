@@ -92,10 +92,10 @@ input double BaseLotSize = 0.1;         // 基本ロット（基準）※銘柄�
 input double MaxLotSize = 1.0;          // 最大ロットサイズ（上限）
 input bool   EnableLotAdjustment = true; // ロット自動調整有効化
 input double MaxSlippagePips = 50.0;      // 最大スリッページ(ドル) ※推奨
-input int    MaxSlippagePoints = 0;       // 最大スリッページ(MT4 points) ※互換用、0=SlippagePips使用
+input int    MaxSlippagePoints = 0;       // 最大スリッページ(points) ※互換用、0=SlippagePips使用
 input double MaxSpreadPoints = 20.0;    // 最大スプレッド(ドル) ※銘柄別推奨値あり（自動上書きはしない）
-input int    DefaultSLPoints = 100;     // デフォルトSL(ドル) ※銘柄別推奨値あり（自動上書きはしない）
-input int    DefaultTPPoints = 200;     // デフォルトTP(ドル) ※銘柄別推奨値あり（自動上書きはしない）
+input int    DefaultSLPoints = 100;     // デフォルトSL(points) ※銘柄別推奨値あり（自動上書きはしない）
+input int    DefaultTPPoints = 200;     // デフォルトTP(points) ※銘柄別推奨値あり（自動上書きはしない）
 input bool   AutoMagicNumber = true;    // マジックナンバー自動生成
 input int    MagicNumber = 20250124;    // マジックナンバー（自動生成時は無視）
 
@@ -119,11 +119,11 @@ input double MinConfidenceForEntry = 0.65; // エントリー最小信頼度
 //--- Partial Close設定（現在ロットに対する%、合計100%になるよう設定）
 input bool   EnablePartialClose = true;     // 部分決済有効化
 input int    PartialCloseStages = 2;        // 段階数(2=二段階, 3=三段階)
-input double PartialClose1Points = 50.0;    // 1段階目(MT4 points) ※価格差($)=MT4points*Point
+input double PartialClose1Points = 50.0;    // 1段階目(points) ※US Index推奨値
 input double PartialClose1Percent = 50.0;   // 1段階目決済率(%) ※二段階:50, 三段階:30
-input double PartialClose2Points = 100.0;   // 2段階目(MT4 points) ※価格差($)=MT4points*Point
+input double PartialClose2Points = 100.0;   // 2段階目(points) ※US Index推奨値
 input double PartialClose2Percent = 100.0;  // 2段階目決済率(%) ※二段階:100, 三段階:50
-input double PartialClose3Points = 150.0;   // 3段階目(MT4 points) ※価格差($)=MT4points*Point
+input double PartialClose3Points = 150.0;   // 3段階目(points) ※US Index推奨値
 input double PartialClose3Percent = 100.0;  // 3段階目決済率(%) ※三段階:100(残り全部)
 input bool   MoveToBreakEvenAfterLevel1 = true; // Level1後にSL移動(建値へ)
 input bool   MoveSLAfterLevel2 = true;      // Level2後にSL移動(Level1利益位置へ) ※三段階時
@@ -138,8 +138,8 @@ input bool   Enable_AI_Learning_Log = true; // AI学習データ記録有効化
 input string AI_Learning_Folder = "OneDriveLogs\\data\\AI_Learning"; // 学習データ保存フォルダ
 
 //--- SL/TP設定（ポジション管理用）
-input double StopLoss_Fixed_Points = 100.0;   // 固定SL(ドル) ※US Index推奨値
-input double TakeProfit_Fixed_Points = 200.0; // 固定TP(ドル) ※US Index推奨値
+input double StopLoss_Fixed_Points = 100.0;   // 固定SL(points) ※US Index推奨値
+input double TakeProfit_Fixed_Points = 200.0; // 固定TP(points) ※US Index推奨値
 input bool   Use_ATR_SLTP = false;          // ATR倍率使用
 input double StopLoss_ATR_Multi = 1.5;      // SL用ATR倍率
 input double TakeProfit_ATR_Multi = 2.0;    // TP用ATR倍率
@@ -172,11 +172,11 @@ string g_currentLogFile = "";
 string g_AI_Learning_LogFile = "";
 int g_ai_pattern_count = 0;
 
-// スリッページ変換関数（ドル(価格差)から MT4 points へ）
+// スリッページ変換関数（ドルからpointsへ）
 int EffectiveSlippagePoints(){
    // MaxSlippagePips（ドル）が0より大きければ優先使用
    if(MaxSlippagePips > 0.0){
-      // US Index: 1ドル = 100 MT4 points (Point = 0.01)
+      // US Index: 1ドル = 100 points (Point = 0.01)
       return (int)MathRound(MaxSlippagePips * 1.0 / Point);
    }
    // 互換用: MaxSlippagePointsをそのまま使用
@@ -251,27 +251,28 @@ void ApplySymbolDefaults()
    if(g_indexType == INDEX_US30)
    {
       Print("=== US30推奨設定 ===");
-      Print("  SL: 100-150 $, TP: 200-300 $");
-      Print("  ATR閾値: 30-50 $");
+      Print("  SL: 100-150 points, TP: 200-300 points");
+      Print("  ATR閾値: 30-50 points");
       Print("  最小ロット: 0.01");
    }
    else if(g_indexType == INDEX_US500)
    {
       Print("=== US500推奨設定 ===");
-      Print("  SL: 30-50 $, TP: 60-100 $");
-      Print("  ATR閾値: 15-30 $");
+      Print("  SL: 30-50 points, TP: 60-100 points");
+      Print("  ATR閾値: 15-30 points");
       Print("  最小ロット: 0.1");
       Print("  ※現在の設定はUS30向けです。US500ではパラメータ調整を推奨します。");
    }
    else if(g_indexType == INDEX_NQ100)
    {
       Print("=== NQ100推奨設定 ===");
-      Print("  SL: 50-100 $, TP: 100-200 $");
-      Print("  ATR閾値: 20-40 $");
-      Print("  最小ロット: 0.1");
+      Print("  SL: 50-100 points, TP: 100-200 points");
+      Print("  ATR閾値: 20-40 points");
+      Print("  最小ロット: 0.01");
       Print("  ※現在の設定はUS30向けです。NQ100ではパラメータ調整を推奨します。");
    }
 }
+
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
@@ -503,7 +504,7 @@ void AnalyzeAndTrade()
    double spread_points = Ask - Bid;
    if(spread_points > MaxSpreadPoints)
    {
-      Print("スプレッドが広すぎます: ", DoubleToString(spread_points, 1), " $ (閾値: ", MaxSpreadPoints, " $)");
+      Print("スプレッドが広すぎます: ", DoubleToString(spread_points, 1), " points (閾値: ", MaxSpreadPoints, " points)");
       return;
    }
    
@@ -762,7 +763,7 @@ void CheckPartialClose()
       double currentPrice = (OrderType() == OP_BUY) ? Bid : Ask;
       double profitPoints = 0;
       
-      // MT4 points単位で計算
+      // points単位で計算
       if(OrderType() == OP_BUY)
          profitPoints = (currentPrice - openPrice) / Point;
       else
@@ -771,7 +772,7 @@ void CheckPartialClose()
       if(showDebug)
       {
          Print("[DEBUG] Ticket #", ticket, ": Level=", currentLevel, ", ProfitPoints=", DoubleToString(profitPoints, 1), 
-            ", Target1=", PartialClose1Points, " MT4 points");
+               ", Target1=", PartialClose1Points, " points");
          lastDebugTime = TimeCurrent();
       }
       
@@ -855,7 +856,7 @@ void CheckPartialClose()
       {
          Print("★ Partial Close Level ", newLevel, ": Ticket=", ticket, 
                " Lots=", DoubleToString(lotsToClose, 2), 
-            " Profit=", DoubleToString(profitPoints, 1), " MT4 points");
+               " Profit=", DoubleToString(profitPoints, 1), " points");
          
          g_partialCloseLevel[ticketIndex] = newLevel;
          

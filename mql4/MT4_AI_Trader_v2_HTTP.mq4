@@ -30,10 +30,10 @@ input bool   UseChartPatterns = true;   // チャートパターン使用
 //--- 基本トレード設定
 input double RiskPercent = 1.0;         // リスク率(%)
 input double BaseLotSize = 0.1;         // 基本ロット
-input int    MaxSlippagePips = 50;       // 最大スリッページ(価格差単位: FX=pips / 指数=価格差) ※FX=3pips, JP225=50円目安
-input int    MaxSpreadPips = 5;         // 最大スプレッド(価格差単位: FX=pips / 指数=価格差) ※FX=5pips, JP225=10円目安
-input int    DefaultSLPips = 20;        // デフォルトSL(価格差単位: FX=pips / 指数=価格差)
-input int    DefaultTPPips = 40;        // デフォルトTP(価格差単位: FX=pips / 指数=価格差)
+input int    MaxSlippagePips = 50;       // 最大スリッページ(pips/points) ※FX=3pips, JP225=50points
+input int    MaxSpreadPips = 5;         // 最大スプレッド(pips/points) ※FX=5pips, JP225=10points
+input int    DefaultSLPips = 20;        // デフォルトSL(pips)
+input int    DefaultTPPips = 40;        // デフォルトTP(pips)
 input int    MagicNumber = 20250124;    // マジックナンバー
 
 //--- 時間フィルター設定
@@ -58,16 +58,16 @@ input double ATRSpikeMultiplier = 1.5;      // ATRスパイク倍率
 input double VolumeSpikeMultiplier = 2.0;   // 出来高スパイク倍率
 input int    ADXPeriod = 14;                // ADX期間
 input int    ATRPeriod = 14;                // ATR期間
-input double ATRThresholdPips = 7.0;        // ATR最低閾値（価格差単位: FX=7.0pips, JP225=70円目安）
+input double ATRThresholdPips = 7.0;        // ATR最低閾値（FX:7.0pips, JP225:70point推奨）
 
 //--- Partial Close設定（現在ロットに対する%、合計100%になるよう設定）
 input bool   EnablePartialClose = true;     // 部分決済有効化
 input int    PartialCloseStages = 2;        // 段階数(2=二段階, 3=三段階)
-input double PartialClose1Pips = 15.0;      // 1段階目(価格差単位: FX=pips / 指数=価格差)
+input double PartialClose1Pips = 15.0;      // 1段階目(pips/points)
 input double PartialClose1Percent = 50.0;   // 1段階目決済率(%) ※二段階:50, 三段階:30
-input double PartialClose2Pips = 30.0;      // 2段階目(価格差単位: FX=pips / 指数=価格差)
+input double PartialClose2Pips = 30.0;      // 2段階目(pips/points)
 input double PartialClose2Percent = 100.0;  // 2段階目決済率(%) ※二段階:100, 三段階:50
-input double PartialClose3Pips = 45.0;      // 3段階目(価格差単位: FX=pips / 指数=価格差) ※三段階時のみ
+input double PartialClose3Pips = 45.0;      // 3段階目(pips/points) ※三段階時のみ
 input double PartialClose3Percent = 100.0;  // 3段階目決済率(%) ※三段階:100(残り全部)
 input bool   MoveToBreakEvenAfterLevel1 = true; // Level1後にSL移動(建値へ)
 input bool   MoveSLAfterLevel2 = true;      // Level2後にSL移動(Level1利益位置へ) ※三段階時
@@ -81,8 +81,8 @@ input bool   Enable_AI_Learning_Log = true; // AI学習データ記録有効化
 input string AI_Learning_Folder = "OneDriveLogs\\data\\AI_Learning"; // 学習データ保存フォルダ
 
 //--- SL/TP設定（ポジション管理用）
-input double StopLoss_Fixed_Pips = 15.0;    // 固定SL(価格差単位: FX=pips / 指数=価格差)
-input double TakeProfit_Fixed_Pips = 30.0;  // 固定TP(価格差単位: FX=pips / 指数=価格差)
+input double StopLoss_Fixed_Pips = 15.0;    // 固定SL(pips)
+input double TakeProfit_Fixed_Pips = 30.0;  // 固定TP(pips)
 input bool   Use_ATR_SLTP = false;          // ATR倍率使用
 input double StopLoss_ATR_Multi = 1.5;      // SL用ATR倍率
 input double TakeProfit_ATR_Multi = 2.0;    // TP用ATR倍率
@@ -218,7 +218,7 @@ void AnalyzeAndTrade()
    double spread_pips = (Ask - Bid) / g_pipValue;
    if(spread_pips > MaxSpreadPips)
    {
-      Print("スプレッドが広すぎます: ", DoubleToString(spread_pips, 1), " (price units)");
+      Print("スプレッドが広すぎます: ", DoubleToString(spread_pips, 1), " pips/points");
       return;
    }
    
@@ -286,7 +286,7 @@ void AnalyzeAndTrade()
    // ATR閾値チェック
    double atr_current = iATR(Symbol(), 0, ATRPeriod, 0);
    double atr_pips = atr_current / g_pipValue;
-   string unit_name = "price units";
+   string unit_name = "pips/points";
    
    if(atr_pips < ATRThresholdPips)
    {
@@ -636,10 +636,8 @@ void CheckPartialClose()
       else
          closeResult = OrderClose(ticket, lotsToClose, Ask, slippage, clrOrange);
       
-      // 銘柄タイプに応じた単位表示（profitPips は g_pipValue で割った値）
-      // - FX: pips
-      // - 指数: 価格差
-      string unit = (iClose(NULL, 0, 0) >= 1000) ? "price" : "pips";
+      // 銘柄タイプに応じた単位表示
+      string unit = (iClose(NULL, 0, 0) >= 1000) ? "points" : "pips";
       
       if(closeResult)
       {

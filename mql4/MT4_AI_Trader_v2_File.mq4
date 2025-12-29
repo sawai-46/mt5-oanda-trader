@@ -72,10 +72,10 @@ input double RiskPercent = 1.0;         // リスク率(%)
 input double BaseLotSize = 0.1;         // 基本ロット（基準）
 input double MaxLotSize = 1.0;          // 最大ロットサイズ（上限）
 input bool   EnableLotAdjustment = true; // ロット自動調整有効化
-input int    MaxSlippagePoints = 3;     // 最大スリッページ(MT4 points) ※4桁FXではpipsと同値、5桁FXでは10 points = 1 pip
+input int    MaxSlippagePoints = 3;     // 最大スリッページ(points) ※FX推奨値
 input double MaxSpreadPips = 3.0;       // 最大スプレッド(pips) ※FX推奨値
-input int    DefaultSLPoints = 20;      // デフォルトSL(MT4 points) ※4桁FXではpipsと同値、5桁FXでは10 points = 1 pip
-input int    DefaultTPPoints = 40;      // デフォルトTP(MT4 points) ※4桁FXではpipsと同値、5桁FXでは10 points = 1 pip
+input int    DefaultSLPoints = 20;      // デフォルトSL(points) ※FX推奨値
+input int    DefaultTPPoints = 40;      // デフォルトTP(points) ※FX推奨値
 input bool   AutoMagicNumber = true;    // マジックナンバー自動生成
 input int    MagicNumber = 20250124;    // マジックナンバー（自動生成時は無視）
 
@@ -1029,7 +1029,7 @@ void InitializePipValue()
    // 指数系（JP225, DAX等）: 価格が1000以上
    if(current_price >= 1000)
    {
-      g_pipValue = 1.0;  // 価格差の表示単位=1.0（指数/CFD向けの換算用）
+      g_pipValue = 1.0;  // 1 point = 1円/ポイント
    }
    // FX通貨ペア: Digits 3/5桁
    else if(Digits == 3 || Digits == 5)

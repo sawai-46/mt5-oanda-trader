@@ -157,8 +157,8 @@ input int    Auto_Detection_Period = 5;          // 異常検知期間（バー�
 //--- エントリートリガー設定
 input bool   Use_Immediate_Entry = true;         // 即座エントリー（プルバック検出足の高値/安値ブレイク）
 input bool   Use_Confirmation_Bar = false;       // 確認足使用（次の足を待つ）
-input double Confirmation_Bar_Min_Size = 50.0;    // 確認足最小サイズ（指数ポイント/価格差）
-input double Confirmation_Bar_Max_Size = 200.0;   // 確認足最大サイズ（指数ポイント/価格差、0=無制限）
+input double Confirmation_Bar_Min_Size = 50.0;    // 確認足最小サイズ(Points)
+input double Confirmation_Bar_Max_Size = 200.0;   // 確認足最大サイズ(Points、0=無制限)
 
 //--- ローソク足条件
 input bool   Require_Bullish_Candle_Long = true;    // ロング時に陽線必須
@@ -188,14 +188,14 @@ input bool   BB_Use_EMA_Middle = true;           // BBミドルラインをEMA�
 input int    Entry_Confirmations = 2;            // 必要な補助条件数(0-6)
 
 //--- エントリー基本設定
-input double Entry_Buffer_Points = 20.0;            // ブレイクバッファ（指数ポイント/価格差）
-input double Max_Slippage_Pips = 50.0;              // 最大スリッページ（指数ポイント/価格差） ※推奨
-input int    Max_Slippage_Points = 0;               // 最大スリッページ（MT4 points） ※互換用、0=Max_Slippage_Pips使用
-input double Max_Spread_Points = 20.0;             // 最大スプレッド（指数ポイント/価格差） ※通常5-10指数ポイント程度
+input double Entry_Buffer_Points = 20.0;            // ブレイクバッファ(Points)
+input double Max_Slippage_Pips = 50.0;              // 最大スリッページ(ドル) ※推奨
+input int    Max_Slippage_Points = 0;               // 最大スリッページ(Points) ※互換用、0=Pips使用
+input double Max_Spread_Points = 20.0;             // 最大スプレッド(ドル) ※通常5-10ドル
 
 //--- ATR設定
 input int    ATR_Period = 14;                    // ATR期間
-input double ATR_Threshold_Points = 30.0;        // ATR最低値（指数ポイント/価格差） ※US Index推奨値
+input double ATR_Threshold_Points = 30.0;        // ATR最低値(Points) ※US Index推奨値
 
 //--- 相場環境フィルター（レンジ相場回避）
 input bool   Use_ADX_Filter = true;              // ADXフィルター使用
@@ -204,14 +204,14 @@ input double ADX_Min_Level = 20.0;               // ADX最低値（20以下=レ�
 input double Max_Spread_Multiplier = 3.0;        // 通常スプレッドの何倍まで許容
 input bool   Use_Channel_Width_Filter = true;    // チャネル幅フィルター使用
 input int    Channel_Width_Period = 20;          // チャネル幅計算期間
-input double Min_Channel_Width_Points = 100.0;   // 最低チャネル幅（指数ポイント/価格差） ※US Index推奨値
+input double Min_Channel_Width_Points = 100.0;   // 最低チャネル幅（Points） ※US Index推奨値
 
 //--- SL/TP設定
 input bool   Use_StopLoss = true;                // SL使用
 input bool   Use_TakeProfit = true;              // TP使用
 input SLTPMode SLTP_Mode = SLTP_FIXED;           // SLTP モード
-input double StopLoss_Fixed_Points = 100.0;         // 固定SL（指数ポイント） ※US Index推奨値
-input double TakeProfit_Fixed_Points = 200.0;       // 固定TP（指数ポイント） ※US Index推奨値
+input double StopLoss_Fixed_Points = 100.0;         // 固定SL(Points) ※US Index推奨値
+input double TakeProfit_Fixed_Points = 200.0;       // 固定TP(Points) ※US Index推奨値
 input double StopLoss_ATR_Multi = 1.5;           // SL用ATR倍率
 input double TakeProfit_ATR_Multi = 2.0;         // TP用ATR倍率
 
@@ -220,16 +220,16 @@ input bool   EnablePartialClose = false;         // 段階的利確有効化
 input int    PartialCloseLevels = 2;             // 利確レベル数(1, 2, 3)
 input bool   UseTPForFinalLevel = true;          // 最終レベルをMT4のTPとして設定
 input double PartialClosePercent1 = 50.0;        // 第1利確割合(%)
-input double PartialCloseLevel1_Points = 50.0;      // 第1利確レベル（指数ポイント） ※US Index推奨値
+input double PartialCloseLevel1_Points = 50.0;      // 第1利確レベル(Points) ※US Index推奨値
 input double PartialClosePercent2 = 50.0;        // 第2利確割合(%)
-input double PartialCloseLevel2_Points = 100.0;     // 第2利確レベル（指数ポイント） ※US Index推奨値
+input double PartialCloseLevel2_Points = 100.0;     // 第2利確レベル(Points) ※US Index推奨値
 input double PartialClosePercent3 = 0.0;         // 第3利確割合(%)
-input double PartialCloseLevel3_Points = 150.0;     // 第3利確レベル（指数ポイント） ※US Index推奨値
+input double PartialCloseLevel3_Points = 150.0;     // 第3利確レベル(Points) ※US Index推奨値
 
 //--- 建値移動設定
 input bool   MoveToBreakevenOnPartial1 = true;   // 第1利確でSLを建値へ
 input bool   MoveToTP1OnPartial2 = false;        // 第2利確でSLを第1利確価格へ
-input double BreakevenOffset_Points = 20.0;         // 建値オフセット（指数ポイント） ※US Index推奨値
+input double BreakevenOffset_Points = 20.0;         // 建値オフセット(Points) ※US Index推奨値
 
 //--- トレーリングストップ設定
 input bool   EnableTrailingAfterTP2 = false;     // 第2利確後トレーリング
@@ -237,13 +237,13 @@ input TrailingMode Trailing_Mode = TRAILING_ATR; // トレーリングモード
 input double TrailingStop_Fixed_Points = 50.0;      // 固定ポイント幅 ※US Index推奨値
 input double TrailingStop_ATR_Multi = 1.0;       // ATR倍率
 input int    Trailing_ATR_Period = 14;           // トレーリング用ATR期間
-input double TrailingUpdate_Step_Points = 20.0;     // 更新ステップ（指数ポイント） ※US Index推奨値
+input double TrailingUpdate_Step_Points = 20.0;     // 更新ステップ(Points) ※US Index推奨値
 
 //--- トレンドライン/チャネル設定
 input TrendlineChannelMode TL_Channel_Mode = MODE_DISABLED;  // モード選択
 input string TL_Upper_Name = "TL_Upper";         // 上限ライン名（チャネル上限/下降トレンドライン）
 input string TL_Lower_Name = "TL_Lower";         // 下限ライン名（チャネル下限/上昇トレンドライン）
-input double TL_Touch_Buffer_Points = 20.0;      // タッチ判定バッファ（指数ポイント/価格差）
+input double TL_Touch_Buffer_Points = 20.0;      // タッチ判定バッファ(Points)
 input bool   TL_Use_Touch = true;                // タッチパターン
 input bool   TL_Use_Cross = true;                // クロスパターン
 input bool   TL_Use_Break = false;               // ブレイクパターン
@@ -260,7 +260,7 @@ input double PA_Pinbar_Opposite_Shadow_Ratio = 0.5; // 反対側影/実体比率
 input bool   Use_RoundNumber_Lines = false;      // ラウンドナンバーライン使用
 input bool   RN_Use_00_Line = true;              // 000/500ライン使用
 input bool   RN_Use_50_Line = true;              // 250/750ライン使用（オプション）
-input double RN_Touch_Buffer_Points = 30.0;      // タッチ判定バッファ（指数ポイント/価格差）
+input double RN_Touch_Buffer_Points = 30.0;      // タッチ判定バッファ(Points)
 input bool   RN_Use_Touch = true;                // タッチパターン
 input bool   RN_Use_Cross = true;                // クロスパターン
 input bool   RN_Use_Break = false;               // ブレイクパターン
@@ -270,7 +270,7 @@ input int    RN_Digit_Level = 0;                 // 桁数レベル（0=39000, 1
 
 //--- ラウンドナンバー付近エントリー回避設定
 input bool   RN_Avoid_Entry_Near = false;        // 1000/500付近でのエントリー回避
-input double RN_Avoid_Buffer_Points = 50.0;      // 回避範囲（指数ポイント/価格差） ※プルバックタッチ時は除外
+input double RN_Avoid_Buffer_Points = 50.0;      // 回避範囲(Points) ※プルバックタッチ時は除外
 
 //--- マルチレイヤー設定
 input bool   ML_Require_EMA = true;              // EMAレイヤー必須
@@ -281,12 +281,12 @@ input bool   ML_Bonus_Multi_Layer = true;        // 複数レイヤー一致時�
 
 //--- AI対応設定（GPU不要、軽量アルゴリズム）
 input bool   Use_Micro_Volatility_Filter = false; // マイクロボラティリティフィルター（HFTノイズ除外）
-input double Min_Bar_Range_Pips = 30.0;          // 最小バーサイズ（指数ポイント/価格差） - これ未満はノイズ
+input double Min_Bar_Range_Pips = 30.0;          // 最小バーサイズ(Points) - これ未満はノイズ
 input int    Noise_Detection_Period = 10;       // ノイズ検出期間(バー数)
 input double Noise_Ratio_Threshold = 0.6;       // ノイズ比率閾値(0.0-1.0)
 
 input bool   Use_Algo_Price_Levels = false;     // アルゴ価格レベル検出
-input double Algo_Price_Clustering = 50.0;      // 価格集中度（指数ポイント/価格差） - アルゴ反応範囲
+input double Algo_Price_Clustering = 50.0;      // 価格集中度(Points) - アルゴ反応範囲
 input bool   Use_Quarter_Levels = true;         // 0.25刻みレベル使用（AIの好む価格帯）
 
 input bool   Use_OrderFlow_Detection = false;   // オーダーフロー検出（ティックボリューム分析）
@@ -442,14 +442,14 @@ double g_RN_Avoid_Buffer_Points;
 // AI対応用グローバル変数
 bool g_Use_Micro_Volatility_Filter;
 double g_Min_Bar_Range_Pips;
-double g_Min_Bar_Range_Points;  // 指数ポイント/価格単位
+double g_Min_Bar_Range_Points;  // 日経225版用（Points単位）
 int g_Noise_Detection_Period;
 
-// スリッページ変換関数（指数ポイント/価格差 → MT4 points）
+// スリッページ変換関数（ドルからpointsへ）
 int EffectiveSlippagePoints(){
-   // Max_Slippage_Pips（指数ポイント/価格差）が0より大きければ優先使用
+   // Max_Slippage_Pips（ドル）が0より大きければ優先使用
    if(Max_Slippage_Pips > 0.0){
-      // US Index例: 1.00（指数ポイント）= 100 MT4 points（Point=0.01 の場合）
+      // US Index: 1ドル = 100 points (Point = 0.01)
       return (int)MathRound(Max_Slippage_Pips * 1.0 / Point);
    }
    // 互換用: Max_Slippage_Pointsをそのまま使用
@@ -493,7 +493,7 @@ bool is_pullback_long = false;
 bool confirmation_bar_validated = false;  // 確認足が条件を満たしたか
 
 // AI対応関数群をインクルード（グローバル変数宣言後）
-// ※Nikkei版を流用（指数ポイント/価格単位のためUS Indexでも動作）
+// ※Nikkei版を流用（Points単位のためUS Indexでも動作）
 #include "EA_AI_Functions_Nikkei.mqh"
 
 //+------------------------------------------------------------------+
@@ -562,23 +562,23 @@ void ApplySymbolDefaults()
    if(g_indexType == INDEX_US30)
    {
       Print("=== US30推奨設定 ===");
-      Print("  SL: 100-150 指数ポイント, TP: 200-300 指数ポイント");
-      Print("  ATR閾値: 30-50 指数ポイント");
+      Print("  SL: 100-150 points, TP: 200-300 points");
+      Print("  ATR閾値: 30-50 points");
       Print("  最小ロット: 0.01");
    }
    else if(g_indexType == INDEX_US500)
    {
       Print("=== US500推奨設定 ===");
-      Print("  SL: 30-50 指数ポイント, TP: 60-100 指数ポイント");
-      Print("  ATR閾値: 15-30 指数ポイント");
+      Print("  SL: 30-50 points, TP: 60-100 points");
+      Print("  ATR閾値: 15-30 points");
       Print("  最小ロット: 0.1");
       Print("  ※現在の設定はUS30向けです。US500ではパラメータ調整を推奨します。");
    }
    else if(g_indexType == INDEX_NQ100)
    {
       Print("=== NQ100推奨設定 ===");
-      Print("  SL: 50-100 指数ポイント, TP: 100-200 指数ポイント");
-      Print("  ATR閾値: 20-40 指数ポイント");
+      Print("  SL: 50-100 points, TP: 100-200 points");
+      Print("  ATR閾値: 20-40 points");
       Print("  最小ロット: 0.01");
       Print("  ※現在の設定はUS30向けです。NQ100ではパラメータ調整を推奨します。");
    }
@@ -681,8 +681,7 @@ int OnInit()
    
    // 初期ATR確認
    double init_atr = iATR(Symbol(), 0, ATR_Period, 1);
-   double init_atr_price = init_atr;
-   double init_atr_mt4pt = (Point > 0.0) ? (init_atr_price / Point) : 0.0;
+   double init_atr_Points = init_atr / 1.0;
    
    Print("===== EA_PullbackEntry (US Index) 初期化完了 =====");
    Print("対応銘柄: ", GetIndexName());
@@ -695,14 +694,8 @@ int OnInit()
    Print("EMAクロス: ", Use_Cross_Pullback);
    Print("EMA完全ブレイク: ", g_Use_Break_Pullback);
    Print("ATR期間: ", ATR_Period);
-   // g_ATR_Threshold_Points は「価格差（指数ポイント/price units）」として扱う（従来挙動を維持）
-   if (Point > 0.0) {
-      Print("ATR閾値設定: ", DoubleToString(g_ATR_Threshold_Points, 2), " (price units) / ", DoubleToString(g_ATR_Threshold_Points / Point, 0), " (MT4 points)");
-      Print("現在のATR: ", DoubleToString(init_atr_price, Digits), " (price units) / ", DoubleToString(init_atr_mt4pt, 0), " (MT4 points)");
-   } else {
-      Print("ATR閾値設定: ", DoubleToString(g_ATR_Threshold_Points, 2), " (price units)");
-      Print("現在のATR: ", DoubleToString(init_atr_price, Digits), " (price units)");
-   }
+   Print("ATR閾値設定: ", g_ATR_Threshold_Points, " Points");
+   Print("現在のATR: ", DoubleToString(init_atr, Digits), " (", DoubleToString(init_atr_Points, 2), " Points)");
    
    // 補助条件情報
    Print("===== 補助条件設定 =====");
@@ -856,36 +849,29 @@ void CheckForPullbackEntry()
    // 1.5 TradeOptimizer推奨時間帯チェック（オプトイン時のみ）
    // サービス削除済み - スキップ
    
-   // 2. スプレッドチェック（価格差=指数ポイント/価格単位）
-   double current_spread = Ask - Bid;  // 価格差（指数ポイント/価格単位）
+   // 2. スプレッドチェック（日経225: 1ポイント=1円なので直接計算）
+   double current_spread = Ask - Bid;  // 日経225では直接差分がポイント値
    double normal_spread = MarketInfo(Symbol(), MODE_SPREAD) * Point;  // MODE_SPREADはポイント数を返す
    if (normal_spread <= 0) normal_spread = 20.0; // ブローカー情報が無い場合のフォールバック
    
    if (current_spread > Max_Spread_Points) {
-      LogSkipReason("スプレッド過大: " + DoubleToString(current_spread, 1) + " 指数ポイント");
+      LogSkipReason("スプレッド過大: " + DoubleToString(current_spread, 1) + " Points");
       return;
    }
    
    // 3. スプレッド異常検出
    if (current_spread > normal_spread * Max_Spread_Multiplier) {
-      LogSkipReason("スプレッド異常: " + DoubleToString(current_spread, 1) + " 指数ポイント > " + DoubleToString(normal_spread * Max_Spread_Multiplier, 1) + " 指数ポイント");
+      LogSkipReason("スプレッド異常: " + DoubleToString(current_spread, 1) + " Points > " + DoubleToString(normal_spread * Max_Spread_Multiplier, 1) + " Points");
       return;
    }
    
-   // 4. ATRチェック（比較は price units で行う）
-   double atr_price = current_atr;
-   double atr_mt4pt = (Point > 0.0) ? (atr_price / Point) : 0.0;
+   // 4. ATRチェック
+   double atr_Points = current_atr / 1.0;
    if (EnableDebugLog) {
-      if (Point > 0.0)
-         Print("ATRチェック: 現在=", DoubleToString(atr_price, Digits), " (price units) / ", DoubleToString(atr_mt4pt, 0), " MT4pt, 閾値=", DoubleToString(g_ATR_Threshold_Points, 2), " (price units) / ", DoubleToString(g_ATR_Threshold_Points / Point, 0), " MT4pt");
-      else
-         Print("ATRチェック: 現在=", DoubleToString(atr_price, Digits), " (price units), 閾値=", DoubleToString(g_ATR_Threshold_Points, 2), " (price units)");
+      Print("ATRチェック: 現在=", DoubleToString(atr_Points, 2), " Points, 閾値=", g_ATR_Threshold_Points, " Points");
    }
-   if (atr_price < g_ATR_Threshold_Points) {
-      if (Point > 0.0)
-         LogSkipReason("ATR不足: " + DoubleToString(atr_price, Digits) + " (price) / " + DoubleToString(atr_mt4pt, 0) + " MT4pt < " + DoubleToString(g_ATR_Threshold_Points, 2) + " (price) / " + DoubleToString(g_ATR_Threshold_Points / Point, 0) + " MT4pt");
-      else
-         LogSkipReason("ATR不足: " + DoubleToString(atr_price, Digits) + " < " + DoubleToString(g_ATR_Threshold_Points, 2));
+   if (atr_Points < g_ATR_Threshold_Points) {
+      LogSkipReason("ATR不足: " + DoubleToString(atr_Points, 2) + " Points < " + DoubleToString(g_ATR_Threshold_Points, 1) + " Points");
       return;
    }
    
@@ -910,19 +896,19 @@ void CheckForPullbackEntry()
    if (g_Use_Channel_Width_Filter) {
       double highest = iHigh(Symbol(), 0, iHighest(Symbol(), 0, MODE_HIGH, Channel_Width_Period, 1));
       double lowest = iLow(Symbol(), 0, iLowest(Symbol(), 0, MODE_LOW, Channel_Width_Period, 1));
-      double channel_width = (highest - lowest) / 1.0; // 指数ポイント/価格単位
+      double channel_width = (highest - lowest) / 1.0; // Points
       
       if (EnableDebugLog) {
-         Print("チャネル幅チェック: 現在=", DoubleToString(channel_width, 2), " 指数ポイント, 最低値=", g_Min_Channel_Width_Points, " 指数ポイント (過去", Channel_Width_Period, "本)");
+         Print("チャネル幅チェック: 現在=", DoubleToString(channel_width, 2), " Points, 最低値=", g_Min_Channel_Width_Points, " Points (過去", Channel_Width_Period, "本)");
       }
       
       if (channel_width < g_Min_Channel_Width_Points) {
-         LogSkipReason("チャネル幅不足（狭いチャネル）: " + DoubleToString(channel_width, 1) + " 指数ポイント < " + DoubleToString(g_Min_Channel_Width_Points, 1) + " 指数ポイント");
+         LogSkipReason("チャネル幅不足（狭いチャネル）: " + DoubleToString(channel_width, 1) + " Points < " + DoubleToString(g_Min_Channel_Width_Points, 1) + " Points");
          return;
       }
       
       if (EnableDebugLog) {
-         Print("チャネル幅合格: ", DoubleToString(channel_width, 2), " 指数ポイント >= ", g_Min_Channel_Width_Points, " 指数ポイント → 十分な値幅");
+         Print("チャネル幅合格: ", DoubleToString(channel_width, 2), " Points >= ", g_Min_Channel_Width_Points, " Points → 十分な値幅");
       }
    }
    
@@ -1065,12 +1051,12 @@ void CheckConfirmationBarEntry()
    double bar_size_Points = (bar_high - bar_low) / 1.0;
    
    if (EnableDebugLog) {
-      Print("確認足チェック: サイズ=", DoubleToString(bar_size_Points, 1), " 指数ポイント, 最小=", g_Confirmation_Bar_Min_Size, " 指数ポイント, 最大=", g_Confirmation_Bar_Max_Size, " 指数ポイント");
+      Print("確認足チェック: サイズ=", DoubleToString(bar_size_Points, 1), " Points, 最小=", g_Confirmation_Bar_Min_Size, " Points, 最大=", g_Confirmation_Bar_Max_Size, " Points");
    }
    
    if (bar_size_Points < g_Confirmation_Bar_Min_Size) {
       if (EnableDebugLog) {
-         Print("確認足サイズ不足: ", DoubleToString(bar_size_Points, 1), " 指数ポイント < ", g_Confirmation_Bar_Min_Size, " 指数ポイント");
+         Print("確認足サイズ不足: ", DoubleToString(bar_size_Points, 1), " Points < ", g_Confirmation_Bar_Min_Size, " Points");
       }
       pullback_detected = false;
       confirmation_bar_validated = false;
@@ -1079,7 +1065,7 @@ void CheckConfirmationBarEntry()
    
    if (g_Confirmation_Bar_Max_Size > 0 && bar_size_Points > g_Confirmation_Bar_Max_Size) {
       if (EnableDebugLog) {
-         Print("確認足サイズ過大: ", DoubleToString(bar_size_Points, 1), " 指数ポイント > ", g_Confirmation_Bar_Max_Size, " 指数ポイント");
+         Print("確認足サイズ過大: ", DoubleToString(bar_size_Points, 1), " Points > ", g_Confirmation_Bar_Max_Size, " Points");
       }
       pullback_detected = false;
       confirmation_bar_validated = false;
@@ -1099,7 +1085,7 @@ void CheckConfirmationBarEntry()
    confirmation_bar_validated = true;
    
    if (EnableDebugLog) {
-      Print(">>> 確認足OK: サイズ=", DoubleToString(bar_size_Points, 1), " 指数ポイント, エントリーレベル=", DoubleToString(pullback_entry_level, Digits));
+      Print(">>> 確認足OK: サイズ=", DoubleToString(bar_size_Points, 1), " Points, エントリーレベル=", DoubleToString(pullback_entry_level, Digits));
    }
 }
 
@@ -1453,7 +1439,7 @@ bool CheckCandleCondition(bool is_long)
 }
 
 //+------------------------------------------------------------------+
-//| ラウンドナンバー付近チェック                                      |
+//| ラウンドナンバー付近チェック（日経225版）                          |
 //| 戻り値: true=付近にいる（エントリー回避すべき）                    |
 //|        false=付近にいない（エントリーOK）                         |
 //+------------------------------------------------------------------+
@@ -1470,7 +1456,7 @@ bool IsNearRoundNumber(double price)
          if (EnableDebugLog) {
             Print(">>> 1000ライン付近検出: 価格=", DoubleToString(price, 0), 
                   " RN=", DoubleToString(rn_00, 0),
-                  " 距離=", DoubleToString(MathAbs(price - rn_00), 0), " 指数ポイント");
+                  " 距離=", DoubleToString(MathAbs(price - rn_00), 0), "points");
          }
          return true;  // 付近にいる
       }
@@ -1483,7 +1469,7 @@ bool IsNearRoundNumber(double price)
          if (EnableDebugLog) {
             Print(">>> 500ライン付近検出: 価格=", DoubleToString(price, 0), 
                   " RN=", DoubleToString(rn_50, 0),
-                  " 距離=", DoubleToString(MathAbs(price - rn_50), 0), " 指数ポイント");
+                  " 距離=", DoubleToString(MathAbs(price - rn_50), 0), "points");
          }
          return true;  // 付近にいる
       }
@@ -2030,7 +2016,7 @@ bool ShouldActivateStrongTrendMode()
 {
    if (!g_Auto_Strong_Trend_Mode) return g_Use_Strong_Trend_Mode;  // 手動設定を返す
    
-   // 1. ATRスパイク検知（指数ポイント/価格単位）
+   // 1. ATRスパイク検知（日経225版はPoints単位）
    double current_atr_value = iATR(Symbol(), 0, 14, 1);
    double baseline_atr = 0;
    for (int i = 2; i <= g_Auto_Detection_Period + 1; i++) {
@@ -2270,8 +2256,8 @@ void ApplyStrategyPreset()
          g_Use_Break_Pullback = false;
          Print("========================================");
          Print("戦略: 標準型（M15推奨）");
-         Print("SL: 180 指数ポイント / TP: 450 指数ポイント");
-         Print("ADX >= 20.0、チャネル >= 100 指数ポイント、ATR >= 70 指数ポイント");
+         Print("SL: 180 Points / TP: 450 Points");
+         Print("ADX >= 20.0、チャネル >= 100 Points、ATR >= 70 Points");
          Print("→ バランス重視、初心者推奨");
          Print("★ AI機能: inputパラメータでON/OFF可能");
          if (g_Use_Micro_Volatility_Filter) Print("  - HFTノイズ除外: ON");
@@ -2319,8 +2305,8 @@ void ApplyStrategyPreset()
          g_Use_Break_Pullback = false;
          Print("========================================");
          Print("戦略: 保守型（M30推奨）");
-         Print("SL: 220 指数ポイント / TP: 550 指数ポイント");
-         Print("ADX >= 25.0、チャネル >= 150 指数ポイント、ATR >= 75 指数ポイント");
+         Print("SL: 220 Points / TP: 550 Points");
+         Print("ADX >= 25.0、チャネル >= 150 Points、ATR >= 75 Points");
          Print("→ 質重視、勝率優先");
          Print("★ AI機能: inputパラメータでON/OFF可能");
          if (g_Use_Micro_Volatility_Filter) Print("  - HFTノイズ除外: ON");
@@ -2365,8 +2351,8 @@ void ApplyStrategyPreset()
          g_Use_Break_Pullback = true;
          Print("========================================");
          Print("戦略: 積極型（M5推奨）");
-         Print("SL: 150 指数ポイント / TP: 350 指数ポイント");
-         Print("環境フィルター最小（ATR >= 25 指数ポイントのみ）");
+         Print("SL: 150 Points / TP: 350 Points");
+         Print("環境フィルター最小（ATR >= 25 Pointsのみ）");
          Print("→ 取引回数最大化、量重視");
          Print("★ AI機能: inputパラメータでON/OFF可能");
          if (g_Use_Micro_Volatility_Filter) Print("  - HFTノイズ除外: ON");
@@ -2423,7 +2409,7 @@ void ApplyStrategyPreset()
          g_Use_Break_Pullback = false;
          Print("========================================");
          Print("戦略: AI適応型（M5推奨）");
-         Print("SL: 120 指数ポイント / TP: 300 指数ポイント");
+         Print("SL: 120 Points / TP: 300 Points");
          Print("★ HFTノイズ除外 + アルゴ価格レベル検出");
          Print("★ オーダーフロー分析 + 0.25刻みレベル");
          Print("→ AI時代対応、GPU不要の軽量アルゴリズム");
@@ -2479,7 +2465,7 @@ void ApplyStrategyPreset()
          g_Use_Break_Pullback = true;
          Print("========================================");
          Print("戦略: AIスカウト型（実験モード）");
-         Print("SL: 150 指数ポイント / TP: 350 指数ポイント");
+         Print("SL: 150 Points / TP: 350 Points");
          Print("★ DLL推論EA用データ収集モード");
          Print("★ 全パターン記録 + 統計分析");
          Print("→ 学習データをCSV出力（" + g_AI_Learning_LogFile + "）");
@@ -2508,8 +2494,8 @@ void ApplyStrategyPreset()
          g_Require_Perfect_Order = true;
          Print("========================================");
          Print("戦略: バランス型（段階利確）");
-         Print("SL: 150 指数ポイント / TP: 500 指数ポイント");
-         Print("段階利確: 150指数ポイント@50% → 500指数ポイント@50%");
+         Print("SL: 150 points / TP: 500 points");
+         Print("段階利確: 150points@50% → 500points@50%");
          Print("トレーリング有効");
          Print("========================================");
          break;
@@ -2531,7 +2517,7 @@ void ApplyStrategyPreset()
          g_EnableTrailingAfterTP2 = false;
          Print("========================================");
          Print("戦略: 高精度型（厳格化）");
-         Print("SL: 200 指数ポイント / TP: 600 指数ポイント (1:3)");
+         Print("SL: 200 points / TP: 600 points (1:3)");
          Print("補助条件: 3つ必須");
          Print("MTFフィルター: H1 + H4");
          Print("実体比率: 60%以上");
@@ -2559,8 +2545,8 @@ void ApplyStrategyPreset()
          g_EnableTrailingAfterTP2 = false;
          Print("========================================");
          Print("戦略: スキャルピング型");
-         Print("SL: 80 指数ポイント / TP: 120 指数ポイント (1:1.5)");
-         Print("段階利確: 80指数ポイント@70% → 200指数ポイント@30%");
+         Print("SL: 80 points / TP: 120 points (1:1.5)");
+         Print("段階利確: 80points@70% → 200points@30%");
          Print("補助条件: 1つのみ");
          Print("即座エントリー");
          Print("========================================");
@@ -2593,8 +2579,8 @@ void ApplyStrategyPreset()
          g_Require_Perfect_Order = true;
          Print("========================================");
          Print("戦略: トレンド継続型");
-         Print("SL: 150 指数ポイント / TP: 450 指数ポイント (1:3)");
-         Print("段階利確: 200指数ポイント@30% → 400指数ポイント@40% → 残り30%トレーリング");
+         Print("SL: 150 points / TP: 450 points (1:3)");
+         Print("段階利確: 200points@30% → 400points@40% → 残り30%トレーリング");
          Print("トレーリング: ATR 1.5倍");
          Print("確認足必須、実体比率65%");
          Print("========================================");
@@ -2632,8 +2618,8 @@ void ApplyStrategyPreset()
          g_EMA_Min_Slope_Slow = 0.0;
          Print("========================================");
          Print("戦略: トレンド継続型V2（改良版）");
-         Print("SL: 180 指数ポイント / TP: 540 指数ポイント (1:3)");
-         Print("段階利確: 250指数ポイント@25% → 450指数ポイント@35% → 残り40%ATRトレーリング");
+         Print("SL: 180 points / TP: 540 points (1:3)");
+         Print("段階利確: 250points@25% → 450points@35% → 残り40%ATRトレーリング");
          Print("トレーリング: ATR 2.0倍（利益最大化）");
          Print("MTFフィルター: H1（Perfect Order不要）");
          Print("補助条件: 1つ（緩和）");
@@ -2657,8 +2643,8 @@ void ApplyStrategyPreset()
          g_BreakevenOffset_Points = 20.0;
          g_EnableTrailingAfterTP2 = true;
          g_Trailing_Mode = TRAILING_ATR;              // ATRトレーリングに変更
-         g_TrailingStop_ATR_Multi = 2.0;              // ATR 2.0倍（バランス型は固定12指数ポイント）
-         g_TrailingUpdate_Step_Points = 30.0;            // 更新ステップ5指数ポイント
+         g_TrailingStop_ATR_Multi = 2.0;              // ATR 2.0倍（バランス型は固定12Points）
+         g_TrailingUpdate_Step_Points = 30.0;            // 更新ステップ5Points
          g_Entry_Confirmations = 2;
          g_Min_Candle_Body_Percent = 50.0;
          g_Use_MTF_Filter1 = false;
@@ -2673,8 +2659,8 @@ void ApplyStrategyPreset()
          g_EMA_Min_Slope_Slow = 0.0;
          Print("========================================");
          Print("戦略: トレンド継続型V3（バランス型ベース）");
-         Print("SL: 150 指数ポイント / TP: 500 指数ポイント");
-         Print("段階利確: 150指数ポイント@50% → 500指数ポイント@50%");
+         Print("SL: 150 points / TP: 500 points");
+         Print("段階利確: 150points@50% → 500points@50%");
          Print("トレーリング: ATR 2.0倍（大トレンドで利益最大化）");
          Print("補助条件: 2つ（バランス型と同じ）");
          Print("※ M30での運用を推奨");
@@ -2703,8 +2689,8 @@ void ApplyStrategyPreset()
          g_EnableTrailingAfterTP2 = false;
          Print("========================================");
          Print("戦略: ハイブリッド型（レンジ対応）");
-         Print("SL: 120 指数ポイント / TP: 240 指数ポイント (1:2)");
-         Print("段階利確: 120指数ポイント@60%");
+         Print("SL: 120 points / TP: 240 points (1:2)");
+         Print("段階利確: 120points@60%");
          Print("パーフェクトオーダー不要");
          Print("失敗ブレイク重視");
          Print("========================================");
@@ -2746,8 +2732,8 @@ void ApplyStrategyPreset()
          g_Use_Confirmation_Bar = false;
          Print("========================================");
          Print("戦略: トレンドライン順張り型");
-         Print("SL: 180 指数ポイント / TP: 450 指数ポイント (1:2.5)");
-         Print("段階利確: 180指数ポイント@40% → 450指数ポイント@60%");
+         Print("SL: 180 points / TP: 450 points (1:2.5)");
+         Print("段階利確: 180points@40% → 450points@60%");
          Print("トレーリング: ATR 2.0倍");
          Print("手動トレンドライン使用（TL_Upper/TL_Lower）");
          Print("タッチ・クロスでエントリー");
@@ -2789,8 +2775,8 @@ void ApplyStrategyPreset()
          g_Use_Confirmation_Bar = false;
          Print("========================================");
          Print("戦略: チャネル逆張り型");
-         Print("SL: 150 指数ポイント / TP: 300 指数ポイント (1:2)");
-         Print("段階利確: 150指数ポイント@60% → 300指数ポイント@40%");
+         Print("SL: 150 points / TP: 300 points (1:2)");
+         Print("段階利確: 150points@60% → 300points@40%");
          Print("手動チャネルライン使用（TL_Upper/TL_Lower）");
          Print("タッチでエントリー + プライスアクション反転必須");
          Print("ピンバー・エンゴルフィング検出");
@@ -2851,9 +2837,9 @@ void ApplyStrategyPreset()
          g_Use_Break_Pullback = false;
          Print("========================================");
          Print("戦略: マルチレイヤー型（EMA + ラウンドナンバー）");
-         Print("SL: 150 指数ポイント / TP: 400 指数ポイント");
-         Print("段階利確: 150指数ポイント@50% → 400指数ポイント@50%");
-         Print("トレーリング: 固定120 指数ポイント");
+         Print("SL: 150 points / TP: 400 points");
+         Print("段階利確: 150points@50% → 400points@50%");
+         Print("トレーリング: 固定120 points");
          Print("マルチレイヤー検出: 2レイヤー推奨（柔軟）");
          Print("EMA/ラウンドナンバー/トレンドラインのいずれか2つ一致");
          Print("補助条件: 不要（マルチレイヤーで十分）");
@@ -2894,10 +2880,10 @@ void ApplyStrategyPreset()
          g_Use_Break_Pullback = false;
          Print("========================================");
          Print("戦略: 環境フィルター厳格型");
-         Print("SL: 120 指数ポイント / TP: 360 指数ポイント (1:3)");
+         Print("SL: 120 points / TP: 360 points (1:3)");
          Print("ADX >= 30.0（強トレンド）");
-         Print("チャネル幅 >= 200 指数ポイント（広い値幅）");
-         Print("ATR >= 80 指数ポイント（高ボラティリティ）");
+         Print("チャネル幅 >= 200 Points（広い値幅）");
+         Print("ATR >= 80 Points（高ボラティリティ）");
          Print("→ HFTノイズ・狭小レンジを完全除外");
          Print("========================================");
          break;
@@ -2936,10 +2922,10 @@ void ApplyStrategyPreset()
          g_Use_Break_Pullback = false;
          Print("========================================");
          Print("戦略: 環境フィルター標準型");
-         Print("SL: 150 指数ポイント / TP: 400 指数ポイント");
+         Print("SL: 150 points / TP: 400 points");
          Print("ADX >= 25.0（標準トレンド）");
-         Print("チャネル幅 >= 150 指数ポイント（標準値幅）");
-         Print("ATR >= 60 指数ポイント（標準ボラティリティ）");
+         Print("チャネル幅 >= 150 Points（標準値幅）");
+         Print("ATR >= 60 Points（標準ボラティリティ）");
          Print("→ バランスの取れたフィルタリング");
          Print("========================================");
          break;
@@ -2979,10 +2965,10 @@ void ApplyStrategyPreset()
          g_Use_Break_Pullback = false;
          Print("========================================");
          Print("戦略: 環境フィルター緩和型");
-         Print("SL: 180 指数ポイント / TP: 450 指数ポイント");
+         Print("SL: 180 points / TP: 450 points");
          Print("ADX >= 20.0（緩いトレンド）");
-         Print("チャネル幅 >= 100 指数ポイント（狭めでもOK）");
-         Print("ATR >= 50 指数ポイント（低ボラでもOK）");
+         Print("チャネル幅 >= 100 Points（狭めでもOK）");
+         Print("ATR >= 50 Points（低ボラでもOK）");
          Print("→ エントリー機会を確保しつつフィルタリング");
          Print("========================================");
          break;
@@ -3022,10 +3008,10 @@ void ApplyStrategyPreset()
          g_Use_Break_Pullback = false;
          Print("========================================");
          Print("戦略: 環境フィルター最適化型");
-         Print("SL: 180 指数ポイント / TP: 450 指数ポイント");
+         Print("SL: 180 points / TP: 450 points");
          Print("ADX >= 18.0（RELAXEDより緩め）");
-         Print("チャネル幅 >= 75 指数ポイント（RELAXEDより緩め）");
-         Print("ATR >= 40 指数ポイント（RELAXEDより緩め）");
+         Print("チャネル幅 >= 75 Points（RELAXEDより緩め）");
+         Print("ATR >= 40 Points（RELAXEDより緩め）");
          Print("→ 取引回数300~400回を目指しPF維持");
          Print("========================================");
          break;
@@ -3065,9 +3051,9 @@ void ApplyStrategyPreset()
          g_Use_Break_Pullback = false;
          Print("========================================");
          Print("戦略: V3+環境フィルター（最強版）");
-         Print("SL: 200 指数ポイント / TP: 500 指数ポイント (1:2.5)");
+         Print("SL: 200 points / TP: 500 points (1:2.5)");
          Print("V3設定: パーフェクトオーダー+補助条件2個");
-         Print("環境フィルター: ADX>=20, チャネル>=100指数ポイント, ATR>=50指数ポイント");
+         Print("環境フィルター: ADX>=20, チャネル>=100pts, ATR>=50pts");
          Print("→ V3の高精度+RELAXEDの環境フィルター");
          Print("→ 目標: 取引400~600回、PF 1.12+");
          Print("========================================");

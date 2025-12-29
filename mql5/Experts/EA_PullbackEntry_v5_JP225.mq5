@@ -25,7 +25,7 @@ input int InpPresetApplyMode = 1;  // Preset適用モード: 0=使わない(Inpu
 //--- Basic Settings
 input double InpLotSize = 0.10;              // ロットサイズ
 input long   InpMagicNumber = 55000001;      // マジックナンバー
-input int    InpDeviationPoints = 50;        // 最大スリッページ(MT5 points)
+input int    InpDeviationPoints = 50;        // 最大スリッページ(points)
 
 //--- EMA Settings
 input int    InpEmaShort = 12;               // 短期EMA
