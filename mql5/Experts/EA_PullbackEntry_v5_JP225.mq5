@@ -1,7 +1,7 @@
 //+------------------------------------------------------------------+
-//|                                      EA_PullbackEntry_v5.mq5     |
+//|                                  EA_PullbackEntry_v5_JP225.mq5   |
 //|                    MQL5 OOP Version - Pullback Entry Strategy    |
-//|                    Integrated with CPositionManager, CFilters    |
+//|                    日経225専用 単位: 円 (1point=1円)               |
 //+------------------------------------------------------------------+
 #property copyright "2025"
 #property link      ""
@@ -47,33 +47,36 @@ input int    InpEndHour = 21;                // 終了時刻(JST)
 input bool   InpTradeOnFriday = true;        // 金曜取引
 
 //--- Spread/ADX/ATR Filter
-input int    InpMaxSpreadPoints = 200;       // 最大スプレッド(points)
+input int    InpMaxSpreadYen = 5;            // 最大スプレッド(円)
 input bool   InpUseADXFilter = true;         // ADXフィルター
 input int    InpADXPeriod = 14;              // ADX期間
 input double InpADXMinLevel = 20.0;          // ADX最小値
 input int    InpATRPeriod = 14;              // ATR期間
-input double InpATRMinPoints = 30.0;         // ATR最小値(points)
+input double InpATRMinYen = 10.0;            // ATR最小値(円)
 
 //--- SL/TP Settings
 input ENUM_SLTP_MODE InpSLTPMode = SLTP_FIXED;  // SL/TPモード
-input double InpSLFixedPoints = 150.0;       // SL(points) - Fixed
-input double InpTPFixedPoints = 300.0;       // TP(points) - Fixed
+input double InpSLFixedYen = 30.0;           // SL(円) - Fixed
+input double InpTPFixedYen = 60.0;           // TP(円) - Fixed
 input double InpSLAtrMulti = 1.5;            // SL ATR倍率
 input double InpTPAtrMulti = 2.0;            // TP ATR倍率
 
 //--- Partial Close
 input bool   InpEnablePartialClose = true;   // 部分決済有効
 input int    InpPartialStages = 2;           // 段階数(2/3)
-input double InpPartial1Points = 150.0;      // 1段階目(points)
+input double InpPartial1Yen = 15.0;          // 1段階目(円)
 input double InpPartial1Percent = 50.0;      // 1段階目決済率(%)
-input double InpPartial2Points = 300.0;      // 2段階目(points)
-input double InpPartial2Percent = 100.0;     // 2段階目決済率(%)
+input double InpPartial2Yen = 30.0;          // 2段階目(円)
+input double InpPartial2Percent = 50.0;      // 2段階目決済率(%)
+input double InpPartial3Yen = 45.0;          // 3段階目(円)
+input double InpPartial3Percent = 100.0;     // 3段階目決済率(%)
 input bool   InpMoveToBreakEven = true;      // Level1後に建値移動
+input bool   InpMoveSLAfterLevel2 = true;    // Level2後にSL移動(Level1利益位置へ)
 
 //--- Trailing Stop
 input ENUM_TRAILING_MODE InpTrailingMode = TRAILING_DISABLED;  // トレーリングモード
-input double InpTrailStartPoints = 200.0;    // トレーリング開始(points)
-input double InpTrailStepPoints = 50.0;      // トレーリングステップ(points)
+input double InpTrailStartYen = 20.0;        // トレーリング開始(円)
+input double InpTrailStepYen = 5.0;          // トレーリングステップ(円)
 
 //--- Logging
 input bool   InpEnableLogging = true;                 // ログ出力有効
@@ -91,6 +94,17 @@ input string InpAiLearningFolder = "OneDriveLogs\\data\\AI_Learning"; // MQL5/Fi
 CPullbackStrategy *g_strategy = NULL;
 CPositionManager  *g_posManager = NULL;
 CFilterManager    *g_filterManager = NULL;
+
+// 円→Points変換値（JP225: 1円 = 1point）
+int    g_MaxSpreadPoints = 0;
+double g_ATRMinPoints = 0;
+double g_SLFixedPoints = 0;
+double g_TPFixedPoints = 0;
+double g_Partial1Points = 0;
+double g_Partial2Points = 0;
+double g_Partial3Points = 0;
+double g_TrailStartPoints = 0;
+double g_TrailStepPoints = 0;
 
 string BoolStr(const bool v){ return v ? "true" : "false"; }
 
@@ -154,10 +168,24 @@ void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   string instanceId = "EA_PullbackEntry_v5|" + _Symbol + "|Magic:" + (string)InpMagicNumber + "|CID:" + (string)ChartID();
+   string instanceId = "EA_PullbackEntry_v5_JP225|" + _Symbol + "|Magic:" + (string)InpMagicNumber + "|CID:" + (string)ChartID();
    CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, InpLogFileName, InpLogUseCommonFolder);
 
-   CLogger::Log(LOG_INFO, "=== EA_PullbackEntry v5.0 (MQL5 OOP) ===");
+   // 円→Points変換（JP225: 1円 = 1point）
+   g_MaxSpreadPoints = InpMaxSpreadYen;        // 円 = points
+   g_ATRMinPoints = InpATRMinYen;
+   g_SLFixedPoints = InpSLFixedYen;
+   g_TPFixedPoints = InpTPFixedYen;
+   g_Partial1Points = InpPartial1Yen;
+   g_Partial2Points = InpPartial2Yen;
+   g_Partial3Points = InpPartial3Yen;
+   g_TrailStartPoints = InpTrailStartYen;
+   g_TrailStepPoints = InpTrailStepYen;
+   
+   CLogger::Log(LOG_INFO, StringFormat("★ 円→Points変換: SL=%.1f円→%.0fpts TP=%.1f円→%.0fpts",
+                InpSLFixedYen, g_SLFixedPoints, InpTPFixedYen, g_TPFixedPoints));
+
+   CLogger::Log(LOG_INFO, "=== EA_PullbackEntry v5.0 JP225 (MQL5 OOP) ===");
    CLogger::Log(LOG_INFO, "Preset: " + GetPresetName(InpPreset));
    CLogger::Log(LOG_INFO, "Symbol: " + _Symbol);
    CLogger::Log(LOG_INFO, "Magic: " + (string)InpMagicNumber);
@@ -203,15 +231,15 @@ int OnInit()
       cfg.UseCrossPullback = InpUseCrossPullback;
       cfg.UseBreakPullback = InpUseBreakPullback;
       cfg.PullbackEmaRef = InpPullbackEmaRef;
-      cfg.MaxSpreadPoints = InpMaxSpreadPoints;
+      cfg.MaxSpreadPoints = g_MaxSpreadPoints;
       cfg.UseADXFilter = InpUseADXFilter;
       cfg.ADXPeriod = InpADXPeriod;
       cfg.ADXMinLevel = InpADXMinLevel;
       cfg.ATRPeriod = InpATRPeriod;
-      cfg.ATRThresholdPoints = InpATRMinPoints;
+      cfg.ATRThresholdPoints = g_ATRMinPoints;
       cfg.SLTPMode = InpSLTPMode;
-      cfg.StopLossFixedPoints = InpSLFixedPoints;
-      cfg.TakeProfitFixedPoints = InpTPFixedPoints;
+      cfg.StopLossFixedPoints = g_SLFixedPoints;
+      cfg.TakeProfitFixedPoints = g_TPFixedPoints;
       cfg.StopLossAtrMulti = InpSLAtrMulti;
       cfg.TakeProfitAtrMulti = InpTPAtrMulti;
    }
@@ -231,13 +259,13 @@ int OnInit()
    filterCfg.EndHour = InpEndHour;
    filterCfg.TradeOnFriday = InpTradeOnFriday;
    filterCfg.EnableSpreadFilter = true;
-   filterCfg.MaxSpreadPoints = InpMaxSpreadPoints;
+   filterCfg.MaxSpreadPoints = g_MaxSpreadPoints;
    filterCfg.EnableADXFilter = InpUseADXFilter;
    filterCfg.ADXPeriod = InpADXPeriod;
    filterCfg.ADXMinLevel = InpADXMinLevel;
    filterCfg.EnableATRFilter = true;
    filterCfg.ATRPeriod = InpATRPeriod;
-   filterCfg.ATRMinPoints = InpATRMinPoints;
+   filterCfg.ATRMinPoints = g_ATRMinPoints;
    
    g_filterManager = new CFilterManager();
    g_filterManager.Init(filterCfg, PERIOD_CURRENT);
@@ -248,15 +276,17 @@ int OnInit()
    posCfg.Symbol = _Symbol;
    posCfg.EnablePartialClose = InpEnablePartialClose;
    posCfg.PartialCloseStages = InpPartialStages;
-   posCfg.PartialClose1Points = InpPartial1Points;
+   posCfg.PartialClose1Points = g_Partial1Points;
    posCfg.PartialClose1Percent = InpPartial1Percent;
-   posCfg.PartialClose2Points = InpPartial2Points;
+   posCfg.PartialClose2Points = g_Partial2Points;
    posCfg.PartialClose2Percent = InpPartial2Percent;
+   posCfg.PartialClose3Points = g_Partial3Points;
+   posCfg.PartialClose3Percent = InpPartial3Percent;
    posCfg.MoveToBreakEvenAfterLevel1 = InpMoveToBreakEven;
-   posCfg.MoveSLAfterLevel2 = true;
+   posCfg.MoveSLAfterLevel2 = InpMoveSLAfterLevel2;
    posCfg.TrailingMode = InpTrailingMode;
-   posCfg.TrailingStartPoints = InpTrailStartPoints;
-   posCfg.TrailingStepPoints = InpTrailStepPoints;
+   posCfg.TrailingStartPoints = g_TrailStartPoints;
+   posCfg.TrailingStepPoints = g_TrailStepPoints;
    posCfg.TrailingATRMulti = 1.0;
    posCfg.ATRPeriod = InpATRPeriod;
    posCfg.MaxSlippagePoints = InpDeviationPoints;

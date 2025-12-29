@@ -1,7 +1,8 @@
 //+------------------------------------------------------------------+
-//|                                        MT5_AI_Trader_HTTP.mq5    |
-//|              Phase 6 HTTP API版 (MQL5 OANDA対応)                 |
+//|                                      MT5_AI_Trader_USIndex.mq5   |
+//|              Phase 6 HTTP API版 (MQL5 OANDA対応) - US Index専用  |
 //|   推論サーバーとHTTP経由で通信 + 16モジュールAI統合               |
+//|   単位: ドル (US30/SPX500/NAS100)                                |
 //+------------------------------------------------------------------+
 #property copyright "2025"
 #property link      ""
@@ -37,9 +38,9 @@ input double InpBaseLotSize = 0.10;        // 基本ロット
 input double InpMaxLotSize = 1.0;          // 最大ロット（上限）
 input bool   InpEnableLotAdjustment = true; // ロット自動調整有効化
 input int    InpMaxSlippagePoints = 50;    // 最大スリッページ(points)
-input int    InpMaxSpreadPoints = 200;     // 最大スプレッド(points)
-input double InpStopLossPoints = 150.0;    // SL(points)
-input double InpTakeProfitPoints = 300.0;  // TP(points)
+input double InpMaxSpreadDollars = 5.0;    // 最大スプレッド(ドル)
+input double InpStopLossDollars = 50.0;    // SL(ドル)
+input double InpTakeProfitDollars = 100.0; // TP(ドル)
 input bool   InpAutoMagicNumber = true;    // マジックナンバー自動生成
 input ulong  InpMagicNumber = 20251224;    // マジックナンバー（自動生成時は無視）
 
@@ -60,19 +61,19 @@ input double InpMinConfidence = 0.65;      // 最小信頼度
 
 //--- ATR設定
 input int    InpATRPeriod = 14;            // ATR期間
-input double InpATRThresholdPoints = 30.0; // ATR最低閾値(points)
+input double InpATRThresholdDollars = 5.0; // ATR最低閾値(ドル)
 
 //--- Partial Close設定
-input bool   InpEnablePartialClose = true;     // 部分決済有効化
-input int    InpPartialCloseStages = 2;        // 段階数(2=二段階, 3=三段階)
-input double InpPartialClose1Points = 150.0;   // 1段階目(points)
-input double InpPartialClose1Percent = 50.0;   // 1段階目決済率(%)
-input double InpPartialClose2Points = 300.0;   // 2段階目(points)
-input double InpPartialClose2Percent = 100.0;  // 2段階目決済率(%)
-input double InpPartialClose3Points = 450.0;   // 3段階目(points)
-input double InpPartialClose3Percent = 100.0;  // 3段階目決済率(%)
+input bool   InpEnablePartialClose = true;      // 部分決済有効化
+input int    InpPartialCloseStages = 2;         // 段階数(2=二段階, 3=三段階)
+input double InpPartialClose1Dollars = 15.0;    // 1段階目(ドル)
+input double InpPartialClose1Percent = 50.0;    // 1段階目決済率(%)
+input double InpPartialClose2Dollars = 30.0;    // 2段階目(ドル)
+input double InpPartialClose2Percent = 50.0;    // 2段階目決済率(%)
+input double InpPartialClose3Dollars = 45.0;    // 3段階目(ドル)
+input double InpPartialClose3Percent = 100.0;   // 3段階目決済率(%)
 input bool   InpMoveToBreakEvenAfterLevel1 = true; // Level1後にSL移動(建値へ)
-input bool   InpMoveSLAfterLevel2 = true;      // Level2後にSL移動(Level1利益位置へ)
+input bool   InpMoveSLAfterLevel2 = true;       // Level2後にSL移動(Level1利益位置へ)
 
 //--- SL/TP設定
 input bool   InpUse_ATR_SLTP = false;          // ATR倍率使用
@@ -89,6 +90,16 @@ ulong g_ActiveMagicNumber = 0;
 string g_uniqueId = "";
 string g_inferenceServerUrl = "";
 CTrade m_trade;
+
+// ドル→Points変換値（US30: 1ドル≈100points）
+double g_dollarMultiplier = 100.0;
+double g_MaxSpreadPoints = 0;
+double g_StopLossPoints = 0;
+double g_TakeProfitPoints = 0;
+double g_ATRThresholdPoints = 0;
+double g_PartialClose1Points = 0;
+double g_PartialClose2Points = 0;
+double g_PartialClose3Points = 0;
 
 // Partial Close状態管理
 int g_partialCloseLevel[];
@@ -114,9 +125,9 @@ void DumpEffectiveConfig_AI_HTTP()
    Print(StringFormat("[CONFIG][AI_HTTP_MT5] Risk=%.2f BaseLot=%.2f MaxLot=%.2f LotAdjust=%s",
                       InpRiskPercent, InpBaseLotSize, InpMaxLotSize, BoolStr(InpEnableLotAdjustment)));
    Print(StringFormat("[CONFIG][AI_HTTP_MT5] Slippage=%dpt MaxSpread=%dpt MaxPos=%d MinBars=%d MinConf=%.2f",
-                      InpMaxSlippagePoints, InpMaxSpreadPoints, InpMaxPositions, InpMinBarsSinceLastTrade, InpMinConfidence));
+                      InpMaxSlippagePoints, g_MaxSpreadPoints, InpMaxPositions, InpMinBarsSinceLastTrade, InpMinConfidence));
    Print(StringFormat("[CONFIG][AI_HTTP_MT5] SL=%.1fpt TP=%.1fpt ATR_Period=%d ATR_Th=%.1fpt (%.5f price) ATR_now=%.1fpt",
-                      InpStopLossPoints, InpTakeProfitPoints, InpATRPeriod, InpATRThresholdPoints, InpATRThresholdPoints * point, atrPoints));
+                      g_StopLossPoints, g_TakeProfitPoints, InpATRPeriod, g_ATRThresholdPoints, g_ATRThresholdPoints * point, atrPoints));
    Print(StringFormat("[CONFIG][AI_HTTP_MT5] TimeFilter=%s GMT_Offset=%d DST=%s Start=%02d:%02d End=%02d:%02d Fri=%s",
                       BoolStr(InpEnable_Time_Filter), InpGMT_Offset, BoolStr(InpUse_DST),
                       InpCustom_Start_Hour, InpCustom_Start_Minute, InpCustom_End_Hour, InpCustom_End_Minute,
@@ -175,6 +186,26 @@ ulong GenerateMagicNumber()
 int OnInit()
 {
    g_inferenceServerUrl = InpInferenceServerURL;
+
+   // ドル→Points変換（US30: 1ドル ≈ 100points, SPX500/NAS100では異なる）
+   // シンボルのPOINT値から動的に計算
+   double symbolPoint = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   if(symbolPoint > 0)
+      g_dollarMultiplier = 1.0 / symbolPoint;  // 例: point=0.01 → multiplier=100
+   else
+      g_dollarMultiplier = 100.0;  // デフォルト
+   
+   g_MaxSpreadPoints = InpMaxSpreadDollars * g_dollarMultiplier;
+   g_StopLossPoints = InpStopLossDollars * g_dollarMultiplier;
+   g_TakeProfitPoints = InpTakeProfitDollars * g_dollarMultiplier;
+   g_ATRThresholdPoints = InpATRThresholdDollars * g_dollarMultiplier;
+   g_PartialClose1Points = InpPartialClose1Dollars * g_dollarMultiplier;
+   g_PartialClose2Points = InpPartialClose2Dollars * g_dollarMultiplier;
+   g_PartialClose3Points = InpPartialClose3Dollars * g_dollarMultiplier;
+   
+   Print("★ ドル→Points変換: multiplier=", g_dollarMultiplier,
+         " SL=", InpStopLossDollars, "$→", g_StopLossPoints, "pts",
+         " TP=", InpTakeProfitDollars, "$→", g_TakeProfitPoints, "pts");
 
    // マジックナンバー初期化
    if(InpAutoMagicNumber)
@@ -282,7 +313,7 @@ void AnalyzeAndTrade()
    
    // スプレッドチェック
    double spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
-   if(spread > InpMaxSpreadPoints)
+   if(spread > g_MaxSpreadPoints)
    {
       Print("スプレッドが広すぎます: ", spread, " points");
       return;
@@ -327,9 +358,9 @@ void AnalyzeAndTrade()
    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
    double atr_points = atr / point;
    
-   if(atr_points < InpATRThresholdPoints)
+   if(atr_points < g_ATRThresholdPoints)
    {
-      Print("ATR不足: ", DoubleToString(atr_points, 1), " points < ", InpATRThresholdPoints);
+      Print("ATR不足: ", DoubleToString(atr_points, 1), " points < ", g_ATRThresholdPoints);
       return;
    }
    
@@ -620,21 +651,21 @@ void CheckPartialClose()
       double closePercent = 0;
       double targetPoints = 0;
       
-      if(currentLevel == 0 && profitPoints >= InpPartialClose1Points)
+      if(currentLevel == 0 && profitPoints >= g_PartialClose1Points)
       {
-         targetPoints = InpPartialClose1Points;
+         targetPoints = g_PartialClose1Points;
          closePercent = InpPartialClose1Percent;
          newLevel = 1;
       }
-      else if(currentLevel == 1 && profitPoints >= InpPartialClose2Points)
+      else if(currentLevel == 1 && profitPoints >= g_PartialClose2Points)
       {
-         targetPoints = InpPartialClose2Points;
+         targetPoints = g_PartialClose2Points;
          closePercent = (maxLevel == 2) ? 100.0 : InpPartialClose2Percent;
          newLevel = 2;
       }
-      else if(maxLevel >= 3 && currentLevel == 2 && profitPoints >= InpPartialClose3Points)
+      else if(maxLevel >= 3 && currentLevel == 2 && profitPoints >= g_PartialClose3Points)
       {
-         targetPoints = InpPartialClose3Points;
+         targetPoints = g_PartialClose3Points;
          closePercent = InpPartialClose3Percent;
          newLevel = 3;
       }
@@ -711,9 +742,9 @@ void CheckPartialClose()
                {
                   double level1Price;
                   if(posType == POSITION_TYPE_BUY)
-                     level1Price = openPrice + InpPartialClose1Points * point;
+                     level1Price = openPrice + g_PartialClose1Points * point;
                   else
-                     level1Price = openPrice - InpPartialClose1Points * point;
+                     level1Price = openPrice - g_PartialClose1Points * point;
                   
                   m_trade.PositionModify(newTicket, level1Price, PositionGetDouble(POSITION_TP));
                   Print(">>> SLをLevel1利益位置へ移動: ", DoubleToString(level1Price, _Digits));
@@ -785,7 +816,7 @@ double CalculateLotSize()
    double lotSize;
    if(InpEnableLotAdjustment && tickValue > 0)
    {
-      lotSize = riskAmount / (InpStopLossPoints * tickValue);
+      lotSize = riskAmount / (g_StopLossPoints * tickValue);
       lotSize = NormalizeDouble(lotSize, 2);
    }
    else
@@ -806,8 +837,8 @@ double CalculateLotSize()
 void CalculateSLTP(bool is_long, double entry_price, double &sl, double &tp)
 {
    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-   double slPoints = InpStopLossPoints;
-   double tpPoints = InpTakeProfitPoints;
+   double slPoints = g_StopLossPoints;
+   double tpPoints = g_TakeProfitPoints;
    
    if(InpUse_ATR_SLTP)
    {
