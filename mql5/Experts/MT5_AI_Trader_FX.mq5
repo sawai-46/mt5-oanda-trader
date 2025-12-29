@@ -2,7 +2,7 @@
 //|                                          MT5_AI_Trader_FX.mq5    |
 //|              Phase 6 HTTP API版 (MQL5 OANDA対応) - FX専用          |
 //|   推論サーバーとHTTP経由で通信 + 16モジュールAI統合               |
-//|   単位: pips (1pip = 10points for 5-digit brokers)               |
+//|   単位: pips（価格差） / MT5 points（端末）                       |
 //+------------------------------------------------------------------+
 #property copyright "2025"
 #property link      ""
@@ -37,7 +37,7 @@ input double InpRiskPercent = 1.0;         // リスク率(%)
 input double InpBaseLotSize = 0.10;        // 基本ロット
 input double InpMaxLotSize = 1.0;          // 最大ロット（上限）
 input bool   InpEnableLotAdjustment = true; // ロット自動調整有効化
-input int    InpMaxSlippagePoints = 50;    // 最大スリッページ(points)
+input int    InpMaxSlippagePoints = 50;    // 最大スリッページ(MT5 points)
 input int    InpMaxSpreadPips = 20;        // 最大スプレッド(pips)
 input double InpStopLossPips = 15.0;       // SL(pips)
 input double InpTakeProfitPips = 30.0;     // TP(pips)
@@ -91,8 +91,8 @@ string g_uniqueId = "";
 string g_inferenceServerUrl = "";
 CTrade m_trade;
 
-// Pips→Points変換値（OnInitで計算）
-double g_pipMultiplier = 10.0;  // 5桁ブローカー: 1pip = 10points
+// pips（価格差）→MT5 points 変換値（OnInitで計算）
+double g_pipMultiplier = 10.0;  // 5桁ブローカー: 1pip = 10 MT5 points
 double g_MaxSpreadPoints = 0;
 double g_StopLossPoints = 0;
 double g_TakeProfitPoints = 0;
@@ -118,15 +118,15 @@ void DumpEffectiveConfig_AI_HTTP()
    const double atr = GetATR(InpATRPeriod);
    const double atrPoints = (point > 0.0) ? (atr / point) : 0.0;
 
-   Print(StringFormat("[CONFIG][AI_HTTP_MT5] Symbol=%s TF=%s Digits=%d Point=%g SpreadPoints=%d",
+   Print(StringFormat("[CONFIG][AI_HTTP_MT5] Symbol=%s TF=%s Digits=%d Point=%g Spread(MT5pt)=%d",
                       _Symbol, PeriodToString((ENUM_TIMEFRAMES)_Period), _Digits, point, spreadPoints));
    Print(StringFormat("[CONFIG][AI_HTTP_MT5] MT5_ID=%s UniqueID=%s Preset=%s URL=%s Timeout=%dms",
                       InpMT5_ID, g_uniqueId, GetPresetName(), g_inferenceServerUrl, InpServerTimeout));
    Print(StringFormat("[CONFIG][AI_HTTP_MT5] Risk=%.2f BaseLot=%.2f MaxLot=%.2f LotAdjust=%s",
                       InpRiskPercent, InpBaseLotSize, InpMaxLotSize, BoolStr(InpEnableLotAdjustment)));
-   Print(StringFormat("[CONFIG][AI_HTTP_MT5] Slippage=%dpt MaxSpread=%dpt MaxPos=%d MinBars=%d MinConf=%.2f",
+   Print(StringFormat("[CONFIG][AI_HTTP_MT5] Slippage=%d(MT5pt) MaxSpread=%d(MT5pt) MaxPos=%d MinBars=%d MinConf=%.2f",
                       InpMaxSlippagePoints, g_MaxSpreadPoints, InpMaxPositions, InpMinBarsSinceLastTrade, InpMinConfidence));
-   Print(StringFormat("[CONFIG][AI_HTTP_MT5] SL=%.1fpt TP=%.1fpt ATR_Period=%d ATR_Th=%.1fpt (%.5f price) ATR_now=%.1fpt",
+   Print(StringFormat("[CONFIG][AI_HTTP_MT5] SL=%.1f(MT5pt) TP=%.1f(MT5pt) ATR_Period=%d ATR_Th=%.1f(MT5pt) (%.5f price) ATR_now=%.1f(MT5pt)",
                       g_StopLossPoints, g_TakeProfitPoints, InpATRPeriod, g_ATRThresholdPoints, g_ATRThresholdPoints * point, atrPoints));
    Print(StringFormat("[CONFIG][AI_HTTP_MT5] TimeFilter=%s GMT_Offset=%d DST=%s Start=%02d:%02d End=%02d:%02d Fri=%s",
                       BoolStr(InpEnable_Time_Filter), InpGMT_Offset, BoolStr(InpUse_DST),
@@ -187,8 +187,8 @@ int OnInit()
 {
    g_inferenceServerUrl = InpInferenceServerURL;
 
-   // Pips→Points変換（5桁ブローカー: 1pip = 10points）
-   // JPY pairs: 3 digits = 1pip = 1point, non-JPY 5 digits = 1pip = 10points
+   // pips（価格差）→MT5 points 変換（5桁: 1pip = 10 MT5 points）
+   // JPY pairs: 3 digits = 1pip = 1 MT5 point, non-JPY 5 digits = 1pip = 10 MT5 points
    if(_Digits == 3 || _Digits == 5)
       g_pipMultiplier = 10.0;
    else if(_Digits == 2 || _Digits == 4)
@@ -204,9 +204,9 @@ int OnInit()
    g_PartialClose2Points = InpPartialClose2Pips * g_pipMultiplier;
    g_PartialClose3Points = InpPartialClose3Pips * g_pipMultiplier;
    
-   Print("★ Pips→Points変換: multiplier=", g_pipMultiplier, 
-         " SL=", InpStopLossPips, "pips→", g_StopLossPoints, "pts",
-         " TP=", InpTakeProfitPips, "pips→", g_TakeProfitPoints, "pts");
+      Print("★ pips（価格差）→MT5 points変換: multiplier=", g_pipMultiplier, 
+         " SL=", InpStopLossPips, "pips→", g_StopLossPoints, "MT5pt",
+         " TP=", InpTakeProfitPips, "pips→", g_TakeProfitPoints, "MT5pt");
 
    // マジックナンバー初期化
    if(InpAutoMagicNumber)
@@ -316,7 +316,7 @@ void AnalyzeAndTrade()
    double spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
    if(spread > g_MaxSpreadPoints)
    {
-      Print("スプレッドが広すぎます: ", spread, " points");
+      Print("スプレッドが広すぎます: ", spread, " MT5 points");
       return;
    }
    
@@ -361,7 +361,7 @@ void AnalyzeAndTrade()
    
    if(atr_points < g_ATRThresholdPoints)
    {
-      Print("ATR不足: ", DoubleToString(atr_points, 1), " points < ", g_ATRThresholdPoints);
+      Print("ATR不足: ", DoubleToString(atr_points, 1), " MT5 points < ", g_ATRThresholdPoints);
       return;
    }
    
@@ -709,7 +709,7 @@ void CheckPartialClose()
       {
          Print("★ Partial Close Level ", newLevel, ": Ticket=", ticket,
                " Lots=", DoubleToString(lotsToClose, 2),
-               " Profit=", DoubleToString(profitPoints, 1), " points");
+            " Profit=", DoubleToString(profitPoints, 1), " MT5 points");
          
          g_partialCloseLevel[ticketIndex] = newLevel;
          

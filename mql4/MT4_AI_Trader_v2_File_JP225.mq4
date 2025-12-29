@@ -73,10 +73,10 @@ input double BaseLotSize = 0.1;         // 基本ロット（基準）
 input double MaxLotSize = 1.0;          // 最大ロットサイズ（上限）
 input bool   EnableLotAdjustment = true; // ロット自動調整有効化
 input double MaxSlippagePips = 50.0;      // 最大スリッページ(円) ※推奨
-input int    MaxSlippagePoints = 0;       // 最大スリッページ(points) ※互換用、0=SlippagePips使用
+input int    MaxSlippagePoints = 0;       // 最大スリッページ(MT4 points) ※互換用、0=SlippagePips使用
 input double MaxSpreadPoints = 10.0;    // 最大スプレッド(円) ※通常5-10円
-input int    DefaultSLPoints = 200;     // デフォルトSL(points) ※JP225推奨値
-input int    DefaultTPPoints = 400;     // デフォルトTP(points) ※JP225推奨値
+input int    DefaultSLPoints = 200;     // デフォルトSL(円) ※JP225推奨値
+input int    DefaultTPPoints = 400;     // デフォルトTP(円) ※JP225推奨値
 input bool   AutoMagicNumber = true;    // マジックナンバー自動生成
 input int    MagicNumber = 20250124;    // マジックナンバー（自動生成時は無視）
 
@@ -100,11 +100,11 @@ input double MinConfidenceForEntry = 0.65; // エントリー最小信頼度
 //--- Partial Close設定（現在ロットに対する%、合計100%になるよう設定）
 input bool   EnablePartialClose = true;     // 部分決済有効化
 input int    PartialCloseStages = 2;        // 段階数(2=二段階, 3=三段階)
-input double PartialClose1Points = 100.0;   // 1段階目(points) ※JP225推奨値
+input double PartialClose1Points = 100.0;   // 1段階目(MT4 points) ※価格差(円)=MT4points*Point
 input double PartialClose1Percent = 50.0;   // 1段階目決済率(%) ※二段階:50, 三段階:30
-input double PartialClose2Points = 200.0;   // 2段階目(points) ※JP225推奨値
+input double PartialClose2Points = 200.0;   // 2段階目(MT4 points) ※価格差(円)=MT4points*Point
 input double PartialClose2Percent = 100.0;  // 2段階目決済率(%) ※二段階:100, 三段階:50
-input double PartialClose3Points = 300.0;   // 3段階目(points) ※JP225推奨値
+input double PartialClose3Points = 300.0;   // 3段階目(MT4 points) ※価格差(円)=MT4points*Point
 input double PartialClose3Percent = 100.0;  // 3段階目決済率(%) ※三段階:100(残り全部)
 input bool   MoveToBreakEvenAfterLevel1 = true; // Level1後にSL移動(建値へ)
 input bool   MoveSLAfterLevel2 = true;      // Level2後にSL移動(Level1利益位置へ) ※三段階時
@@ -119,8 +119,8 @@ input bool   Enable_AI_Learning_Log = true; // AI学習データ記録有効化
 input string AI_Learning_Folder = "OneDriveLogs\\data\\AI_Learning"; // 学習データ保存フォルダ
 
 //--- SL/TP設定（ポジション管理用）
-input double StopLoss_Fixed_Points = 100.0;   // 固定SL(points) ※JP225推奨値
-input double TakeProfit_Fixed_Points = 200.0; // 固定TP(points) ※JP225推奨値
+input double StopLoss_Fixed_Points = 100.0;   // 固定SL(円) ※JP225推奨値
+input double TakeProfit_Fixed_Points = 200.0; // 固定TP(円) ※JP225推奨値
 input bool   Use_ATR_SLTP = false;          // ATR倍率使用
 input double StopLoss_ATR_Multi = 1.5;      // SL用ATR倍率
 input double TakeProfit_ATR_Multi = 2.0;    // TP用ATR倍率
@@ -149,7 +149,7 @@ string g_currentLogFile = "";
 string g_AI_Learning_LogFile = "";
 int g_ai_pattern_count = 0;
 
-// スリッページ変換関数（円からpointsへ）
+// スリッページ変換関数（円(価格差)から MT4 points へ）
 int EffectiveSlippagePoints(){
    // MaxSlippagePips（円）が0より大きければ優先使用
    if(MaxSlippagePips > 0.0){
@@ -370,11 +370,11 @@ void AnalyzeAndTrade()
       return;
    }
    
-   // スプレッドチェック（日経225: 1ポイント=1円なので直接計算）
-   double spread_points = Ask - Bid;  // 日経225では直接差分がポイント値
+   // スプレッドチェック（日経225: 価格差(円)をそのまま比較）
+   double spread_points = Ask - Bid;  // 日経225では価格差=円
    if(spread_points > MaxSpreadPoints)
    {
-      Print("スプレッドが広すぎます: ", DoubleToString(spread_points, 1), " points (閾値: ", MaxSpreadPoints, " points)");
+      Print("スプレッドが広すぎます: ", DoubleToString(spread_points, 1), " 円 (閾値: ", MaxSpreadPoints, " 円)");
       return;
    }
    
@@ -633,7 +633,7 @@ void CheckPartialClose()
       double currentPrice = (OrderType() == OP_BUY) ? Bid : Ask;
       double profitPoints = 0;
       
-      // points単位で計算
+      // MT4 points単位で計算
       if(OrderType() == OP_BUY)
          profitPoints = (currentPrice - openPrice) / Point;
       else
@@ -642,7 +642,7 @@ void CheckPartialClose()
       if(showDebug)
       {
          Print("[DEBUG] Ticket #", ticket, ": Level=", currentLevel, ", ProfitPoints=", DoubleToString(profitPoints, 1), 
-               ", Target1=", PartialClose1Points, " points");
+            ", Target1=", PartialClose1Points, " MT4 points");
          lastDebugTime = TimeCurrent();
       }
       
@@ -725,7 +725,7 @@ void CheckPartialClose()
       {
          Print("★ Partial Close Level ", newLevel, ": Ticket=", ticket, 
                " Lots=", DoubleToString(lotsToClose, 2), 
-               " Profit=", DoubleToString(profitPoints, 1), " points");
+            " Profit=", DoubleToString(profitPoints, 1), " MT4 points");
          
          g_partialCloseLevel[ticketIndex] = newLevel;
          
