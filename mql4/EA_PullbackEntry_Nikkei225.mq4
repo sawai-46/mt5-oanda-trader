@@ -397,6 +397,16 @@ double prev_low = 0;
 double pip = 1.0;        // 日経225では常に1.0
 double point_size;       // Point値
 
+string FormatAtrMinPriceAndMt4pt_FromPoints(double atr_points)
+{
+   double atr_price = atr_points * pip;
+   string atr_mt4pt_str = (Point > 0.0) ? DoubleToString(atr_price / Point, 0) : "N/A";
+   return StringFormat("ATR >= %s (price units) / %s MT4pt (%s Points)",
+                       DoubleToString(atr_price, Digits),
+                       atr_mt4pt_str,
+                       DoubleToString(atr_points, 0));
+}
+
 // ポジション管理
 int current_ticket = -1;
 bool partial1_executed = false;
@@ -2117,7 +2127,7 @@ void ApplyStrategyPreset()
          Print("========================================");
          Print("戦略: 標準型（M15推奨）");
          Print("SL: 180 Points / TP: 450 Points");
-         Print("ADX >= 20.0、チャネル >= 100 Points、ATR >= 70 Points");
+         Print("ADX >= 20.0、チャネル >= 100 Points、" + FormatAtrMinPriceAndMt4pt_FromPoints(70.0));
          Print("→ バランス重視、初心者推奨");
          Print("★ AI機能: inputパラメータでON/OFF可能");
          if (g_Use_Micro_Volatility_Filter) Print("  - HFTノイズ除外: ON");
@@ -2166,7 +2176,7 @@ void ApplyStrategyPreset()
          Print("========================================");
          Print("戦略: 保守型（M30推奨）");
          Print("SL: 220 Points / TP: 550 Points");
-         Print("ADX >= 25.0、チャネル >= 150 Points、ATR >= 75 Points");
+         Print("ADX >= 25.0、チャネル >= 150 Points、" + FormatAtrMinPriceAndMt4pt_FromPoints(75.0));
          Print("→ 質重視、勝率優先");
          Print("★ AI機能: inputパラメータでON/OFF可能");
          if (g_Use_Micro_Volatility_Filter) Print("  - HFTノイズ除外: ON");
@@ -2212,7 +2222,7 @@ void ApplyStrategyPreset()
          Print("========================================");
          Print("戦略: 積極型（M5推奨）");
          Print("SL: 150 Points / TP: 350 Points");
-         Print("環境フィルター最小（ATR >= 25 Pointsのみ）");
+         Print("環境フィルター最小（" + FormatAtrMinPriceAndMt4pt_FromPoints(25.0) + " のみ）");
          Print("→ 取引回数最大化、量重視");
          Print("★ AI機能: inputパラメータでON/OFF可能");
          if (g_Use_Micro_Volatility_Filter) Print("  - HFTノイズ除外: ON");
@@ -2743,7 +2753,7 @@ void ApplyStrategyPreset()
          Print("SL: 120 points / TP: 360 points (1:3)");
          Print("ADX >= 30.0（強トレンド）");
          Print("チャネル幅 >= 200 Points（広い値幅）");
-         Print("ATR >= 80 Points（高ボラティリティ）");
+         Print(FormatAtrMinPriceAndMt4pt_FromPoints(80.0) + "（高ボラティリティ）");
          Print("→ HFTノイズ・狭小レンジを完全除外");
          Print("========================================");
          break;
@@ -2785,7 +2795,7 @@ void ApplyStrategyPreset()
          Print("SL: 150 points / TP: 400 points");
          Print("ADX >= 25.0（標準トレンド）");
          Print("チャネル幅 >= 150 Points（標準値幅）");
-         Print("ATR >= 60 Points（標準ボラティリティ）");
+         Print(FormatAtrMinPriceAndMt4pt_FromPoints(60.0) + "（標準ボラティリティ）");
          Print("→ バランスの取れたフィルタリング");
          Print("========================================");
          break;
@@ -2828,7 +2838,7 @@ void ApplyStrategyPreset()
          Print("SL: 180 points / TP: 450 points");
          Print("ADX >= 20.0（緩いトレンド）");
          Print("チャネル幅 >= 100 Points（狭めでもOK）");
-         Print("ATR >= 50 Points（低ボラでもOK）");
+         Print(FormatAtrMinPriceAndMt4pt_FromPoints(50.0) + "（低ボラでもOK）");
          Print("→ エントリー機会を確保しつつフィルタリング");
          Print("========================================");
          break;
@@ -2871,7 +2881,7 @@ void ApplyStrategyPreset()
          Print("SL: 180 points / TP: 450 points");
          Print("ADX >= 18.0（RELAXEDより緩め）");
          Print("チャネル幅 >= 75 Points（RELAXEDより緩め）");
-         Print("ATR >= 40 Points（RELAXEDより緩め）");
+         Print(FormatAtrMinPriceAndMt4pt_FromPoints(40.0) + "（RELAXEDより緩め）");
          Print("→ 取引回数300~400回を目指しPF維持");
          Print("========================================");
          break;
@@ -2913,7 +2923,7 @@ void ApplyStrategyPreset()
          Print("戦略: V3+環境フィルター（最強版）");
          Print("SL: 200 points / TP: 500 points (1:2.5)");
          Print("V3設定: パーフェクトオーダー+補助条件2個");
-         Print("環境フィルター: ADX>=20, チャネル>=100pts, ATR>=50pts");
+         Print("環境フィルター: ADX>=20, チャネル>=100pts, " + FormatAtrMinPriceAndMt4pt_FromPoints(50.0));
          Print("→ V3の高精度+RELAXEDの環境フィルター");
          Print("→ 目標: 取引400~600回、PF 1.12+");
          Print("========================================");
