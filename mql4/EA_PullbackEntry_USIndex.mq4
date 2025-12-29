@@ -682,6 +682,7 @@ int OnInit()
    // 初期ATR確認
    double init_atr = iATR(Symbol(), 0, ATR_Period, 1);
    double init_atr_Points = init_atr / 1.0;
+   double init_atr_mt4pt = (Point > 0.0) ? (init_atr / Point) : 0.0;
    
    Print("===== EA_PullbackEntry (US Index) 初期化完了 =====");
    Print("対応銘柄: ", GetIndexName());
@@ -694,8 +695,17 @@ int OnInit()
    Print("EMAクロス: ", Use_Cross_Pullback);
    Print("EMA完全ブレイク: ", g_Use_Break_Pullback);
    Print("ATR期間: ", ATR_Period);
-   Print("ATR閾値設定: ", g_ATR_Threshold_Points, " Points");
-   Print("現在のATR: ", DoubleToString(init_atr, Digits), " (", DoubleToString(init_atr_Points, 2), " Points)");
+   if (Point > 0.0) {
+      Print(StringFormat("ATR閾値設定: %s (price units) / %s MT4pt",
+                         DoubleToString(g_ATR_Threshold_Points, Digits),
+                         DoubleToString(g_ATR_Threshold_Points / Point, 0)));
+      Print(StringFormat("現在のATR: %s (price units) / %s MT4pt",
+                         DoubleToString(init_atr, Digits),
+                         DoubleToString(init_atr_mt4pt, 0)));
+   } else {
+      Print(StringFormat("ATR閾値設定: %s (price units)", DoubleToString(g_ATR_Threshold_Points, Digits)));
+      Print(StringFormat("現在のATR: %s (price units)", DoubleToString(init_atr, Digits)));
+   }
    
    // 補助条件情報
    Print("===== 補助条件設定 =====");
@@ -867,11 +877,19 @@ void CheckForPullbackEntry()
    
    // 4. ATRチェック
    double atr_Points = current_atr / 1.0;
+   double atr_mt4pt = (Point > 0.0) ? (atr_Points / Point) : 0.0;
+   double thr_mt4pt = (Point > 0.0) ? (g_ATR_Threshold_Points / Point) : 0.0;
    if (EnableDebugLog) {
-      Print("ATRチェック: 現在=", DoubleToString(atr_Points, 2), " Points, 閾値=", g_ATR_Threshold_Points, " Points");
+      if (Point > 0.0)
+         Print("ATRチェック: 現在=", DoubleToString(atr_Points, Digits), " (price units) / ", DoubleToString(atr_mt4pt, 0), " MT4pt, 閾値=", DoubleToString(g_ATR_Threshold_Points, Digits), " (price units) / ", DoubleToString(thr_mt4pt, 0), " MT4pt");
+      else
+         Print("ATRチェック: 現在=", DoubleToString(atr_Points, Digits), " (price units), 閾値=", DoubleToString(g_ATR_Threshold_Points, Digits), " (price units)");
    }
    if (atr_Points < g_ATR_Threshold_Points) {
-      LogSkipReason("ATR不足: " + DoubleToString(atr_Points, 2) + " Points < " + DoubleToString(g_ATR_Threshold_Points, 1) + " Points");
+      if (Point > 0.0)
+         LogSkipReason("ATR不足: " + DoubleToString(atr_Points, Digits) + " (price) / " + DoubleToString(atr_mt4pt, 0) + " MT4pt < " + DoubleToString(g_ATR_Threshold_Points, Digits) + " (price) / " + DoubleToString(thr_mt4pt, 0) + " MT4pt");
+      else
+         LogSkipReason("ATR不足: " + DoubleToString(atr_Points, Digits) + " (price) < " + DoubleToString(g_ATR_Threshold_Points, Digits) + " (price)");
       return;
    }
    
