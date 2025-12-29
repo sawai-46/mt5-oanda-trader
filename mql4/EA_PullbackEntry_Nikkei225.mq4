@@ -568,17 +568,14 @@ int OnInit()
    Print("EMAクロス: ", Use_Cross_Pullback);
    Print("EMA完全ブレイク: ", g_Use_Break_Pullback);
    Print("ATR期間: ", ATR_Period);
-   if (Point > 0.0) {
-      Print(StringFormat("ATR閾値設定: %s (price units) / %s MT4pt",
-                         DoubleToString(g_ATR_Threshold_Points, Digits),
-                         DoubleToString(g_ATR_Threshold_Points / Point, 0)));
-      Print(StringFormat("現在のATR: %s (price units) / %s MT4pt",
-                         DoubleToString(init_atr, Digits),
-                         DoubleToString(init_atr_mt4pt, 0)));
-   } else {
-      Print(StringFormat("ATR閾値設定: %s (price units)", DoubleToString(g_ATR_Threshold_Points, Digits)));
-      Print(StringFormat("現在のATR: %s (price units)", DoubleToString(init_atr, Digits)));
-   }
+   string init_atr_mt4pt_str = (Point > 0.0) ? DoubleToString(init_atr_mt4pt, 0) : "N/A";
+   string thr_mt4pt_str = (Point > 0.0) ? DoubleToString(g_ATR_Threshold_Points / Point, 0) : "N/A";
+   Print(StringFormat("ATR閾値設定: %s (price units) / %s MT4pt",
+                      DoubleToString(g_ATR_Threshold_Points, Digits),
+                      thr_mt4pt_str));
+   Print(StringFormat("現在のATR: %s (price units) / %s MT4pt",
+                      DoubleToString(init_atr, Digits),
+                      init_atr_mt4pt_str));
    
    // 補助条件情報
    Print("===== 補助条件設定 =====");
@@ -752,16 +749,14 @@ void CheckForPullbackEntry()
    double atr_mt4pt = (Point > 0.0) ? (atr_Points / Point) : 0.0;
    double thr_mt4pt = (Point > 0.0) ? (g_ATR_Threshold_Points / Point) : 0.0;
    if (EnableDebugLog) {
-      if (Point > 0.0)
-         Print("ATRチェック: 現在=", DoubleToString(atr_Points, Digits), " (price units) / ", DoubleToString(atr_mt4pt, 0), " MT4pt, 閾値=", DoubleToString(g_ATR_Threshold_Points, Digits), " (price units) / ", DoubleToString(thr_mt4pt, 0), " MT4pt");
-      else
-         Print("ATRチェック: 現在=", DoubleToString(atr_Points, Digits), " (price units), 閾値=", DoubleToString(g_ATR_Threshold_Points, Digits), " (price units)");
+      string atr_mt4pt_str = (Point > 0.0) ? DoubleToString(atr_mt4pt, 0) : "N/A";
+      string thr_mt4pt_str = (Point > 0.0) ? DoubleToString(thr_mt4pt, 0) : "N/A";
+      Print("ATRチェック: 現在=", DoubleToString(atr_Points, Digits), " (price units) / ", atr_mt4pt_str, " MT4pt, 閾値=", DoubleToString(g_ATR_Threshold_Points, Digits), " (price units) / ", thr_mt4pt_str, " MT4pt");
    }
    if (atr_Points < g_ATR_Threshold_Points) {
-      if (Point > 0.0)
-         LogSkipReason("ATR不足: " + DoubleToString(atr_Points, Digits) + " (price) / " + DoubleToString(atr_mt4pt, 0) + " MT4pt < " + DoubleToString(g_ATR_Threshold_Points, Digits) + " (price) / " + DoubleToString(thr_mt4pt, 0) + " MT4pt");
-      else
-         LogSkipReason("ATR不足: " + DoubleToString(atr_Points, Digits) + " (price) < " + DoubleToString(g_ATR_Threshold_Points, Digits) + " (price)");
+      string atr_mt4pt_str = (Point > 0.0) ? DoubleToString(atr_mt4pt, 0) : "N/A";
+      string thr_mt4pt_str = (Point > 0.0) ? DoubleToString(thr_mt4pt, 0) : "N/A";
+      LogSkipReason("ATR不足: " + DoubleToString(atr_Points, Digits) + " (price units) / " + atr_mt4pt_str + " MT4pt < " + DoubleToString(g_ATR_Threshold_Points, Digits) + " (price units) / " + thr_mt4pt_str + " MT4pt");
       return;
    }
    

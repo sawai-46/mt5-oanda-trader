@@ -61,7 +61,7 @@ input double InpMinConfidence = 0.65;      // 最小信頼度
 
 //--- ATR設定
 input int    InpATRPeriod = 14;            // ATR期間
-input double InpATRThresholdDollars = 5.0; // ATR最低閾値(ドル)
+input double InpATRThresholdDollars = 5.0; // ATR最低閾値(ドル。ログは price units / MT5pt を併記)
 
 //--- Partial Close設定
 input bool   InpEnablePartialClose = true;      // 部分決済有効化
