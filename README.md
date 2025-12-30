@@ -4,7 +4,7 @@ OANDA MT5用のAI統合自動トレーディングシステム
 
 ## 📁 プロジェクト構造
 
-```
+```text
 mt5-oanda-trader/
 ├── mql5/                   # MT5 Expert Advisor
 │   ├── Experts/           # EAファイル
@@ -32,6 +32,19 @@ pip install -r requirements.txt
 ```bash
 python server/inference_server.py
 ```
+
+### 2b. Docker で推論サーバー起動（推奨）
+
+GPU版（標準 / NVIDIA GPU前提）:
+
+```bash
+docker compose up -d --build
+```
+
+- コンテナ: `mt5-inference-server`
+- ポート: `5001`（ホスト側）
+
+補足: CPUで動かしたい場合は `python/Dockerfile` を参照する compose に切り替えてください（現状はGPU前提です）。
 
 ### 3. MT5設定
 

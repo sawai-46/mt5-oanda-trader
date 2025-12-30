@@ -1,12 +1,11 @@
+# GPU override for MT5 inference
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+
 services:
   mt5-inference:
     build:
-      context: .
       dockerfile: python/Dockerfile.gpu
-    image: mt5-oanda-trader-inference
-    container_name: mt5-inference-server
-    ports:
-      - "5001:5001"
     deploy:
       resources:
         reservations:
@@ -14,7 +13,3 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [ gpu ]
-    restart: unless-stopped
-    environment:
-      - PYTHONUNBUFFERED=1
-      - TZ=Asia/Tokyo
