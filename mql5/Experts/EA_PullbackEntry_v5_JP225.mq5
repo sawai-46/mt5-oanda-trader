@@ -20,7 +20,7 @@
 
 //--- Preset Selection
 input ENUM_PULLBACK_PRESET InpPreset = PRESET_STANDARD;  // 戦略プリセット
-input int InpPresetApplyMode = 1;  // Preset適用モード: 0=使わない(Input優先), 1=未設定のみ補完★推奨, 2=全上書き
+input int InpPresetApplyMode = 2;  // Preset適用モード: 0=使わない(Input優先), 1=旧互換(=Preset優先), 2=Preset優先
 
 //--- Basic Settings
 input double InpLotSize = 0.10;              // ロットサイズ
@@ -87,7 +87,7 @@ input string InpLogFileName = "EA_PullbackEntry_v5.log"; // ログファイル�
 
 //--- Data collection (MT4 log sync compatible)
 input bool   InpEnableAiLearningCsv = true;                    // AI学習CSV出力（DB同期用）
-input string InpTerminalId = "10900k-mt5-live";               // 端末固定ID（10900k-mt5-live, 10900k-mt5-demo, matsu-mt5-live, matsu-mt5-demo）
+input string InpTerminalId = "10900k-mt5-index";              // 端末固定ID（例: 10900k-mt5-fx / 10900k-mt5-index）。live/demoは含めない
 input string InpAiLearningFolder = "OneDriveLogs\\data\\AI_Learning"; // MQL5/Files配下
 
 //=== GLOBAL OBJECTS ===
@@ -196,21 +196,22 @@ int OnInit()
    
    // Build Config
    CPullbackConfig cfg;
+   SFilterConfig filterCfg;
+   SPositionConfig posCfg;
+
+   filterCfg.Symbol = _Symbol;
+   posCfg.Symbol = _Symbol;
    
-   // ★★★ 3レイヤーモデル: InpPresetApplyModeによる制御 ★★★
-   // mode=0: Input優先（Preset適用なし）- 常にInputを使用
-   // mode=1: Input優先（未設定のみ補完）- 常にInputを使用
-   // mode=2: Preset全上書き（旧互換）- Presetを先に適用、CUSTOMの時のみInput
-   
-   if(InpPresetApplyMode == 2)
+   // Preset適用
+   // mode=0: Input優先（.set尊重）
+   // mode=1/2: Preset優先（MTF無し前提の推奨値を適用）
+   if(InpPresetApplyMode != 0 && InpPreset != PRESET_CUSTOM)
    {
-      // 旧互換モード: Preset先適用
-      ApplyPreset(cfg, InpPreset);
-      CLogger::Log(LOG_INFO, "PresetApplyMode=2: Preset全上書き（旧互換モード）");
+      ApplyPresetAll(cfg, filterCfg, posCfg, InpPreset, 1.0);
+      CLogger::Log(LOG_INFO, StringFormat("PresetApplyMode=%d: Preset優先", InpPresetApplyMode));
    }
    else
    {
-      // mode=0/1: Input優先（Preset適用なし）
       CLogger::Log(LOG_INFO, StringFormat("PresetApplyMode=%d: Input優先（.set尊重）", InpPresetApplyMode));
    }
    
@@ -224,8 +225,8 @@ int OnInit()
    cfg.TerminalId = InpTerminalId;
    cfg.AiLearningFolder = InpAiLearningFolder;
    
-   // mode=0/1 または PRESET_CUSTOM: Inputから全パラメータを読み込み
-   if(InpPresetApplyMode != 2 || InpPreset == PRESET_CUSTOM)
+   // Input優先 または PRESET_CUSTOM: Inputから戦略パラメータを読み込み
+   if(InpPresetApplyMode == 0 || InpPreset == PRESET_CUSTOM)
    {
       cfg.EmaShortPeriod = InpEmaShort;
       cfg.EmaMidPeriod = InpEmaMid;
@@ -252,48 +253,52 @@ int OnInit()
    g_strategy = new CPullbackStrategy(_Symbol, PERIOD_CURRENT, cfg);
    
    // Create Filter Manager
-   SFilterConfig filterCfg;
-   filterCfg.Symbol = _Symbol;
-   filterCfg.EnableTimeFilter = InpEnableTimeFilter;
    filterCfg.GMTOffset = InpGMTOffset;
    filterCfg.UseDST = false;
-   filterCfg.StartMinute = 0;
-   filterCfg.EndMinute = 0;
-   filterCfg.StartHour = InpStartHour;
-   filterCfg.EndHour = InpEndHour;
-   filterCfg.TradeOnFriday = InpTradeOnFriday;
-   filterCfg.EnableSpreadFilter = true;
-   filterCfg.MaxSpreadPoints = g_MaxSpreadPoints;
-   filterCfg.EnableADXFilter = InpUseADXFilter;
-   filterCfg.ADXPeriod = InpADXPeriod;
-   filterCfg.ADXMinLevel = InpADXMinLevel;
-   filterCfg.EnableATRFilter = true;
-   filterCfg.ATRPeriod = InpATRPeriod;
-   filterCfg.ATRMinPoints = g_ATRMinPoints;
+
+   if(InpPresetApplyMode == 0 || InpPreset == PRESET_CUSTOM)
+   {
+      filterCfg.EnableTimeFilter = InpEnableTimeFilter;
+      filterCfg.StartHour = InpStartHour;
+      filterCfg.EndHour = InpEndHour;
+      filterCfg.StartMinute = 0;
+      filterCfg.EndMinute = 0;
+      filterCfg.TradeOnFriday = InpTradeOnFriday;
+      filterCfg.EnableSpreadFilter = true;
+      filterCfg.MaxSpreadPoints = g_MaxSpreadPoints;
+      filterCfg.EnableADXFilter = InpUseADXFilter;
+      filterCfg.ADXPeriod = InpADXPeriod;
+      filterCfg.ADXMinLevel = InpADXMinLevel;
+      filterCfg.EnableATRFilter = true;
+      filterCfg.ATRPeriod = InpATRPeriod;
+      filterCfg.ATRMinPoints = g_ATRMinPoints;
+   }
    
    g_filterManager = new CFilterManager();
    g_filterManager.Init(filterCfg, PERIOD_CURRENT);
    
    // Create Position Manager
-   SPositionConfig posCfg;
    posCfg.MagicNumber = InpMagicNumber;
-   posCfg.Symbol = _Symbol;
-   posCfg.EnablePartialClose = InpEnablePartialClose;
-   posCfg.PartialCloseStages = InpPartialStages;
-   posCfg.PartialClose1Points = g_Partial1Points;
-   posCfg.PartialClose1Percent = InpPartial1Percent;
-   posCfg.PartialClose2Points = g_Partial2Points;
-   posCfg.PartialClose2Percent = InpPartial2Percent;
-   posCfg.PartialClose3Points = g_Partial3Points;
-   posCfg.PartialClose3Percent = InpPartial3Percent;
-   posCfg.MoveToBreakEvenAfterLevel1 = InpMoveToBreakEven;
-   posCfg.MoveSLAfterLevel2 = InpMoveSLAfterLevel2;
-   posCfg.TrailingMode = InpTrailingMode;
-   posCfg.TrailingStartPoints = g_TrailStartPoints;
-   posCfg.TrailingStepPoints = g_TrailStepPoints;
-   posCfg.TrailingATRMulti = 1.0;
-   posCfg.ATRPeriod = InpATRPeriod;
    posCfg.MaxSlippagePoints = InpDeviationPoints;
+
+   if(InpPresetApplyMode == 0 || InpPreset == PRESET_CUSTOM)
+   {
+      posCfg.EnablePartialClose = InpEnablePartialClose;
+      posCfg.PartialCloseStages = InpPartialStages;
+      posCfg.PartialClose1Points = g_Partial1Points;
+      posCfg.PartialClose1Percent = InpPartial1Percent;
+      posCfg.PartialClose2Points = g_Partial2Points;
+      posCfg.PartialClose2Percent = InpPartial2Percent;
+      posCfg.PartialClose3Points = g_Partial3Points;
+      posCfg.PartialClose3Percent = InpPartial3Percent;
+      posCfg.MoveToBreakEvenAfterLevel1 = InpMoveToBreakEven;
+      posCfg.MoveSLAfterLevel2 = InpMoveSLAfterLevel2;
+      posCfg.TrailingMode = InpTrailingMode;
+      posCfg.TrailingStartPoints = g_TrailStartPoints;
+      posCfg.TrailingStepPoints = g_TrailStepPoints;
+      posCfg.TrailingATRMulti = 1.0;
+      posCfg.ATRPeriod = InpATRPeriod;
+   }
 
    DumpEffectiveConfig(InpPreset, cfg, filterCfg, posCfg);
    
