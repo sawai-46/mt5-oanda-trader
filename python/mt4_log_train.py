@@ -109,21 +109,52 @@ def main():
     parser.add_argument("--model-in", type=str, help="Existing model path to fine-tune")
     parser.add_argument("--model-out", type=str, default="antigravity/data/refined_model.pt", help="Output path")
     parser.add_argument("--epochs", type=int, default=30)
+    parser.add_argument("--seq-len", type=int, default=20, help="Sequence length for training samples")
+    parser.add_argument(
+        "--min-rows",
+        type=int,
+        default=50,
+        help="Minimum number of CSV rows required to start training (default: 50)",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="auto",
+        choices=["auto", "cpu", "cuda"],
+        help="Training device (auto/cpu/cuda)",
+    )
     args = parser.parse_args()
 
     print(f"Loading data: {args.file}")
     df = load_exported_data(args.file)
     print(f"Total rows: {len(df)}")
 
-    if len(df) < 50:
-        print("Error: Not enough data for training (min 50 rows required).")
+    if len(df) < args.min_rows:
+        print(f"Error: Not enough data for training (min {args.min_rows} rows required).")
+        print("Tip: Use --min-rows to override for a smoke test, or collect more data.")
         return
 
-    X, y_reg, y_cls = prepare_sequences_from_features(df)
+    if len(df) < args.seq_len + 2:
+        print(
+            f"Error: Not enough rows to create sequences (rows={len(df)}, seq_len={args.seq_len})."
+        )
+        print("Tip: Reduce --seq-len or collect more data.")
+        return
+
+    X, y_reg, y_cls = prepare_sequences_from_features(df, seq_len=args.seq_len)
     print(f"Sequences created: {len(X)}")
 
+    if len(X) == 0:
+        print("Error: No sequences were created. Check --seq-len and data columns.")
+        return
+
     # モデル初期化 (既存があればロード)
-    predictor = TransformerPredictor(input_dim=5)
+    if args.device == "auto":
+        device_str = "cuda" if torch.cuda.is_available() else "cpu"
+    else:
+        device_str = args.device
+
+    predictor = TransformerPredictor(input_dim=5, device=device_str)
     if args.model_in and os.path.exists(args.model_in):
         print(f"Loading existing model: {args.model_in}")
         predictor.load(args.model_in)
@@ -132,9 +163,6 @@ def main():
     print(f"Starting training for {args.epochs} epochs...")
     batch_size = 16
     n_samples = len(X)
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    predictor.model.to(device)
     
     for epoch in range(args.epochs):
         indices = np.random.permutation(n_samples)
