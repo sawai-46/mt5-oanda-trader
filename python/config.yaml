@@ -1,0 +1,96 @@
+mt4_terminals:
+  - id: 10900k-A
+    data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\A84B568DA10F82FE5A8FF6A859153D6F\MQL4\Files\OneDriveLogs\data
+    broker: Rakuten
+  - id: 10900k-B
+    data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\F350723F1EC14B9854EACE771AE0C0F3\MQL4\Files\OneDriveLogs\data
+    broker: Rakuten
+  - id: matsu-A
+    data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\A84B568DA10F82FE5A8FF6A859153D6F\MQL4\Files\OneDriveLogs\data
+    broker: Rakuten
+  - id: matsu-B
+    data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\F350723F1EC14B9854EACE771AE0C0F3\MQL4\Files\OneDriveLogs\data
+    broker: Rakuten
+
+# MT5 OANDA Terminals
+mt5_terminals:
+  - id: 10900k-mt5-live
+    data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\EE0304F13905552AE0B5EAEFB04866EB\MQL5\Files\OneDriveLogs\data
+    broker: OANDA
+  - id: 10900k-mt5-demo
+    data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\877D039290F2391FC790569104895E86\MQL5\Files\OneDriveLogs\data
+    broker: OANDA
+  - id: matsu-mt5-live
+    data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\EE0304F13905552AE0B5EAEFB04866EB\MQL5\Files\OneDriveLogs\data
+    broker: OANDA
+  - id: matsu-mt5-demo
+    data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\877D039290F2391FC790569104895E86\MQL5\Files\OneDriveLogs\data
+    broker: OANDA
+
+auto_detect: false
+lm_studio:
+  url: http://localhost:1234
+  timeout: 30
+logging:
+  level: INFO
+  directory: logs
+server:
+  poll_interval: 0.5
+strategy:
+  preset: antigravity_pullback
+  pattern: full
+  atr_thresholds:
+    USDJPY: 7
+    GBPJPY: 7
+    AUDJPY: 7
+    EURUSD: 5
+    AUDUSD: 5
+    GBPUSD: 6
+    EURJPY: 6
+    JP225: 70
+    US30: 100
+    US500: 30
+    NQ100: 80
+  atr_threshold_fx: 7
+  atr_threshold_index: 70
+  vpin_danger_threshold: 0.7
+  garch_enabled: false
+antigravity:
+  enable_vpin: false
+  enable_gk_vol: true
+  enable_vwap_gap: false
+  enable_sentiment: false
+  enable_garch: false
+antigravity_orchestrator:
+  enabled: true
+  model_type: ensemble
+  transformer_model_path: antigravity/models/transformer_best.pth
+  kan_model_path: antigravity/models/kan_best.pth
+  daily_data_path: ''
+  ensemble_weights:
+    transformer: 0.6
+    kan: 0.4
+  signal_weight: 0.15
+hedge_mode:
+  enabled: false
+  skip_trend_regime: true
+  prioritize_mean_reversion: true
+  min_confidence_threshold: 0.7
+  regime_config:
+    trend: skip
+    range: active
+    high_vol: caution
+
+# オプション市場リスク監視設定（大きなドローダウン回避用）
+options_risk:
+  enabled: true
+  update_schedule: daily       # 更新頻度: daily（1日1回）
+  cache_duration_hours: 24     # キャッシュ有効期間（時間）
+  
+  # リスク閾値
+  vix_danger_threshold: 25     # VIXがこの値を超えると警戒
+  skew_danger_threshold: 150   # SKEWがこの値を超えると警戒
+  
+  # 取引制御（将来実装用）
+  auto_stop_on_danger: false   # true: 危険レベルで自動取引停止
+  reduce_lot_on_caution: true  # true: 警戒レベルでロット50%削減
