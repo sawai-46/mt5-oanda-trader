@@ -399,6 +399,36 @@ class SevenModuleAnalyzer:
             suffix = "..." if len(keys) > 10 else ""
             logger.info(f"ATR symbol overrides loaded: {keys[:10]}{suffix}")
 
+        # ★NEW: 拡張シグナルアグリゲーター（戦略パターン対応）
+        self.strategy = strategy
+        self.aggregator = ExtendedSignalAggregator(strategy=strategy)
+
+        # ★NEW: Antigravity Orchestrator（Transformer/KAN/VPIN/GARCH）
+        self.use_antigravity = use_antigravity and ANTIGRAVITY_AVAILABLE
+        self.orchestrator = None
+
+        if self.use_antigravity:
+            try:
+                self.orchestrator = AntigravityOrchestrator(
+                    run_mode='SHADOW',
+                    model_type=model_type,
+                    model_path=transformer_model_path,
+                    kan_model_path=kan_model_path,
+                    daily_data_path=daily_data_path,
+                    max_position=max_position
+                )
+                logger.info(f"Antigravity Orchestrator initialized (model_type={model_type})")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Antigravity: {e}")
+                self.use_antigravity = False
+
+        modules_count = "9+Antigravity" if self.use_antigravity else "9"
+        logger.info(
+            f"{modules_count}-Module Analyzer initialized (Strategy={strategy}, "
+            f"ATR: FX={self.atr_threshold_fx}pips, Index={self.atr_threshold_index}points, "
+            f"SymbolOverrides={len(self.symbol_atr_thresholds)})"
+        )
+
     def _resolve_atr_threshold(self, symbol: str, is_index: bool) -> Tuple[float, str]:
         sym = (symbol or "").strip().upper()
         if not sym:
@@ -460,36 +490,6 @@ class SevenModuleAnalyzer:
             f"★ Preset switched: {name} (enabled: {sum(1 for v in self.enabled_modules.values() if v)} modules)"
         )
         return True
-        
-        # ★NEW: 拡張シグナルアグリゲーター（戦略パターン対応）
-        self.strategy = strategy
-        self.aggregator = ExtendedSignalAggregator(strategy=strategy)
-        
-        # ★NEW: Antigravity Orchestrator（Transformer/KAN/VPIN/GARCH）
-        self.use_antigravity = use_antigravity and ANTIGRAVITY_AVAILABLE
-        self.orchestrator = None
-        
-        if self.use_antigravity:
-            try:
-                self.orchestrator = AntigravityOrchestrator(
-                    run_mode='SHADOW',
-                    model_type=model_type,
-                    model_path=transformer_model_path,
-                    kan_model_path=kan_model_path,
-                    daily_data_path=daily_data_path,
-                    max_position=max_position
-                )
-                logger.info(f"Antigravity Orchestrator initialized (model_type={model_type})")
-            except Exception as e:
-                logger.warning(f"Failed to initialize Antigravity: {e}")
-                self.use_antigravity = False
-        
-        modules_count = "9+Antigravity" if self.use_antigravity else "9"
-        logger.info(
-            f"{modules_count}-Module Analyzer initialized (Strategy={strategy}, "
-            f"ATR: FX={self.atr_threshold_fx}pips, Index={self.atr_threshold_index}points, "
-            f"SymbolOverrides={len(self.symbol_atr_thresholds)})"
-        )
     
     def analyze(self, data: Dict) -> Tuple[int, float, str, Dict]:
         """

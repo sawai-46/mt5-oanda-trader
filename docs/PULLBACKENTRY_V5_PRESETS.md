@@ -12,6 +12,28 @@
   - **live/demo は含めない**（口座切替の概念として扱う）
   - ただし **AI学習CSVのファイル名** では、混在防止のため EA が内部的に `-LIVE` / `-DEMO` を自動付与します
 
+## 更新後の最小確認手順（影響範囲を絞る）
+
+このガイドの変更点は「**スリッページ入力の単位/名前が points ではなく**、銘柄ごとの unit（FX=pips / JP225=円 / USIndex=ドル）になる」だけです。
+
+1. **MetaEditorでコンパイル**
+  - `EA_PullbackEntry_v5_FX.mq5`
+  - `EA_PullbackEntry_v5_JP225.mq5`
+  - `EA_PullbackEntry_v5_USIndex.mq5`
+2. **`.set` を読み込み、Input項目の存在を確認**
+  - FX: `InpMaxSlippagePips`
+  - JP225: `InpMaxSlippageYen`
+  - USIndex: `InpMaxSlippageDollars`
+  - 旧: `InpDeviationPoints` が存在しないこと
+3. **起動ログで換算が出ていることを確認**
+  - FX: 「Pips→Points変換」
+  - JP225: 「円→Points変換」
+  - USIndex: 「ドル→Points変換」
+4. **1回だけ発注テスト（バックテストでも可）**
+  - 発注時にリジェクトされないこと（スリッページ値が反映されていること）
+5. （AI学習CSVを使う場合）**CSVファイル名に `-LIVE` / `-DEMO` が付くこと**
+  - `InpTerminalId` に live/demo を入れなくても、EAが自動的に混在防止します
+
 ### Preset優先でも Input が使われる項目
 
 Preset優先（`InpPresetApplyMode!=0` かつ `InpPreset!=PRESET_CUSTOM`）でも、以下は **環境依存**として Input 値を使います。
@@ -20,7 +42,7 @@ Preset優先（`InpPresetApplyMode!=0` かつ `InpPreset!=PRESET_CUSTOM`）で�
 - `InpADXPeriod` / `InpATRPeriod`
 - `InpGMTOffset`（JST変換の基準）
 - `InpStartHour` / `InpEndHour` / `InpTradeOnFriday`（取引時間帯）
-- `InpMagicNumber` / `InpLotSize` / `InpDeviationPoints`
+- `InpMagicNumber` / `InpLotSize` / `InpMaxSlippage*`（FX=`InpMaxSlippagePips` / JP225=`InpMaxSlippageYen` / USIndex=`InpMaxSlippageDollars`）
 - `InpTerminalId` / `InpAiLearningFolder` / `InpEnableAiLearningCsv`
 
 理由: ブローカー/銘柄/環境で変わる値をプリセットに固定しないため。
@@ -69,12 +91,14 @@ Preset優先（`InpPresetApplyMode!=0` かつ `InpPreset!=PRESET_CUSTOM`）で�
 ## プリセット一覧（Strategy + Filters + Position）
 
 凡例:
+
 - **ATRMin**: `ATRMinPoints` / `ATRThresholdPoints`
 - **SL/TP**: fixed points（`SLTPMode` が fixed の場合）
 - **Time**: 取引時間フィルタ（ローカル時間ではなく EA 設定の扱いに従う）
 - **Channel**: `EnableChannelFilter` と `MinChannelWidthPoints`
 
 ### Standard（標準）
+
 - Strategy
   - EMA: 12/25/100、PerfectOrder=true
   - Pullback: Touch=true, Cross=true, Break=false（Ref=EMA25）
@@ -88,6 +112,7 @@ Preset優先（`InpPresetApplyMode!=0` かつ `InpPreset!=PRESET_CUSTOM`）で�
   - BE: after L1=true、after L2=true、Trailing=off
 
 ### Conservative（保守）
+
 - Strategy
   - EMA: 12/25/100、PerfectOrder=true
   - ADX>=25、ATRMin=4.0 unit
@@ -100,6 +125,7 @@ Preset優先（`InpPresetApplyMode!=0` かつ `InpPreset!=PRESET_CUSTOM`）で�
   - BE: after L1=true、after L2=true、Trailing=off
 
 ### Aggressive（積極）
+
 - Strategy
   - EMA: 12/25/100、PerfectOrder=false
   - Pullback: Touch/Cross/Break=true（回数重視）
@@ -113,6 +139,7 @@ Preset優先（`InpPresetApplyMode!=0` かつ `InpPreset!=PRESET_CUSTOM`）で�
   - BE: after L1=true、after L2=true、Trailing=off
 
 ### Scalping（スキャル）
+
 - Strategy
   - EMA: 8/20/50、PerfectOrder=false
   - ADX filter: off、ATRMin=1.0 unit
@@ -125,6 +152,7 @@ Preset優先（`InpPresetApplyMode!=0` かつ `InpPreset!=PRESET_CUSTOM`）で�
   - BE: after L1=true、after L2=false、Trailing=off
 
 ### TrendPullback（トレンド継続押し目）
+
 - Strategy
   - EMA: 12/25/100、PerfectOrder=true
   - Pullback: Touch=true, Cross=false, Break=false（ノイズ減）
@@ -138,6 +166,7 @@ Preset優先（`InpPresetApplyMode!=0` かつ `InpPreset!=PRESET_CUSTOM`）で�
   - BE: after L1=true、after L2=true、Trailing=off
 
 ### BreakoutPullback（ブレイク後押し）
+
 - Strategy
   - EMA: 8/20/100、PerfectOrder=false
   - Pullback: Touch=false, Cross=true, Break=true（Ref=EMA12）
@@ -151,6 +180,7 @@ Preset優先（`InpPresetApplyMode!=0` かつ `InpPreset!=PRESET_CUSTOM`）で�
   - BE: after L1=true、after L2=true、Trailing=off
 
 ### Defensive（防御）
+
 - Strategy
   - EMA: 12/25/100、PerfectOrder=true
   - ADX>=28、ATRMin=4.0 unit

@@ -1,3 +1,4 @@
+# GPU専用（CPUは使わない運用）
 services:
   mt5-inference:
     build:

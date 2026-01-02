@@ -1,6 +1,6 @@
 # MT5 HTTP inference server (GPU-ready Docker)
 # - Uses NVIDIA NGC PyTorch image (includes CUDA + PyTorch)
-# - Runs the same MT5 HTTP server as the CPU image
+# - Runs the same MT5 HTTP server as the standard image
 #
 # NOTE:
 # - This does not magically speed up rule-based logic.

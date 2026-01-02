@@ -44,7 +44,7 @@ docker compose up -d --build
 - コンテナ: `mt5-inference-server`
 - ポート: `5001`（ホスト側）
 
-補足: CPUで動かしたい場合は `python/Dockerfile` を参照する compose に切り替えてください（現状はGPU前提です）。
+補足: この compose はソースを volume マウントしていないため、コード変更を反映するには `--build` が必要です。
 
 ### 3. MT5設定
 
