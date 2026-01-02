@@ -30,8 +30,9 @@ enum ENUM_PULLBACK_PRESET
 //+------------------------------------------------------------------+
 // unitToPoints:
 //  - FX: 1 unit = 1 pip（5桁なら unitToPoints=10）
-//  - USIndex: 1 unit = 1 dollar（例: unitToPoints=100）
-//  - JP225: 1 unit = 1 yen（unitToPoints=1）
+//  - Indices: 1 unit = 1.0 価格（指数の値幅） → unitToPoints = 1 / SYMBOL_POINT
+//    - 例: SYMBOL_POINT=0.01 → unitToPoints=100
+//    - 例: SYMBOL_POINT=0.1  → unitToPoints=10
 void ApplyPreset(CPullbackConfig &cfg, ENUM_PULLBACK_PRESET preset, const double unitToPoints)
 {
    switch(preset)

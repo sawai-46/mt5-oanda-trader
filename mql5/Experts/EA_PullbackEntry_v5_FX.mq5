@@ -24,7 +24,8 @@ input int InpPresetApplyMode = 2;  // Preset適用モード: 0=使わない(Inpu
 
 //--- Basic Settings
 input double InpLotSize = 0.10;              // ロットサイズ
-input long   InpMagicNumber = 55000001;      // マジックナンバー
+input bool   InpAutoMagicNumber = false;     // マジックナンバー自動生成（true または InpMagicNumber=0 で有効）
+input long   InpMagicNumber = 55000001;      // マジックナンバー（自動生成時は無視）
 input int    InpDeviationPoints = 50;        // 最大スリッページ(points)
 
 //--- EMA Settings
@@ -95,6 +96,8 @@ CPullbackStrategy *g_strategy = NULL;
 CPositionManager  *g_posManager = NULL;
 CFilterManager    *g_filterManager = NULL;
 
+long g_EffectiveMagicNumber = 0;
+
 // Pips→Points変換値（OnInitで計算）
 double g_pipMultiplier = 10.0;  // 5桁ブローカー: 1pip = 10points
 int    g_MaxSpreadPoints = 0;
@@ -108,6 +111,22 @@ double g_TrailStartPoints = 0;
 double g_TrailStepPoints = 0;
 
 string BoolStr(const bool v){ return v ? "true" : "false"; }
+
+ulong HashDjb2(const string s)
+{
+   ulong h = 5381;
+   for(int i = 0; i < StringLen(s); i++)
+      h = ((h << 5) + h) + (ulong)StringGetCharacter(s, i);
+   return h;
+}
+
+long GenerateMagicNumber_PBEv5()
+{
+   // Stable per terminalId + symbol + timeframe (+ program name)
+   string key = "PBEv5|" + InpTerminalId + "|" + _Symbol + "|" + IntegerToString((int)PERIOD_CURRENT) + "|" + MQLInfoString(MQL_PROGRAM_NAME);
+   ulong h = HashDjb2(key);
+   return (long)(55000000 + (h % 9000000));
+}
 
 void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
                          const CPullbackConfig &cfg,
@@ -173,7 +192,11 @@ void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   string instanceId = "EA_PullbackEntry_v5_FX|" + _Symbol + "|Magic:" + (string)InpMagicNumber + "|CID:" + (string)ChartID();
+   g_EffectiveMagicNumber = InpMagicNumber;
+   if(InpAutoMagicNumber || InpMagicNumber == 0)
+      g_EffectiveMagicNumber = GenerateMagicNumber_PBEv5();
+
+   string instanceId = "EA_PullbackEntry_v5_FX|" + _Symbol + "|Magic:" + (string)g_EffectiveMagicNumber + "|CID:" + (string)ChartID();
    CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, InpLogFileName, InpLogUseCommonFolder);
 
    // Pips→Points変換（5桁ブローカー: 1pip = 10points）
@@ -209,6 +232,21 @@ int OnInit()
 
    filterCfg.Symbol = _Symbol;
    posCfg.Symbol = _Symbol;
+
+   // 環境依存値は常にInputから反映（Preset優先でも必要）
+   cfg.MaxSpreadPoints = g_MaxSpreadPoints;
+   filterCfg.MaxSpreadPoints = g_MaxSpreadPoints;
+   filterCfg.ADXPeriod = InpADXPeriod;
+   filterCfg.ATRPeriod = InpATRPeriod;
+   posCfg.ATRPeriod = InpATRPeriod;
+
+   // 時間帯は運用都合で変わるのでInputを優先（Preset優先でも有効）
+   filterCfg.EnableTimeFilter = InpEnableTimeFilter;
+   filterCfg.StartHour = InpStartHour;
+   filterCfg.StartMinute = 0;
+   filterCfg.EndHour = InpEndHour;
+   filterCfg.EndMinute = 0;
+   filterCfg.TradeOnFriday = InpTradeOnFriday;
    
    // Preset適用
    // mode=0: Input優先（.set尊重）
@@ -224,7 +262,7 @@ int OnInit()
    }
    
    // 常にInput値を適用（mode=0/1ではこれがメイン、mode=2ではCUSTOM用上書き）
-   cfg.MagicNumber = InpMagicNumber;
+   cfg.MagicNumber = g_EffectiveMagicNumber;
    cfg.LotSize = InpLotSize;
    cfg.DeviationPoints = InpDeviationPoints;
 
@@ -286,7 +324,7 @@ int OnInit()
    g_filterManager.Init(filterCfg, PERIOD_CURRENT);
    
    // Create Position Manager
-   posCfg.MagicNumber = InpMagicNumber;
+   posCfg.MagicNumber = g_EffectiveMagicNumber;
    posCfg.MaxSlippagePoints = InpDeviationPoints;
 
    if(InpPresetApplyMode == 0 || InpPreset == PRESET_CUSTOM)

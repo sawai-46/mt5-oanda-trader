@@ -1,7 +1,7 @@
 //+------------------------------------------------------------------+
 //|                                  EA_PullbackEntry_v5_JP225.mq5   |
 //|                    MQL5 OOP Version - Pullback Entry Strategy    |
-//|                    日経225専用 単位: 円 (1point=1円)               |
+//|                    日経225専用 単位: 円（price units）            |
 //+------------------------------------------------------------------+
 #property copyright "2025"
 #property link      ""
@@ -24,7 +24,8 @@ input int InpPresetApplyMode = 2;  // Preset適用モード: 0=使わない(Inpu
 
 //--- Basic Settings
 input double InpLotSize = 0.10;              // ロットサイズ
-input long   InpMagicNumber = 55000001;      // マジックナンバー
+input bool   InpAutoMagicNumber = false;     // マジックナンバー自動生成（true または InpMagicNumber=0 で有効）
+input long   InpMagicNumber = 55000001;      // マジックナンバー（自動生成時は無視）
 input int    InpDeviationPoints = 50;        // 最大スリッページ(points)
 
 //--- EMA Settings
@@ -95,7 +96,10 @@ CPullbackStrategy *g_strategy = NULL;
 CPositionManager  *g_posManager = NULL;
 CFilterManager    *g_filterManager = NULL;
 
-// 円→Points変換値（JP225: 1円 = 1point）
+long g_EffectiveMagicNumber = 0;
+
+// 円（price units）→ MT5 points 変換値
+// 例: Point=0.1 の場合、1円 = 10 points
 int    g_MaxSpreadPoints = 0;
 double g_ATRMinPoints = 0;
 double g_SLFixedPoints = 0;
@@ -106,7 +110,74 @@ double g_Partial3Points = 0;
 double g_TrailStartPoints = 0;
 double g_TrailStepPoints = 0;
 
+double g_YenToPoints = 0.0;
+
 string BoolStr(const bool v){ return v ? "true" : "false"; }
+
+ulong HashDjb2(const string s)
+{
+   ulong h = 5381;
+   for(int i = 0; i < StringLen(s); i++)
+      h = ((h << 5) + h) + (ulong)StringGetCharacter(s, i);
+   return h;
+}
+
+long GenerateMagicNumber_PBEv5()
+{
+   // Stable per terminalId + symbol + timeframe (+ program name)
+   string key = "PBEv5|" + InpTerminalId + "|" + _Symbol + "|" + IntegerToString((int)PERIOD_CURRENT) + "|" + MQLInfoString(MQL_PROGRAM_NAME);
+   ulong h = HashDjb2(key);
+   return (long)(55200000 + (h % 9000000));
+}
+
+int VolumeDigitsFromStep(const double step)
+{
+   if(step <= 0.0)
+      return 2;
+   string s = DoubleToString(step, 8);
+   int dot = StringFind(s, ".");
+   if(dot < 0)
+      return 0;
+   int end = (int)StringLen(s) - 1;
+   while(end > dot && StringGetCharacter(s, end) == '0')
+      end--;
+   return MathMax(0, end - dot);
+}
+
+double NormalizeVolumeToSymbol(const string sym, const double desired)
+{
+   double volMin = SymbolInfoDouble(sym, SYMBOL_VOLUME_MIN);
+   double volMax = SymbolInfoDouble(sym, SYMBOL_VOLUME_MAX);
+   double volStep = SymbolInfoDouble(sym, SYMBOL_VOLUME_STEP);
+
+   if(volMin <= 0.0)
+      volMin = 0.01;
+   if(volMax <= 0.0)
+      volMax = 100.0;
+   if(volStep <= 0.0)
+      volStep = 0.01;
+
+   double v = desired;
+   if(v < volMin)
+      v = volMin;
+   if(v > volMax)
+      v = volMax;
+
+   // Ensure v is aligned to step and not below desired.
+   double steps = (v - volMin) / volStep;
+   if(steps < 0.0)
+      steps = 0.0;
+   double aligned = volMin + MathCeil(steps - 1e-12) * volStep;
+
+   int digits = VolumeDigitsFromStep(volStep);
+   aligned = NormalizeDouble(aligned, digits);
+   if(aligned < volMin)
+      aligned = volMin;
+   if(aligned > volMax)
+      aligned = volMax;
+
+   return aligned;
+}
 
 void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
                          const CPullbackConfig &cfg,
@@ -172,22 +243,33 @@ void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   string instanceId = "EA_PullbackEntry_v5_JP225|" + _Symbol + "|Magic:" + (string)InpMagicNumber + "|CID:" + (string)ChartID();
+   g_EffectiveMagicNumber = InpMagicNumber;
+   if(InpAutoMagicNumber || InpMagicNumber == 0)
+      g_EffectiveMagicNumber = GenerateMagicNumber_PBEv5();
+
+   string instanceId = "EA_PullbackEntry_v5_JP225|" + _Symbol + "|Magic:" + (string)g_EffectiveMagicNumber + "|CID:" + (string)ChartID();
    CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, InpLogFileName, InpLogUseCommonFolder);
 
-   // 円→Points変換（JP225: 1円 = 1point）
-   g_MaxSpreadPoints = InpMaxSpreadYen;        // 円 = points
-   g_ATRMinPoints = InpATRMinYen;
-   g_SLFixedPoints = InpSLFixedYen;
-   g_TPFixedPoints = InpTPFixedYen;
-   g_Partial1Points = InpPartial1Yen;
-   g_Partial2Points = InpPartial2Yen;
-   g_Partial3Points = InpPartial3Yen;
-   g_TrailStartPoints = InpTrailStartYen;
-   g_TrailStepPoints = InpTrailStepYen;
+   // 円（price units）→ MT5 points 変換
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   if(point <= 0.0)
+      point = 0.1;
+   g_YenToPoints = 1.0 / point;
+
+   g_MaxSpreadPoints = (int)MathRound(InpMaxSpreadYen * g_YenToPoints);
+   g_ATRMinPoints = InpATRMinYen * g_YenToPoints;
+   g_SLFixedPoints = InpSLFixedYen * g_YenToPoints;
+   g_TPFixedPoints = InpTPFixedYen * g_YenToPoints;
+   g_Partial1Points = InpPartial1Yen * g_YenToPoints;
+   g_Partial2Points = InpPartial2Yen * g_YenToPoints;
+   g_Partial3Points = InpPartial3Yen * g_YenToPoints;
+   g_TrailStartPoints = InpTrailStartYen * g_YenToPoints;
+   g_TrailStepPoints = InpTrailStepYen * g_YenToPoints;
    
-   CLogger::Log(LOG_INFO, StringFormat("★ 円→Points変換: SL=%.1f円→%.0fpts TP=%.1f円→%.0fpts",
-                InpSLFixedYen, g_SLFixedPoints, InpTPFixedYen, g_TPFixedPoints));
+   CLogger::Log(LOG_INFO, StringFormat("★ 円→Points変換: Point=%g (1円=%.1fpt) SL=%.1f円→%.0fpt TP=%.1f円→%.0fpt",
+                point, g_YenToPoints,
+                InpSLFixedYen, g_SLFixedPoints,
+                InpTPFixedYen, g_TPFixedPoints));
 
    CLogger::Log(LOG_INFO, "=== EA_PullbackEntry v5.0 JP225 (MQL5 OOP) ===");
    CLogger::Log(LOG_INFO, "Preset: " + GetPresetName(InpPreset));
@@ -201,13 +283,28 @@ int OnInit()
 
    filterCfg.Symbol = _Symbol;
    posCfg.Symbol = _Symbol;
+
+   // 環境依存値は常にInputから反映（Preset優先でも必要）
+   cfg.MaxSpreadPoints = g_MaxSpreadPoints;
+   filterCfg.MaxSpreadPoints = g_MaxSpreadPoints;
+   filterCfg.ADXPeriod = InpADXPeriod;
+   filterCfg.ATRPeriod = InpATRPeriod;
+   posCfg.ATRPeriod = InpATRPeriod;
+
+   // 時間帯は運用都合で変わるのでInputを優先（Preset優先でも有効）
+   filterCfg.EnableTimeFilter = InpEnableTimeFilter;
+   filterCfg.StartHour = InpStartHour;
+   filterCfg.StartMinute = 0;
+   filterCfg.EndHour = InpEndHour;
+   filterCfg.EndMinute = 0;
+   filterCfg.TradeOnFriday = InpTradeOnFriday;
    
    // Preset適用
    // mode=0: Input優先（.set尊重）
    // mode=1/2: Preset優先（MTF無し前提の推奨値を適用）
    if(InpPresetApplyMode != 0 && InpPreset != PRESET_CUSTOM)
    {
-      ApplyPresetAll(cfg, filterCfg, posCfg, InpPreset, 1.0);
+      ApplyPresetAll(cfg, filterCfg, posCfg, InpPreset, g_YenToPoints);
       CLogger::Log(LOG_INFO, StringFormat("PresetApplyMode=%d: Preset優先", InpPresetApplyMode));
    }
    else
@@ -216,8 +313,13 @@ int OnInit()
    }
    
    // 常にInput値を適用（mode=0/1ではこれがメイン、mode=2ではCUSTOM用上書き）
-   cfg.MagicNumber = InpMagicNumber;
-   cfg.LotSize = InpLotSize;
+   cfg.MagicNumber = g_EffectiveMagicNumber;
+   cfg.LotSize = NormalizeVolumeToSymbol(_Symbol, InpLotSize);
+   if(MathAbs(cfg.LotSize - InpLotSize) > 1e-9)
+   {
+      CLogger::Log(LOG_WARN, StringFormat("LotSize normalized: requested=%.2f -> applied=%.2f (min/step/max by broker)",
+                                         InpLotSize, cfg.LotSize));
+   }
    cfg.DeviationPoints = InpDeviationPoints;
 
    // Data collection
@@ -278,7 +380,7 @@ int OnInit()
    g_filterManager.Init(filterCfg, PERIOD_CURRENT);
    
    // Create Position Manager
-   posCfg.MagicNumber = InpMagicNumber;
+   posCfg.MagicNumber = g_EffectiveMagicNumber;
    posCfg.MaxSlippagePoints = InpDeviationPoints;
 
    if(InpPresetApplyMode == 0 || InpPreset == PRESET_CUSTOM)

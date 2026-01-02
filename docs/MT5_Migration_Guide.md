@@ -1,5 +1,9 @@
 # MT5 AI Trader - 引継ぎガイド
 
+## PullbackEntry v5 プリセット（MTF無し）
+
+- プリセット一覧・運用ルール: [docs/PULLBACKENTRY_V5_PRESETS.md](PULLBACKENTRY_V5_PRESETS.md)
+
 ## 概要
 OANDA MT5への移行プロジェクト。MQL4からMQL5へのOOP化リファクタリング。
 
