@@ -301,11 +301,19 @@ void OnTick()
 //+------------------------------------------------------------------+
 bool CreateDataDirectory()
 {
+   if(!EnsureFolderPath(DataDirectory))
+   {
+      Print("[ERROR] ディレクトリ作成失敗: ", DataDirectory);
+      return false;
+   }
+
    string testFile = DataDirectory + "\\test.txt";
+   ResetLastError();
    int handle = FileOpen(testFile, FILE_WRITE|FILE_TXT);
    if(handle == INVALID_HANDLE)
    {
-      Print("[ERROR] ディレクトリ作成失敗: ", DataDirectory);
+      int err = GetLastError();
+      Print(StringFormat("[ERROR] データディレクトリ書き込みテスト失敗: %s (err=%d)", DataDirectory, err));
       return false;
    }
    FileClose(handle);
@@ -849,6 +857,9 @@ bool EnsureFolderPath(string folderPath)
    while(StringLen(path) > 0 && StringSubstr(path, StringLen(path) - 1, 1) == "\\")
       path = StringSubstr(path, 0, StringLen(path) - 1);
 
+   if(StringLen(path) == 0)
+      return false;
+
    // MQL4のファイルI/Oは通常 MQL4\\Files 配下の相対パスが前提
    if(StringLen(path) >= 2 && StringSubstr(path, 1, 1) == ":")
    {
@@ -867,7 +878,19 @@ bool EnsureFolderPath(string folderPath)
       if(StringLen(parts[i]) == 0)
          continue;
       current = (StringLen(current) == 0) ? parts[i] : (current + "\\" + parts[i]);
-      FolderCreate(current);
+
+      string dummy_file = current + "\\.dummy";
+      ResetLastError();
+      int h = FileOpen(dummy_file, FILE_WRITE|FILE_TXT);
+      if(h == INVALID_HANDLE)
+      {
+         int err = GetLastError();
+         Print(StringFormat("[ERROR] フォルダ作成失敗: %s (err=%d)", current, err));
+         return false;
+      }
+      FileWrite(h, "Folder created by EA");
+      FileClose(h);
+      FileDelete(dummy_file);
    }
    return true;
 }

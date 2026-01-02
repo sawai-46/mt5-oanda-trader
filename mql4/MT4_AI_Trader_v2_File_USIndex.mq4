@@ -165,6 +165,7 @@ string g_statusFile = "";
 
 // Partial Close状態管理
 int g_partialCloseLevel[];  // 各ポジションのレベル（0-3）
+int g_partialCloseTicket[]; // g_partialCloseLevel の対応チケット
 int g_logFileHandle = -1;
 string g_currentLogFile = "";
 
@@ -362,8 +363,10 @@ int OnInit()
    // Partial Close配列初期化
    if(EnablePartialClose)
    {
-      ArrayResize(g_partialCloseLevel, 100);
+      ArrayResize(g_partialCloseLevel, 200);
+      ArrayResize(g_partialCloseTicket, 200);
       ArrayInitialize(g_partialCloseLevel, 0);
+      ArrayInitialize(g_partialCloseTicket, 0);
    }
    
    // CSVログ初期化
@@ -441,11 +444,19 @@ void OnTick()
 //+------------------------------------------------------------------+
 bool CreateDataDirectory()
 {
+   if(!EnsureFolderPath(DataDirectory))
+   {
+      Print("[ERROR] ディレクトリ作成失敗: ", DataDirectory);
+      return false;
+   }
+
    string testFile = DataDirectory + "\\test.txt";
+   ResetLastError();
    int handle = FileOpen(testFile, FILE_WRITE|FILE_TXT);
    if(handle == INVALID_HANDLE)
    {
-      Print("[ERROR] ディレクトリ作成失敗: ", DataDirectory);
+      int err = GetLastError();
+      Print(StringFormat("[ERROR] データディレクトリ書き込みテスト失敗: %s (err=%d)", DataDirectory, err));
       return false;
    }
    FileClose(handle);
@@ -684,7 +695,11 @@ void ExecuteTrade(int signal, double confidence)
          g_lastTradeBar = Bars;
          
          if(EnablePartialClose)
-            g_partialCloseLevel[ticket % 100] = 0;
+         {
+            int slot = GetPartialCloseIndex(ticket);
+            if(slot >= 0)
+               g_partialCloseLevel[slot] = 0;
+         }
          
          if(EnableCsvLogging)
             LogTradeEvent("ENTRY", ticket, OP_BUY, signal, confidence, "BUY executed");
@@ -714,7 +729,11 @@ void ExecuteTrade(int signal, double confidence)
          g_lastTradeBar = Bars;
          
          if(EnablePartialClose)
-            g_partialCloseLevel[ticket % 100] = 0;
+         {
+            int slot = GetPartialCloseIndex(ticket);
+            if(slot >= 0)
+               g_partialCloseLevel[slot] = 0;
+         }
          
          if(EnableCsvLogging)
             LogTradeEvent("ENTRY", ticket, OP_SELL, signal, confidence, "SELL executed");
@@ -728,6 +747,39 @@ void ExecuteTrade(int signal, double confidence)
          Print("SELL注文失敗: Error=", GetLastError());
       }
    }
+}
+
+//+------------------------------------------------------------------+
+//| Partial Close状態スロット取得（ticketベース）                    |
+//+------------------------------------------------------------------+
+int GetPartialCloseIndex(int ticket)
+{
+   if(ticket <= 0)
+      return -1;
+
+   int n = ArraySize(g_partialCloseTicket);
+   if(n <= 0)
+      return -1;
+
+   for(int i = 0; i < n; i++)
+   {
+      if(g_partialCloseTicket[i] == ticket)
+         return i;
+   }
+
+   for(int j = 0; j < n; j++)
+   {
+      if(g_partialCloseTicket[j] == 0)
+      {
+         g_partialCloseTicket[j] = ticket;
+         g_partialCloseLevel[j] = 0;
+         return j;
+      }
+   }
+
+   g_partialCloseTicket[0] = ticket;
+   g_partialCloseLevel[0] = 0;
+   return 0;
 }
 
 //+------------------------------------------------------------------+
@@ -753,8 +805,10 @@ void CheckPartialClose()
          continue;
       
       int ticket = OrderTicket();
-      int ticketIndex = ticket % 100;
-      int currentLevel = g_partialCloseLevel[ticketIndex];
+      int slot = GetPartialCloseIndex(ticket);
+      if(slot < 0)
+         continue;
+      int currentLevel = g_partialCloseLevel[slot];
       
       // 最大レベル判定（二段階 or 三段階）
       int maxLevel = (PartialCloseStages >= 3) ? 3 : 2;
@@ -861,85 +915,51 @@ void CheckPartialClose()
                " Lots=", DoubleToString(lotsToClose, 2), 
                " Profit=", DoubleToString(profitPoints, 1), " points");
          
-         g_partialCloseLevel[ticketIndex] = newLevel;
+         g_partialCloseLevel[slot] = newLevel;
          
          if(EnableCsvLogging)
             LogTradeEvent("PARTIAL_CLOSE", ticket, OrderType(), newLevel, profitPoints, 
                           "Level " + IntegerToString(newLevel) + " closed");
          
-         // ========== EA_PullbackEntry方式：部分決済後の処理 ==========
-         // サーバー処理待機
+         // 部分決済後のSL移動などは「同一ticket」にのみ適用（別ポジション誤適用を防ぐ）
          Sleep(100);
-         
-         // 新しいチケット番号を取得（MagicNumberとSymbolのみで検索）
-         int remainingTicket = -1;
-         for(int j = OrdersTotal() - 1; j >= 0; j--)
+         if(OrderSelect(ticket, SELECT_BY_TICKET))
          {
-            if(OrderSelect(j, SELECT_BY_POS, MODE_TRADES))
-            {
-               if(OrderSymbol() == Symbol() && OrderMagicNumber() == g_ActiveMagicNumber)
-               {
-                  remainingTicket = OrderTicket();
-                  Print("★ 一部決済後の新チケット: #", remainingTicket, ", 残ロット: ", DoubleToString(OrderLots(), 2));
-                  break;
-               }
-            }
-         }
-         
-         if(remainingTicket > 0)
-         {
-            // 新しいチケット番号でレベルを更新
-            int newTicketIndex = remainingTicket % 100;
-            g_partialCloseLevel[newTicketIndex] = newLevel;
-            
-            // Level 1後にBreakEven移動
             if(newLevel == 1 && MoveToBreakEvenAfterLevel1)
             {
-               if(OrderSelect(remainingTicket, SELECT_BY_TICKET))
+               double newSL = NormalizeDouble(openPrice, Digits);
+               double currentSL = OrderStopLoss();
+
+               bool shouldModify = false;
+               if(orderType == OP_BUY && (currentSL == 0 || currentSL < openPrice))
+                  shouldModify = true;
+               else if(orderType == OP_SELL && (currentSL == 0 || currentSL > openPrice))
+                  shouldModify = true;
+
+               if(shouldModify)
                {
-                  double newSL = NormalizeDouble(openPrice, Digits);
-                  double currentSL = OrderStopLoss();
-                  
-                  // SLが建値より不利な位置にある場合のみ移動
-                  bool shouldModify = false;
-                  if(orderType == OP_BUY && (currentSL == 0 || currentSL < openPrice))
-                     shouldModify = true;
-                  else if(orderType == OP_SELL && (currentSL == 0 || currentSL > openPrice))
-                     shouldModify = true;
-                  
-                  if(shouldModify)
-                  {
-                     if(OrderModify(remainingTicket, OrderOpenPrice(), newSL, OrderTakeProfit(), 0, clrYellow))
-                        Print(">>> SLを建値へ移動: ", DoubleToString(newSL, Digits), " (ticket=", remainingTicket, ")");
-                     else
-                        Print("!!! SL移動失敗: Error=", GetLastError());
-                  }
-               }
-            }
-            
-            // 三段階モード: Level 2後にSLを1段階目の利益位置に移動
-            if(newLevel == 2 && maxLevel >= 3 && MoveSLAfterLevel2)
-            {
-               if(OrderSelect(remainingTicket, SELECT_BY_TICKET))
-               {
-                  double level1Price;
-                  if(orderType == OP_BUY)
-                     level1Price = openPrice + PartialClose1Points * Point;
-                  else
-                     level1Price = openPrice - PartialClose1Points * Point;
-                  
-                  level1Price = NormalizeDouble(level1Price, Digits);
-                  
-                  if(OrderModify(remainingTicket, OrderOpenPrice(), level1Price, OrderTakeProfit(), 0, clrAqua))
-                     Print(">>> SLをLevel1利益位置へ移動: ", DoubleToString(level1Price, Digits), " (ticket=", remainingTicket, ")");
+                  if(OrderModify(ticket, OrderOpenPrice(), newSL, OrderTakeProfit(), 0, clrYellow))
+                     Print(">>> SLを建値へ移動: ", DoubleToString(newSL, Digits), " (ticket=", ticket, ")");
                   else
                      Print("!!! SL移動失敗: Error=", GetLastError());
                }
             }
-         }
-         else
-         {
-            Print("!!! 残ポジションが見つかりません");
+
+            if(newLevel == 2 && maxLevel >= 3 && MoveSLAfterLevel2)
+            {
+               double level1Price;
+               if(orderType == OP_BUY)
+                  level1Price = openPrice + PartialClose1Points * Point;
+               else
+                  level1Price = openPrice - PartialClose1Points * Point;
+
+               level1Price = NormalizeDouble(level1Price, Digits);
+
+               if(OrderModify(ticket, OrderOpenPrice(), level1Price, OrderTakeProfit(), 0, clrAqua))
+                  Print(">>> SLをLevel1利益位置へ移動: ", DoubleToString(level1Price, Digits), " (ticket=", ticket, ")");
+               else
+                  Print("!!! SL移動失敗: Error=", GetLastError());
+            }
          }
       }
    }
@@ -989,6 +1009,9 @@ bool EnsureFolderPath(string folderPath)
    while(StringLen(path) > 0 && StringSubstr(path, StringLen(path) - 1, 1) == "\\")
       path = StringSubstr(path, 0, StringLen(path) - 1);
 
+   if(StringLen(path) == 0)
+      return false;
+
    // MQL4のファイルI/Oは通常 MQL4\\Files 配下の相対パスが前提
    if(StringLen(path) >= 2 && StringSubstr(path, 1, 1) == ":")
    {
@@ -1007,7 +1030,19 @@ bool EnsureFolderPath(string folderPath)
       if(StringLen(parts[i]) == 0)
          continue;
       current = (StringLen(current) == 0) ? parts[i] : (current + "\\" + parts[i]);
-      FolderCreate(current);
+
+      string dummy_file = current + "\\.dummy";
+      ResetLastError();
+      int h = FileOpen(dummy_file, FILE_WRITE|FILE_TXT);
+      if(h == INVALID_HANDLE)
+      {
+         int err = GetLastError();
+         Print(StringFormat("[ERROR] フォルダ作成失敗: %s (err=%d)", current, err));
+         return false;
+      }
+      FileWrite(h, "Folder created by EA");
+      FileClose(h);
+      FileDelete(dummy_file);
    }
    return true;
 }
