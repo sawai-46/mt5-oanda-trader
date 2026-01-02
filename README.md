@@ -2,6 +2,10 @@
 
 OANDA MT5用のAI統合自動トレーディングシステム
 
+## 運用の前提（必読）
+
+- [docs/CONTEXT_LOCK.md](docs/CONTEXT_LOCK.md)
+
 ## 📁 プロジェクト構造
 
 ```text
