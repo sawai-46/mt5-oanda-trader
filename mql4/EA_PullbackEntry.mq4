@@ -2121,9 +2121,16 @@ void ApplyStrategyPreset()
    g_Enable_AI_Learning_Log = Enable_AI_Learning_Log;
    
    // AI学習ログファイル名の構築（MT4_ID + 通貨ペア + 時間軸）
+      string mt4_id_eff = MT4_ID;
+      string mt4_id_eff_l = StringToLower(mt4_id_eff);
+      if(StringFind(mt4_id_eff_l, "demo") < 0 && StringFind(mt4_id_eff_l, "live") < 0)
+      {
+         mt4_id_eff = mt4_id_eff + "-" + (IsDemo() ? "DEMO" : "LIVE");
+      }
+
    string symbol_name = Symbol();
    string timeframe = GetTimeframeString(Period());
-   g_AI_Learning_LogFile = "AI_Learning_Data_" + MT4_ID + "_" + symbol_name + "_" + timeframe + ".csv";
+      g_AI_Learning_LogFile = "AI_Learning_Data_" + mt4_id_eff + "_" + symbol_name + "_" + timeframe + ".csv";
    g_AI_Learning_Folder = CsvLogFolder + "\\AI_Learning";
    g_Trade_History_Folder = CsvLogFolder + "\\Trade_History";
    

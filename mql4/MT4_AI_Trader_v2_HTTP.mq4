@@ -1022,6 +1022,22 @@ void CalculateSLTP(bool is_long, double entry_price, double &sl, double &tp)
 //+------------------------------------------------------------------+
 //| AI学習データログ初期化                                           |
 //+------------------------------------------------------------------+
+string AccountModeTagMT4()
+{
+   return IsDemo() ? "DEMO" : "LIVE";
+}
+
+string EffectiveTerminalIdMT4()
+{
+   string id = MT4_ID;
+   string id_l = StringToLower(id);
+   if(StringFind(id_l, "demo") >= 0)
+      return id;
+   if(StringFind(id_l, "live") >= 0)
+      return id;
+   return id + "-" + AccountModeTagMT4();
+}
+
 void InitializeAILearningLog()
 {
    // フォルダ作成
@@ -1030,7 +1046,7 @@ void InitializeAILearningLog()
    // ファイル名生成
    string symbol_name = Symbol();
    string timeframe = GetTimeframeString();
-   g_AI_Learning_LogFile = "AI_Learning_Data_" + MT4_ID + "_" + symbol_name + "_" + timeframe + ".csv";
+   g_AI_Learning_LogFile = "AI_Learning_Data_" + EffectiveTerminalIdMT4() + "_" + symbol_name + "_" + timeframe + ".csv";
    
    string log_path = AI_Learning_Folder + "\\" + g_AI_Learning_LogFile;
    
