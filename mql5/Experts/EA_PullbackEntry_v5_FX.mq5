@@ -112,6 +112,18 @@ double g_TrailStepPoints = 0;
 
 string BoolStr(const bool v){ return v ? "true" : "false"; }
 
+string AccountModeTag()
+{
+   const long mode = AccountInfoInteger(ACCOUNT_TRADE_MODE);
+   if(mode == ACCOUNT_TRADE_MODE_REAL)
+      return "LIVE";
+   if(mode == ACCOUNT_TRADE_MODE_DEMO)
+      return "DEMO";
+   if(mode == ACCOUNT_TRADE_MODE_CONTEST)
+      return "CONTEST";
+   return "UNKNOWN";
+}
+
 ulong HashDjb2(const string s)
 {
    ulong h = 5381;
@@ -123,7 +135,7 @@ ulong HashDjb2(const string s)
 long GenerateMagicNumber_PBEv5()
 {
    // Stable per terminalId + symbol + timeframe (+ program name)
-   string key = "PBEv5|" + InpTerminalId + "|" + _Symbol + "|" + IntegerToString((int)PERIOD_CURRENT) + "|" + MQLInfoString(MQL_PROGRAM_NAME);
+   string key = "PBEv5|" + InpTerminalId + "|" + AccountModeTag() + "|" + _Symbol + "|" + IntegerToString((int)Period()) + "|" + MQLInfoString(MQL_PROGRAM_NAME);
    ulong h = HashDjb2(key);
    return (long)(55000000 + (h % 9000000));
 }
@@ -139,7 +151,7 @@ void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
    double spreadPrice = spreadPts * point;
 
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5] Preset=%s Symbol=%s TF=%s Digits=%d Point=%g Spread=%lld pts (%.5f)",
-                                       GetPresetName(preset), _Symbol, EnumToString(PERIOD_CURRENT), digits, point, spreadPts, spreadPrice));
+                                       GetPresetName(preset), _Symbol, EnumToString((ENUM_TIMEFRAMES)Period()), digits, point, spreadPts, spreadPrice));
 
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] Magic=%lld Lot=%.2f DeviationPoints=%d",
                                        cfg.MagicNumber, cfg.LotSize, cfg.DeviationPoints));
@@ -196,7 +208,7 @@ int OnInit()
    if(InpAutoMagicNumber || InpMagicNumber == 0)
       g_EffectiveMagicNumber = GenerateMagicNumber_PBEv5();
 
-   string instanceId = "EA_PullbackEntry_v5_FX|" + _Symbol + "|Magic:" + (string)g_EffectiveMagicNumber + "|CID:" + (string)ChartID();
+   string instanceId = "EA_PullbackEntry_v5_FX|" + _Symbol + "|Acct:" + AccountModeTag() + "|Magic:" + (string)g_EffectiveMagicNumber + "|CID:" + (string)ChartID();
    CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, InpLogFileName, InpLogUseCommonFolder);
 
    // Pips→Points変換（5桁ブローカー: 1pip = 10points）
@@ -268,7 +280,7 @@ int OnInit()
 
    // Data collection
    cfg.EnableAiLearningLog = InpEnableAiLearningCsv;
-   cfg.TerminalId = InpTerminalId;
+   cfg.TerminalId = InpTerminalId + "-" + AccountModeTag();
    cfg.AiLearningFolder = InpAiLearningFolder;
    
    // Input優先 または PRESET_CUSTOM: Inputから戦略パラメータを読み込み

@@ -117,6 +117,18 @@ string BoolStr(const bool v)
    return v ? "true" : "false";
 }
 
+string AccountModeTag()
+{
+   const long mode = AccountInfoInteger(ACCOUNT_TRADE_MODE);
+   if(mode == ACCOUNT_TRADE_MODE_REAL)
+      return "LIVE";
+   if(mode == ACCOUNT_TRADE_MODE_DEMO)
+      return "DEMO";
+   if(mode == ACCOUNT_TRADE_MODE_CONTEST)
+      return "CONTEST";
+   return "UNKNOWN";
+}
+
 void DumpEffectiveConfig_AI_HTTP()
 {
    long spreadPoints = 0;
@@ -241,7 +253,7 @@ int OnInit()
 
    // Logger instanceId finalized after magic is set
    {
-      string instanceId = MQLInfoString(MQL_PROGRAM_NAME) + "|" + _Symbol + "|Magic:" + (string)g_ActiveMagicNumber + "|CID:" + (string)ChartID();
+      string instanceId = MQLInfoString(MQL_PROGRAM_NAME) + "|" + _Symbol + "|Acct:" + AccountModeTag() + "|Magic:" + (string)g_ActiveMagicNumber + "|CID:" + (string)ChartID();
       CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, InpLogFileName, InpLogUseCommonFolder);
    }
    

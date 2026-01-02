@@ -10,6 +10,7 @@
 #property strict
 
 #include <Trade\Trade.mqh>
+#include <Integration/Logger.mqh>
 
 //--- 推論サーバー戦略プリセット
 enum PresetOption
@@ -83,6 +84,13 @@ input double InpTakeProfit_ATR_Multi = 2.0;    // TP用ATR倍率
 //--- AI学習データ記録設定
 input bool   InpEnable_AI_Learning_Log = true; // AI学習データ記録有効化
 
+//--- Logging (optional)
+input bool   InpEnableLogging = true;
+input ENUM_LOG_LEVEL InpLogMinLevel = LOG_INFO;
+input bool   InpLogToFile = false;
+input bool   InpLogUseCommonFolder = true;
+input string InpLogFileName = "MT5_AI_Trader.log";
+
 //--- グローバル変数
 datetime g_lastBarTime = 0;
 int g_lastTradeBar = 0;
@@ -108,6 +116,18 @@ string BoolStr(const bool v)
    return v ? "true" : "false";
 }
 
+string AccountModeTag()
+{
+   const long mode = AccountInfoInteger(ACCOUNT_TRADE_MODE);
+   if(mode == ACCOUNT_TRADE_MODE_REAL)
+      return "LIVE";
+   if(mode == ACCOUNT_TRADE_MODE_DEMO)
+      return "DEMO";
+   if(mode == ACCOUNT_TRADE_MODE_CONTEST)
+      return "CONTEST";
+   return "UNKNOWN";
+}
+
 void DumpEffectiveConfig_AI_HTTP()
 {
    long spreadPoints = 0;
@@ -117,31 +137,31 @@ void DumpEffectiveConfig_AI_HTTP()
    const double atr = GetATR(InpATRPeriod);
    const double atrPoints = (point > 0.0) ? (atr / point) : 0.0;
 
-   Print(StringFormat("[CONFIG][AI_HTTP_MT5] Symbol=%s TF=%s Digits=%d Point=%g SpreadPoints=%d",
-                      _Symbol, PeriodToString((ENUM_TIMEFRAMES)_Period), _Digits, point, spreadPoints));
-   Print(StringFormat("[CONFIG][AI_HTTP_MT5] MT5_ID=%s UniqueID=%s Preset=%s URL=%s Timeout=%dms",
-                      InpMT5_ID, g_uniqueId, GetPresetName(), g_inferenceServerUrl, InpServerTimeout));
-   Print(StringFormat("[CONFIG][AI_HTTP_MT5] Risk=%.2f BaseLot=%.2f MaxLot=%.2f LotAdjust=%s",
-                      InpRiskPercent, InpBaseLotSize, InpMaxLotSize, BoolStr(InpEnableLotAdjustment)));
-   Print(StringFormat("[CONFIG][AI_HTTP_MT5] Slippage=%dpt MaxSpread=%dpt MaxPos=%d MinBars=%d MinConf=%.2f",
-                      InpMaxSlippagePoints, g_MaxSpreadPoints, InpMaxPositions, InpMinBarsSinceLastTrade, InpMinConfidence));
-   Print(StringFormat("[CONFIG][AI_HTTP_MT5] SL=%.1fpt TP=%.1fpt ATR_Period=%d ATR_Th=%s (price units) / %s MT5pt ATR_now=%s (price units) / %s MT5pt",
-                      g_StopLossPoints,
-                      g_TakeProfitPoints,
-                      InpATRPeriod,
-                      DoubleToString(g_ATRThresholdPoints * point, _Digits),
-                      DoubleToString(g_ATRThresholdPoints, 1),
-                      DoubleToString(atr, _Digits),
-                      DoubleToString(atrPoints, 1)));
-   Print(StringFormat("[CONFIG][AI_HTTP_MT5] TimeFilter=%s GMT_Offset=%d DST=%s Start=%02d:%02d End=%02d:%02d Fri=%s",
-                      BoolStr(InpEnable_Time_Filter), InpGMT_Offset, BoolStr(InpUse_DST),
-                      InpCustom_Start_Hour, InpCustom_Start_Minute, InpCustom_End_Hour, InpCustom_End_Minute,
-                      BoolStr(InpTradeOnFriday)));
-   Print(StringFormat("[CONFIG][AI_HTTP_MT5] PartialClose=%s Stages=%d MoveBE1=%s MoveSL2=%s",
-                      BoolStr(InpEnablePartialClose), InpPartialCloseStages,
-                      BoolStr(InpMoveToBreakEvenAfterLevel1), BoolStr(InpMoveSLAfterLevel2)));
-   Print(StringFormat("[CONFIG][AI_HTTP_MT5] SLTP_ATR=%s SLx=%.2f TPx=%.2f",
-                      BoolStr(InpUse_ATR_SLTP), InpStopLoss_ATR_Multi, InpTakeProfit_ATR_Multi));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] Symbol=%s TF=%s Digits=%d Point=%g SpreadPoints=%d",
+                                      _Symbol, PeriodToString((ENUM_TIMEFRAMES)_Period), _Digits, point, spreadPoints));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] MT5_ID=%s UniqueID=%s Preset=%s URL=%s Timeout=%dms",
+                                      InpMT5_ID, g_uniqueId, GetPresetName(), g_inferenceServerUrl, InpServerTimeout));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] Risk=%.2f BaseLot=%.2f MaxLot=%.2f LotAdjust=%s",
+                                      InpRiskPercent, InpBaseLotSize, InpMaxLotSize, BoolStr(InpEnableLotAdjustment)));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] Slippage=%dpt MaxSpread=%dpt MaxPos=%d MinBars=%d MinConf=%.2f",
+                                      InpMaxSlippagePoints, (int)g_MaxSpreadPoints, InpMaxPositions, InpMinBarsSinceLastTrade, InpMinConfidence));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] SL=%.1fpt TP=%.1fpt ATR_Period=%d ATR_Th=%s (price units) / %s MT5pt ATR_now=%s (price units) / %s MT5pt",
+                                      g_StopLossPoints,
+                                      g_TakeProfitPoints,
+                                      InpATRPeriod,
+                                      DoubleToString(g_ATRThresholdPoints * point, _Digits),
+                                      DoubleToString(g_ATRThresholdPoints, 1),
+                                      DoubleToString(atr, _Digits),
+                                      DoubleToString(atrPoints, 1)));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] TimeFilter=%s GMT_Offset=%d DST=%s Start=%02d:%02d End=%02d:%02d Fri=%s",
+                                      BoolStr(InpEnable_Time_Filter), InpGMT_Offset, BoolStr(InpUse_DST),
+                                      InpCustom_Start_Hour, InpCustom_Start_Minute, InpCustom_End_Hour, InpCustom_End_Minute,
+                                      BoolStr(InpTradeOnFriday)));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] PartialClose=%s Stages=%d MoveBE1=%s MoveSL2=%s",
+                                      BoolStr(InpEnablePartialClose), InpPartialCloseStages,
+                                      BoolStr(InpMoveToBreakEvenAfterLevel1), BoolStr(InpMoveSLAfterLevel2)));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] SLTP_ATR=%s SLx=%.2f TPx=%.2f",
+                                      BoolStr(InpUse_ATR_SLTP), InpStopLoss_ATR_Multi, InpTakeProfit_ATR_Multi));
 }
 
 //+------------------------------------------------------------------+
@@ -192,19 +212,23 @@ int OnInit()
 {
    g_inferenceServerUrl = InpInferenceServerURL;
 
-   // 円→Points変換（JP225: 1円 = 1point）
-   // JP225は通常0桁なので1:1変換
-   g_MaxSpreadPoints = InpMaxSpreadYen;       // 円 = points
-   g_StopLossPoints = InpStopLossYen;
-   g_TakeProfitPoints = InpTakeProfitYen;
-   g_ATRThresholdPoints = InpATRThresholdYen;
-   g_PartialClose1Points = InpPartialClose1Yen;
-   g_PartialClose2Points = InpPartialClose2Yen;
-   g_PartialClose3Points = InpPartialClose3Yen;
+   // 円（price units）→ MT5 points 変換（Pointが0.1なら 1円=10pt）
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   if(point <= 0.0)
+      point = 0.1;
+   double yenToPoints = 1.0 / point;
+
+   g_MaxSpreadPoints = InpMaxSpreadYen * yenToPoints;
+   g_StopLossPoints = InpStopLossYen * yenToPoints;
+   g_TakeProfitPoints = InpTakeProfitYen * yenToPoints;
+   g_ATRThresholdPoints = InpATRThresholdYen * yenToPoints;
+   g_PartialClose1Points = InpPartialClose1Yen * yenToPoints;
+   g_PartialClose2Points = InpPartialClose2Yen * yenToPoints;
+   g_PartialClose3Points = InpPartialClose3Yen * yenToPoints;
    
-   Print("★ 円→Points変換: ",
-         " SL=", InpStopLossYen, "円→", g_StopLossPoints, "pts",
-         " TP=", InpTakeProfitYen, "円→", g_TakeProfitPoints, "pts");
+   Print("★ 円→Points変換: Point=", point, " (1円=", yenToPoints, "pt)",
+         " SL=", InpStopLossYen, "円→", g_StopLossPoints, "pt",
+         " TP=", InpTakeProfitYen, "円→", g_TakeProfitPoints, "pt");
 
    // マジックナンバー初期化
    if(InpAutoMagicNumber)
@@ -222,6 +246,12 @@ int OnInit()
    m_trade.SetExpertMagicNumber(g_ActiveMagicNumber);
    m_trade.SetDeviationInPoints(InpMaxSlippagePoints);
    m_trade.SetTypeFilling(ORDER_FILLING_IOC);
+
+   // Logger instanceId finalized after magic is set
+   {
+      string instanceId = MQLInfoString(MQL_PROGRAM_NAME) + "|" + _Symbol + "|Acct:" + AccountModeTag() + "|Magic:" + (string)g_ActiveMagicNumber + "|CID:" + (string)ChartID();
+      CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, InpLogFileName, InpLogUseCommonFolder);
+   }
    
    // ユニークID生成
    g_uniqueId = InpMT5_ID;
@@ -234,14 +264,14 @@ int OnInit()
          g_uniqueId = InpMT5_ID + "_" + _Symbol + "_" + tfStr;
    }
    
-   Print("=== MT5 AI Trader v2.0 HTTP (OANDA) ===");
-   Print("シグナル生成: Python推論サーバー (16モジュール)");
-   Print("Inference Server: ", g_inferenceServerUrl);
-   Print("Symbol: ", _Symbol);
-   Print("Unique ID: ", g_uniqueId);
-   Print("Preset: ", GetPresetName());
-   Print("Magic Number: ", g_ActiveMagicNumber, InpAutoMagicNumber ? " (自動生成)" : " (手動設定)");
-   Print("Partial Close: ", InpEnablePartialClose ? "ON" : "OFF", " (", InpPartialCloseStages, "段階)");
+   CLogger::Log(LOG_INFO, "=== MT5 AI Trader v2.0 HTTP (OANDA) ===");
+   CLogger::Log(LOG_INFO, "シグナル生成: Python推論サーバー (16モジュール)");
+   CLogger::Log(LOG_INFO, "Inference Server: " + g_inferenceServerUrl);
+   CLogger::Log(LOG_INFO, "Symbol: " + _Symbol);
+   CLogger::Log(LOG_INFO, "Unique ID: " + g_uniqueId);
+   CLogger::Log(LOG_INFO, "Preset: " + GetPresetName());
+   CLogger::Log(LOG_INFO, "Magic Number: " + (string)g_ActiveMagicNumber + (InpAutoMagicNumber ? " (自動生成)" : " (手動設定)"));
+   CLogger::Log(LOG_INFO, "Partial Close: " + (InpEnablePartialClose ? "ON" : "OFF") + " (" + (string)InpPartialCloseStages + "段階)");
 
    DumpEffectiveConfig_AI_HTTP();
    
@@ -256,11 +286,11 @@ int OnInit()
    if(!TestServerConnection())
    {
       Alert("推論サーバーへの接続に失敗しました: ", g_inferenceServerUrl);
-      Print("URLを'ツール > オプション > エキスパートアドバイザ > WebRequestを許可するURLリスト'に追加してください");
+      CLogger::Log(LOG_ERROR, "URLを'ツール > オプション > エキスパートアドバイザ > WebRequestを許可するURLリスト'に追加してください");
       return(INIT_FAILED);
    }
    
-   Print("初期化完了");
+   CLogger::Log(LOG_INFO, "初期化完了");
    return(INIT_SUCCEEDED);
 }
 
@@ -269,7 +299,7 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
-   Print("EA終了 - 理由: ", reason);
+   CLogger::Log(LOG_INFO, "EA終了 - 理由: " + IntegerToString(reason));
 }
 
 //+------------------------------------------------------------------+
@@ -314,7 +344,7 @@ void AnalyzeAndTrade()
    double spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
    if(spread > g_MaxSpreadPoints)
    {
-      Print("スプレッドが広すぎます: ", spread, " points");
+      CLogger::Log(LOG_DEBUG, "スプレッドが広すぎます: " + DoubleToString(spread, 1) + " points");
       return;
    }
    
@@ -322,7 +352,7 @@ void AnalyzeAndTrade()
    string jsonData = PrepareOHLCVJson(100);
    if(StringLen(jsonData) == 0)
    {
-      Print("OHLCVデータの準備に失敗");
+      CLogger::Log(LOG_ERROR, "OHLCVデータの準備に失敗");
       return;
    }
    
@@ -330,7 +360,7 @@ void AnalyzeAndTrade()
    string responseStr = "";
    if(!SendHttpRequest(g_inferenceServerUrl + "/analyze", jsonData, responseStr))
    {
-      Print("推論サーバーとの通信に失敗しました");
+      CLogger::Log(LOG_ERROR, "推論サーバーとの通信に失敗しました");
       return;
    }
    

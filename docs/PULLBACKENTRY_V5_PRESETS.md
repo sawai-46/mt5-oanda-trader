@@ -10,6 +10,7 @@
 - **`InpTerminalId` は端末固定ID**
   - 例: `10900k-mt5-fx` / `10900k-mt5-index`
   - **live/demo は含めない**（口座切替の概念として扱う）
+  - ただし **AI学習CSVのファイル名** では、混在防止のため EA が内部的に `-LIVE` / `-DEMO` を自動付与します
 
 ### Preset優先でも Input が使われる項目
 
