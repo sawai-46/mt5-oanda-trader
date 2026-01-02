@@ -1,5 +1,8 @@
-# MT4 Inference Server - Simple Test Version
-# Flaskベースの軽量推論サーバー
+"""Simple Inference Server — NON-CANONICAL (demo/test)
+
+これは軽量デモ/テスト用の Flask サーバー。
+運用の正本（Docker/MT5 EA向け）は `inference_server_http_7module.py`。
+"""
 
 import sys
 from pathlib import Path

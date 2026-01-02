@@ -1,4 +1,8 @@
 # GPU専用（CPUは使わない運用）
+# 正本: python/inference_server_http_7module.py
+# - GET  /health
+# - POST /analyze  (MT5 EA: OHLCV配列)
+# - POST /predict  (フラット形式)
 services:
   mt5-inference:
     build:
@@ -19,3 +23,10 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - TZ=Asia/Tokyo
+      # 安全運用（落ちない/待たない）
+      - REQUEST_TIMEOUT_SEC=3.0
+      - MAX_WORKERS=4
+      # 任意: 既定プリセットやLM Studio URLをここで固定できる
+      # - PRESET=antigravity_pullback
+      # - STRATEGY=full
+      # - LM_STUDIO_URL=http://host.docker.internal:1234

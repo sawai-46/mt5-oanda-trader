@@ -1,6 +1,7 @@
-"""
-MT4 Hybrid Inference Server
-ルールベース + LLM + ログ学習を統合した推論サーバー
+"""MT4 Hybrid Inference Server — NON-CANONICAL (experimental)
+
+ルールベース + LLM + ログ学習を統合した推論サーバー。
+通常運用（Docker/MT5 EA）の正本は `inference_server_http_7module.py`。
 """
 
 import os

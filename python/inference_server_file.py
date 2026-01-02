@@ -1,6 +1,7 @@
-"""
-MT4 File-Based Inference Server
-CSVファイルを使用してMT4と通信する推論サーバー
+"""MT4 File-Based Inference Server — NON-CANONICAL (legacy/file I/F)
+
+CSVファイルを使用してMT4と通信する推論サーバー。
+Docker/MT5 EA の通常運用の正本は `inference_server_http_7module.py`。
 """
 
 import os

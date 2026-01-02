@@ -8,7 +8,7 @@ MT5側はファイル通信ではなく **HTTP(WebRequest)** でPython推論サ�
 - [mql5/Experts/MT5_AI_Trader_HTTP.mq5](../mql5/Experts/MT5_AI_Trader_HTTP.mq5)
   - `GET /health`（起動時に疎通確認）
   - `POST /analyze`（OHLCV配列を送る）
-  - 対応サーバー: [python/inference_server_mt5.py](../python/inference_server_mt5.py)
+  - 対応サーバー: [python/inference_server_http_7module.py](../python/inference_server_http_7module.py)
 
 - [mql5/Scripts/InferenceHttpSmoke.mq5](../mql5/Scripts/InferenceHttpSmoke.mq5)
   - `GET /health`
@@ -25,7 +25,7 @@ PowerShellで以下。
 
 - `cd python`
 - `python -m pip install -r requirements.txt`
-- `python inference_server_mt5.py`
+- `python inference_server_http_7module.py`
 
 デフォルト:
 - `http://127.0.0.1:5001`
@@ -33,6 +33,9 @@ PowerShellで以下。
 - `POST /analyze`
 
 ※ `inference_server_mt5.py` は MT5 Python API（`MetaTrader5`）が未導入でも起動する（ただし機能は限定）。
+
+※ `inference_server_http_7module.py` は Docker 最小依存でも動くHTTPサーバーで、
+`/analyze`（OHLCV配列）と `/predict`（フラット形式）の両方を提供する。
 
 #### Dockerで起動（おすすめ：MT4と同じ運用に寄せる）
 このリポジトリには MT5用の `docker-compose.yml` を追加してある。
@@ -45,7 +48,7 @@ PowerShellで以下。
 
 注意:
 - `MetaTrader5` Pythonパッケージは基本的にWindows向けのため、Docker（Linux）ではMT5ネイティブ接続は使えない前提。
-- ただし `MT5_AI_Trader_HTTP.mq5` が使う `/analyze` は「EAがOHLCV配列を送る」ので、Dockerでも問題なく動く。
+- Docker運用では `inference_server_http_7module.py` を正本とし、EAは `/health` と `/analyze` を叩く。
 
 ### B) 7module/antigravity（/predict）用
 
@@ -59,6 +62,7 @@ PowerShellで以下。
 - `http://127.0.0.1:5001`
 - `GET /health`
 - `POST /predict`
+- `POST /analyze`
 
 必要なら環境変数で調整:
 - `PORT` (例: `5001`)

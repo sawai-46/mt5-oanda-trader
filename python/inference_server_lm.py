@@ -1,6 +1,7 @@
-"""
-MT4 File-Based Inference Server with LM Studio Integration
-LM Studioを使ってローカルLLMで推論を行うサーバー
+"""MT4 File-Based Inference Server (LM Studio) — NON-CANONICAL (legacy/file I/F)
+
+LM Studio を使ってローカルLLMで推論を行うファイル通信版。
+通常運用（Docker/MT5 EA）の正本は `inference_server_http_7module.py`。
 """
 
 import os

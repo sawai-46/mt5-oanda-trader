@@ -1,5 +1,8 @@
-# MT4 Inference Server - HTTPS Version
-# MT4 WebRequest用にHTTPSで起動
+"""MT4 Inference Server (HTTPS) — NON-CANONICAL
+
+MT4 WebRequest向けにHTTPSで起動するバリアント。
+通常運用（Docker/MT5 EA）は `inference_server_http_7module.py` を使用。
+"""
 
 import sys
 import ssl

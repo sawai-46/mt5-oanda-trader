@@ -1,3 +1,9 @@
+"""MT5 Native Inference Server — NON-CANONICAL (Windows/MT5専用)
+
+注意:
+- これは MetaTrader5 Python API に依存する「MT5ネイティブ接続」用途。
+- Docker(GPU) の正本は `inference_server_http_7module.py`（/health,/analyze,/predict）。
+
 """
 MT5 Native Inference Server
 OANDA MT5 ネイティブ接続を使用した推論サーバー

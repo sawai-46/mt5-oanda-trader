@@ -1,6 +1,7 @@
-"""
-MT4 File-Based Inference Server - 複数MT4対応版
-OneDrive共有フォルダで複数のMT4インスタンスと通信
+"""MT4 Shared File-Based Inference Server — NON-CANONICAL (legacy/file I/F)
+
+OneDrive共有フォルダで複数のMT4インスタンスと通信するファイル通信版。
+通常運用（Docker/MT5 EA）の正本は `inference_server_http_7module.py`。
 """
 
 import os

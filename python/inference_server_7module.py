@@ -1,3 +1,7 @@
+"""7-Module/Antigravity Inference Engine — LIBRARY
+
+これは推論エンジン本体（クラス群）で、通常運用は直接起動しません。
+HTTP運用の正本は `inference_server_http_7module.py`（/health,/analyze,/predict）。
 """
 MT4 7-Module Inference Server
 7モジュール統合 + PullbackModule + Antigravity + LLM + ログ学習を統合した推論サーバー

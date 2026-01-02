@@ -25,4 +25,4 @@ COPY python/ /app/
 
 EXPOSE 5001
 
-CMD ["python", "inference_server_mt5.py"]
+CMD ["python", "inference_server_http_7module.py"]
