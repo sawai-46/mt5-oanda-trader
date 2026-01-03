@@ -3,15 +3,12 @@
 
 #include <Core/StrategyBase.mqh>
 #include <Integration/Logger.mqh>
-#include <Integration/AiLearningLogger.mqh>
 #include <Strategies/Pullback/PullbackConfig.mqh>
 
 class CPullbackStrategy : public CStrategyBase
 {
 private:
    CPullbackConfig  m_cfg;
-
-   CAiLearningLogger m_aiLogger;
 
    int m_handleEmaShort;
    int m_handleEmaMid;
@@ -151,36 +148,6 @@ private:
       return (touch || cross || brk);
    }
 
-   string PullbackBuyPattern()
-   {
-      int refPeriod = EmaRefPeriod();
-      int hRef = iMA(m_symbol, m_timeframe, refPeriod, 0, MODE_EMA, PRICE_CLOSE);
-      if(hRef == INVALID_HANDLE) return "";
-
-      double close1 = iClose(m_symbol, m_timeframe, 1);
-      double close2 = iClose(m_symbol, m_timeframe, 2);
-      double low1 = iLow(m_symbol, m_timeframe, 1);
-
-      double buf[];
-      ArraySetAsSeries(buf, true);
-      if(CopyBuffer(hRef, 0, 1, 2, buf) != 2)
-      {
-         IndicatorRelease(hRef);
-         return "";
-      }
-      double ema1 = buf[0];
-      double ema2 = buf[1];
-      IndicatorRelease(hRef);
-
-      bool touch = m_cfg.UseTouchPullback && (low1 <= ema1 && close1 > ema1);
-      bool cross = m_cfg.UseCrossPullback && (close2 < ema2 && close1 > ema1);
-      bool brk   = m_cfg.UseBreakPullback && (close1 > ema1 && close2 < ema2);
-      if(touch) return "touch";
-      if(cross) return "cross";
-      if(brk)   return "break";
-      return "";
-   }
-
    bool PullbackSellSignal()
    {
       int refPeriod = EmaRefPeriod();
@@ -207,139 +174,6 @@ private:
       bool cross = m_cfg.UseCrossPullback && (close2 > ema2 && close1 < ema1);
       bool brk   = m_cfg.UseBreakPullback && (close1 < ema1 && close2 > ema2);
       return (touch || cross || brk);
-   }
-
-   string PullbackSellPattern()
-   {
-      int refPeriod = EmaRefPeriod();
-      int hRef = iMA(m_symbol, m_timeframe, refPeriod, 0, MODE_EMA, PRICE_CLOSE);
-      if(hRef == INVALID_HANDLE) return "";
-
-      double close1 = iClose(m_symbol, m_timeframe, 1);
-      double close2 = iClose(m_symbol, m_timeframe, 2);
-      double high1 = iHigh(m_symbol, m_timeframe, 1);
-
-      double buf[];
-      ArraySetAsSeries(buf, true);
-      if(CopyBuffer(hRef, 0, 1, 2, buf) != 2)
-      {
-         IndicatorRelease(hRef);
-         return "";
-      }
-      double ema1 = buf[0];
-      double ema2 = buf[1];
-      IndicatorRelease(hRef);
-
-      bool touch = m_cfg.UseTouchPullback && (high1 >= ema1 && close1 < ema1);
-      bool cross = m_cfg.UseCrossPullback && (close2 > ema2 && close1 < ema1);
-      bool brk   = m_cfg.UseBreakPullback && (close1 < ema1 && close2 > ema2);
-      if(touch) return "touch";
-      if(cross) return "cross";
-      if(brk)   return "break";
-      return "";
-   }
-
-   void LogAiLearningRow(const string direction, const double entryPrice, const string patternType)
-   {
-      if(!m_cfg.EnableAiLearningLog)
-         return;
-
-      double emaS=0.0, emaM=0.0, emaL=0.0;
-      if(!GetEmaValues(1, emaS, emaM, emaL))
-         return;
-
-      double atr = 0.0;
-      if(!Copy1(m_handleATR, 1, atr))
-         atr = 0.0;
-
-      double adx = 0.0;
-      if(m_cfg.UseADXFilter)
-      {
-         if(!CopyAdxMain(1, adx))
-            adx = 0.0;
-      }
-
-      double channelWidth = MathAbs(emaS - emaL) / _Point;
-      long tickVol = (long)iVolume(m_symbol, m_timeframe, 1);
-      double barRange = (iHigh(m_symbol, m_timeframe, 1) - iLow(m_symbol, m_timeframe, 1)) / _Point;
-
-      MqlDateTime dt;
-      TimeCurrent(dt);
-      int hour = dt.hour;
-      int dow = dt.day_of_week;
-
-      long spread = 0;
-      SymbolInfoInteger(m_symbol, SYMBOL_SPREAD, spread);
-      long spreadMax = (long)m_cfg.MaxSpreadPoints;
-
-      // Simple heuristics (placeholders; can be upgraded later)
-      double algoLevel = 1.0;
-      double noiseRatio = 0.0;
-
-      // Tick volume surge ratio (current vs avg last 10)
-      double tickVolSurge = 1.0;
-      double volSum = 0.0;
-      int volN = 0;
-      for(int i = 2; i <= 11; i++)
-      {
-         long v = (long)iVolume(m_symbol, m_timeframe, i);
-         if(v > 0)
-         {
-            volSum += (double)v;
-            volN++;
-         }
-      }
-      double volAvg = (volN > 0) ? (volSum / volN) : 0.0;
-      if(volAvg > 0.0 && tickVol > 0)
-         tickVolSurge = (double)tickVol / volAvg;
-
-      // ATR spike ratio (current vs avg last 10)
-      double atrSpikeRatio = 1.0;
-      double atrSum = 0.0;
-      int atrN = 0;
-      for(int i = 2; i <= 11; i++)
-      {
-         double a = 0.0;
-         if(Copy1(m_handleATR, i, a) && a > 0.0)
-         {
-            atrSum += a;
-            atrN++;
-         }
-      }
-      double atrAvg = (atrN > 0) ? (atrSum / atrN) : 0.0;
-      if(atrAvg > 0.0 && atr > 0.0)
-         atrSpikeRatio = atr / atrAvg;
-
-      string spoofingSuspect = "";
-      double open1 = iOpen(m_symbol, m_timeframe, 1);
-      double close1 = iClose(m_symbol, m_timeframe, 1);
-      double priceChangePct = (open1 != 0.0) ? ((close1 - open1) / open1) * 100.0 : 0.0;
-
-      m_aiLogger.LogPullbackEntry(
-         m_symbol,
-         m_timeframe,
-         direction,
-         entryPrice,
-         patternType,
-         emaS,
-         emaM,
-         emaL,
-         atr,
-         adx,
-         channelWidth,
-         tickVol,
-         barRange,
-         hour,
-         dow,
-         algoLevel,
-         noiseRatio,
-         spread,
-         spreadMax,
-         tickVolSurge,
-         atrSpikeRatio,
-         spoofingSuspect,
-         priceChangePct
-      );
    }
 
    bool CalcSLTP(ENUM_ORDER_TYPE type, double entryPrice, double &sl, double &tp)
@@ -394,8 +228,7 @@ public:
      m_handleATR(INVALID_HANDLE),
      m_lastBarTime(0)
    {
-      m_trade.Configure(m_cfg.MagicNumber, m_cfg.DeviationPoints, ORDER_FILLING_IOC);
-      m_aiLogger.Configure(m_cfg.EnableAiLearningLog, m_cfg.TerminalId, m_cfg.AiLearningFolder);
+      m_trade->Configure(m_cfg.MagicNumber, m_cfg.DeviationPoints, ORDER_FILLING_IOC);
 
       m_handleEmaShort = iMA(m_symbol, m_timeframe, m_cfg.EmaShortPeriod, 0, MODE_EMA, PRICE_CLOSE);
       m_handleEmaMid   = iMA(m_symbol, m_timeframe, m_cfg.EmaMidPeriod, 0, MODE_EMA, PRICE_CLOSE);
@@ -431,13 +264,8 @@ public:
          double sl, tp;
          if(!CalcSLTP(ORDER_TYPE_BUY, ask, sl, tp)) return;
 
-         string pattern = PullbackBuyPattern();
-
-         if(m_trade.Buy(m_cfg.LotSize, m_symbol, ask, sl, tp, "PullbackBuy"))
-         {
+         if(m_trade->Buy(m_cfg.LotSize, m_symbol, ask, sl, tp, "PullbackBuy"))
             CLogger::Log(LOG_INFO, "BUY placed");
-            LogAiLearningRow("BUY", ask, pattern);
-         }
          else
             CLogger::Log(LOG_ERROR, "BUY failed: " + (string)GetLastError());
 
@@ -450,13 +278,8 @@ public:
          double sl, tp;
          if(!CalcSLTP(ORDER_TYPE_SELL, bid, sl, tp)) return;
 
-         string pattern = PullbackSellPattern();
-
-         if(m_trade.Sell(m_cfg.LotSize, m_symbol, bid, sl, tp, "PullbackSell"))
-         {
+         if(m_trade->Sell(m_cfg.LotSize, m_symbol, bid, sl, tp, "PullbackSell"))
             CLogger::Log(LOG_INFO, "SELL placed");
-            LogAiLearningRow("SELL", bid, pattern);
-         }
          else
             CLogger::Log(LOG_ERROR, "SELL failed: " + (string)GetLastError());
 

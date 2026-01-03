@@ -24,11 +24,6 @@ public:
    double          LotSize;
    int             DeviationPoints;
 
-   // Logging / Data collection (MT4 log sync compatible)
-   bool            EnableAiLearningLog;
-   string          TerminalId;
-   string          AiLearningFolder;
-
    // EMA
    int             EmaShortPeriod;
    int             EmaMidPeriod;
@@ -63,9 +58,6 @@ public:
    : MagicNumber(0),
      LotSize(0.10),
      DeviationPoints(10),
-       EnableAiLearningLog(false),
-       TerminalId(""),
-       AiLearningFolder("OneDriveLogs\\data\\AI_Learning"),
      EmaShortPeriod(12),
      EmaMidPeriod(25),
      EmaLongPeriod(100),
