@@ -15,8 +15,6 @@ enum ENUM_PULLBACK_PRESET
    PRESET_CONSERVATIVE,        // 保守型 (質重視, M30推奨)
    PRESET_AGGRESSIVE,          // 積極型 (短期・回数重視)
    PRESET_SCALPING,            // スキャルピング (M5/M1, 高頻度)
-   PRESET_JP225,               // 日経225専用
-   PRESET_USINDEX,             // US Index専用 (US30/SPX500/NAS100)
    PRESET_CUSTOM               // カスタム
 };
 
@@ -90,40 +88,6 @@ void ApplyPreset(CPullbackConfig &cfg, ENUM_PULLBACK_PRESET preset)
          cfg.TakeProfitFixedPoints = 100.0;
          break;
          
-      case PRESET_JP225:
-         // 日経225専用: 大きなpoints値
-         cfg.EmaShortPeriod = 12;
-         cfg.EmaMidPeriod = 25;
-         cfg.EmaLongPeriod = 100;
-         cfg.RequirePerfectOrder = true;
-         cfg.UseTouchPullback = true;
-         cfg.UseCrossPullback = true;
-         cfg.UseBreakPullback = false;
-         cfg.UseADXFilter = true;
-         cfg.ADXMinLevel = 20.0;
-         cfg.ATRThresholdPoints = 100.0;    // 100円相当
-         cfg.MaxSpreadPoints = 500;          // 5円相当
-         cfg.StopLossFixedPoints = 300.0;    // 300円
-         cfg.TakeProfitFixedPoints = 600.0;  // 600円
-         break;
-         
-      case PRESET_USINDEX:
-         // US Index専用: US30/SPX500/NAS100
-         cfg.EmaShortPeriod = 12;
-         cfg.EmaMidPeriod = 25;
-         cfg.EmaLongPeriod = 100;
-         cfg.RequirePerfectOrder = true;
-         cfg.UseTouchPullback = true;
-         cfg.UseCrossPullback = true;
-         cfg.UseBreakPullback = false;
-         cfg.UseADXFilter = true;
-         cfg.ADXMinLevel = 20.0;
-         cfg.ATRThresholdPoints = 50.0;
-         cfg.MaxSpreadPoints = 500;
-         cfg.StopLossFixedPoints = 500.0;
-         cfg.TakeProfitFixedPoints = 1000.0;
-         break;
-         
       case PRESET_CUSTOM:
       default:
          // カスタム: デフォルト値のまま
@@ -142,8 +106,6 @@ string GetPresetName(ENUM_PULLBACK_PRESET preset)
       case PRESET_CONSERVATIVE: return "Conservative";
       case PRESET_AGGRESSIVE:   return "Aggressive";
       case PRESET_SCALPING:     return "Scalping";
-      case PRESET_JP225:        return "JP225";
-      case PRESET_USINDEX:      return "USIndex";
       case PRESET_CUSTOM:       return "Custom";
       default:                  return "Unknown";
    }
