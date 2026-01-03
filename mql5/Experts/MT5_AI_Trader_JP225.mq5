@@ -38,10 +38,10 @@ input double InpRiskPercent = 1.0;         // リスク率(%)
 input double InpBaseLotSize = 0.10;        // 基本ロット
 input double InpMaxLotSize = 1.0;          // 最大ロット（上限）
 input bool   InpEnableLotAdjustment = true; // ロット自動調整有効化
-input int    InpMaxSlippagePoints = 50;    // 最大スリッページ(points)
-input int    InpMaxSpreadYen = 5;          // 最大スプレッド(円)
-input double InpStopLossYen = 30.0;        // SL(円)
-input double InpTakeProfitYen = 60.0;      // TP(円)
+input int    InpMaxSlippagePoints = 20;    // 最大スリッページ(points) ※JP225: 20pt=20円
+input int    InpMaxSpreadYen = 20;         // 最大スプレッド(円) ※OANDA推奨: 20円
+input double InpStopLossYen = 50.0;        // SL(円) ※M15推奨: 40-60円
+input double InpTakeProfitYen = 100.0;     // TP(円) ※M15推奨: 80-120円
 input bool   InpAutoMagicNumber = true;    // マジックナンバー自動生成
 input ulong  InpMagicNumber = 20251224;    // マジックナンバー（自動生成時は無視）
 

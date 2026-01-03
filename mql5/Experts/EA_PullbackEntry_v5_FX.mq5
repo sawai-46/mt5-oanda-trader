@@ -52,7 +52,7 @@ input bool   InpUseADXFilter = true;         // ADXフィルター
 input int    InpADXPeriod = 14;              // ADX期間
 input double InpADXMinLevel = 20.0;          // ADX最小値
 input int    InpATRPeriod = 14;              // ATR期間
-input double InpATRMinPips = 3.0;            // ATR最小値(pips)
+input double InpATRMinPips = 8.0;            // ATR最小値(pips) ※M15推奨: USDJPY>8
 
 //--- SL/TP Settings
 input ENUM_SLTP_MODE InpSLTPMode = SLTP_FIXED;  // SL/TPモード

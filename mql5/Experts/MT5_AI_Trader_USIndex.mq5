@@ -38,8 +38,8 @@ input double InpRiskPercent = 1.0;         // リスク率(%)
 input double InpBaseLotSize = 0.10;        // 基本ロット
 input double InpMaxLotSize = 1.0;          // 最大ロット（上限）
 input bool   InpEnableLotAdjustment = true; // ロット自動調整有効化
-input int    InpMaxSlippagePoints = 50;    // 最大スリッページ(points)
-input double InpMaxSpreadDollars = 5.0;    // 最大スプレッド(ドル)
+input int    InpMaxSlippagePoints = 300;   // 最大スリッページ(points) ※USIndex: 300pt=3ドル
+input double InpMaxSpreadDollars = 8.0;    // 最大スプレッド(ドル) ※OANDA推奨: 8ドル
 input double InpStopLossDollars = 50.0;    // SL(ドル)
 input double InpTakeProfitDollars = 100.0; // TP(ドル)
 input bool   InpAutoMagicNumber = true;    // マジックナンバー自動生成

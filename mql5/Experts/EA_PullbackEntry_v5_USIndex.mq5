@@ -25,7 +25,7 @@ input int InpPresetApplyMode = 1;  // Preset適用モード: 0=使わない(Inpu
 //--- Basic Settings
 input double InpLotSize = 0.10;              // ロットサイズ
 input long   InpMagicNumber = 55000001;      // マジックナンバー
-input int    InpDeviationPoints = 50;        // 最大スリッページ(points)
+input int    InpDeviationPoints = 300;       // 最大スリッページ(points) ※USIndex: 300pt=3ドル
 
 //--- EMA Settings
 input int    InpEmaShort = 12;               // 短期EMA
@@ -47,12 +47,12 @@ input int    InpEndHour = 21;                // 終了時刻(JST)
 input bool   InpTradeOnFriday = true;        // 金曜取引
 
 //--- Spread/ADX/ATR Filter
-input double InpMaxSpreadDollars = 5.0;      // 最大スプレッド(ドル)
+input double InpMaxSpreadDollars = 8.0;      // 最大スプレッド(ドル) ※OANDA推奨: 8ドル
 input bool   InpUseADXFilter = true;         // ADXフィルター
 input int    InpADXPeriod = 14;              // ADX期間
 input double InpADXMinLevel = 20.0;          // ADX最小値
 input int    InpATRPeriod = 14;              // ATR期間
-input double InpATRMinDollars = 5.0;         // ATR最小値(ドル)
+input double InpATRMinDollars = 35.0;        // ATR最小値(ドル) ※M15推奨: 30-40ドル
 
 //--- SL/TP Settings
 input ENUM_SLTP_MODE InpSLTPMode = SLTP_FIXED;  // SL/TPモード

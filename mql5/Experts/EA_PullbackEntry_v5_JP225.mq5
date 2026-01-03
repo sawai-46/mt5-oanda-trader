@@ -25,7 +25,7 @@ input int InpPresetApplyMode = 1;  // Preset適用モード: 0=使わない(Inpu
 //--- Basic Settings
 input double InpLotSize = 0.10;              // ロットサイズ
 input long   InpMagicNumber = 55000001;      // マジックナンバー
-input int    InpDeviationPoints = 50;        // 最大スリッページ(points)
+input int    InpDeviationPoints = 20;        // 最大スリッページ(points) ※JP225: 20pt=20円
 
 //--- EMA Settings
 input int    InpEmaShort = 12;               // 短期EMA
@@ -47,17 +47,17 @@ input int    InpEndHour = 21;                // 終了時刻(JST)
 input bool   InpTradeOnFriday = true;        // 金曜取引
 
 //--- Spread/ADX/ATR Filter
-input int    InpMaxSpreadYen = 5;            // 最大スプレッド(円)
+input int    InpMaxSpreadYen = 20;           // 最大スプレッド(円) ※OANDA推奨: 20円
 input bool   InpUseADXFilter = true;         // ADXフィルター
 input int    InpADXPeriod = 14;              // ADX期間
 input double InpADXMinLevel = 20.0;          // ADX最小値
 input int    InpATRPeriod = 14;              // ATR期間
-input double InpATRMinYen = 10.0;            // ATR最小値(円)
+input double InpATRMinYen = 50.0;            // ATR最小値(円) ※M15推奨: 50-70円
 
 //--- SL/TP Settings
 input ENUM_SLTP_MODE InpSLTPMode = SLTP_FIXED;  // SL/TPモード
-input double InpSLFixedYen = 30.0;           // SL(円) - Fixed
-input double InpTPFixedYen = 60.0;           // TP(円) - Fixed
+input double InpSLFixedYen = 50.0;           // SL(円) ※M15推奨: 40-60円
+input double InpTPFixedYen = 100.0;          // TP(円) ※M15推奨: 80-120円
 input double InpSLAtrMulti = 1.5;            // SL ATR倍率
 input double InpTPAtrMulti = 2.0;            // TP ATR倍率
 
