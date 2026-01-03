@@ -17,6 +17,19 @@
 
 ## 1. MT5 EA（OANDA対応）
 
+### 1.0 EA一覧
+
+| EA名 | 入力単位 | 評価 |
+|------|----------|------|
+| `MT5_AI_Trader_FX.mq5` | pips | ✅ |
+| `MT5_AI_Trader_JP225.mq5` | 円 | ✅ |
+| `MT5_AI_Trader_USIndex.mq5` | ドル | ✅ |
+| `EA_PullbackEntry_v5_FX.mq5` | pips | ✅ |
+| `EA_PullbackEntry_v5_JP225.mq5` | 円 | ✅ |
+| `EA_PullbackEntry_v5_USIndex.mq5` | ドル | ✅ |
+
+---
+
 ### 1.1 MT5_AI_Trader_FX.mq5
 
 | 項目 | 内容 |
@@ -43,6 +56,48 @@
 | **変換ロジック** | `SYMBOL_POINT`から動的計算 |
 | **コード例** | `g_dollarMultiplier = 1.0 / symbolPoint` |
 | **評価** | ✅ 適切 |
+
+---
+
+### 1.4 EA_PullbackEntry_v5_FX.mq5 (OOP版)
+
+| 項目 | 内容 |
+|------|------|
+| **入力単位** | pips |
+| **変換ロジック** | `_Digits`から`g_pipMultiplier`を動的計算 |
+| **コード例** | `g_pipMultiplier = (_Digits == 3 \|\| _Digits == 5) ? 10.0 : 1.0` |
+| **変換適用** | SL/TP/ATR/Spread/Partial Close/Trailing全て |
+| **評価** | ✅ 適切 |
+
+### 1.5 EA_PullbackEntry_v5_JP225.mq5 (OOP版)
+
+| 項目 | 内容 |
+|------|------|
+| **入力単位** | 円 |
+| **変換ロジック** | 1円=1point としてそのまま使用 |
+| **コード例** | `g_SLFixedPoints = InpSLFixedYen` (直接代入) |
+| **変換適用** | SL/TP/ATR/Spread/Partial Close/Trailing全て |
+| **評価** | ✅ 適切 |
+
+### 1.6 EA_PullbackEntry_v5_USIndex.mq5 (OOP版)
+
+| 項目 | 内容 |
+|------|------|
+| **入力単位** | ドル |
+| **変換ロジック** | `SYMBOL_POINT`から`g_dollarMultiplier`を動的計算 |
+| **コード例** | `g_dollarMultiplier = 1.0 / SymbolInfoDouble(_Symbol, SYMBOL_POINT)` |
+| **変換適用** | SL/TP/ATR/Spread/Partial Close/Trailing全て |
+| **評価** | ✅ 適切 |
+
+### 1.7 共通ロジック: PullbackStrategy.mqh
+
+| 項目 | 内容 |
+|------|------|
+| **設計** | OOPクラス `CPullbackStrategy` |
+| **単位使用** | 設定値はすべてpoints単位で受け取り |
+| **ATR計算** | `atr / _Point` でpoints変換 |
+| **SL/TP計算** | `m_cfg.StopLossFixedPoints * _Point` で価格単位に変換 |
+| **評価** | ✅ 適切（各EAで変換済のpoints値を使用）|
 
 ---
 
