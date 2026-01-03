@@ -88,7 +88,7 @@ input string InpLogFileName = "EA_PullbackEntry_v5.log"; // ログファイル�
 
 //--- Data collection (MT4 log sync compatible)
 input bool   InpEnableAiLearningCsv = true;                    // AI学習CSV出力（DB同期用）
-input string InpTerminalId = "10900k-mt5-live";               // 端末固定ID（10900k-mt5-live, 10900k-mt5-demo, matsu-mt5-live, matsu-mt5-demo）
+input string InpTerminalId = "10900k-mt5-index";              // 端末固定ID（例: 10900k-mt5-fx, 10900k-mt5-index, matsu-mt5-fx, matsu-mt5-index）
 input string InpAiLearningFolder = "OneDriveLogs\\data\\AI_Learning"; // MQL5/Files配下
 
 //=== GLOBAL OBJECTS ===
@@ -119,6 +119,23 @@ string AccountModeTag()
    if(mode == ACCOUNT_TRADE_MODE_CONTEST)
       return "CONTEST";
    return "UNKNOWN";
+}
+
+string BuildLogFileName(const string baseName)
+{
+   string name = (StringLen(baseName) > 0) ? baseName : "EA_PullbackEntry_v5.log";
+
+   int lastDot = -1;
+   for(int i = 0; i < StringLen(name); i++)
+   {
+      if(StringGetCharacter(name, i) == '.')
+         lastDot = i;
+   }
+
+   string ext = (lastDot >= 0) ? StringSubstr(name, lastDot) : ".log";
+   string stem = (lastDot >= 0) ? StringSubstr(name, 0, lastDot) : name;
+
+   return stem + "_" + _Symbol + "_" + AccountModeTag() + ext;
 }
 
 long GenerateMagicNumber()
@@ -193,7 +210,8 @@ int OnInit()
 {
    const long activeMagic = InpAutoMagicNumber ? GenerateMagicNumber() : InpMagicNumber;
    string instanceId = "EA_PullbackEntry_v5_JP225|" + _Symbol + "|Acct:" + AccountModeTag() + "|Magic:" + (string)activeMagic + "|CID:" + (string)ChartID();
-   CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, InpLogFileName, InpLogUseCommonFolder);
+   string logFileName = BuildLogFileName(InpLogFileName);
+   CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, logFileName, InpLogUseCommonFolder);
 
    // 円→Points変換（JP225: 1円 = 1point）
    g_MaxSpreadPoints = InpMaxSpreadYen;        // 円 = points
@@ -213,6 +231,7 @@ int OnInit()
    CLogger::Log(LOG_INFO, "Preset: " + GetPresetName(InpPreset));
    CLogger::Log(LOG_INFO, "Symbol: " + _Symbol);
    CLogger::Log(LOG_INFO, "Magic: " + (string)activeMagic + (InpAutoMagicNumber ? " (自動生成)" : " (手動設定)"));
+   CLogger::Log(LOG_INFO, "LogFile: " + logFileName);
    
    // Build Config
    CPullbackConfig cfg;

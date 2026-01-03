@@ -11,6 +11,29 @@ private:
    string m_folder;
 
 private:
+   static string AccountEnvTag()
+   {
+      const long mode = AccountInfoInteger(ACCOUNT_TRADE_MODE);
+      if(mode == ACCOUNT_TRADE_MODE_REAL)
+         return "LIVE";
+      if(mode == ACCOUNT_TRADE_MODE_DEMO)
+         return "DEMO";
+      if(mode == ACCOUNT_TRADE_MODE_CONTEST)
+         return "CONTEST";
+      return "UNKNOWN";
+   }
+
+   static string AccountLoginStr()
+   {
+      return (string)AccountInfoInteger(ACCOUNT_LOGIN);
+   }
+
+   static string AccountServerStr()
+   {
+      return AccountInfoString(ACCOUNT_SERVER);
+   }
+
+private:
    static string TimeframeToString(ENUM_TIMEFRAMES tf)
    {
       switch(tf)
@@ -72,7 +95,8 @@ private:
          "Algo_Level", "Noise_Ratio",
          "Spread", "Spread_Max",
          "Tick_Vol_Surge", "ATR_Spike_Ratio",
-         "Spoofing_Suspect", "Price_Change_Pct"
+         "Spoofing_Suspect", "Price_Change_Pct",
+         "Env", "Account_Login", "Account_Server"
       );
    }
 
@@ -135,6 +159,9 @@ public:
 
       string ts = TimeToString(TimeCurrent(), TIME_DATE | TIME_SECONDS);
       string tfStr = TimeframeToString(tf);
+      string env = AccountEnvTag();
+      string login = AccountLoginStr();
+      string server = AccountServerStr();
 
       FileWrite(
          handle,
@@ -161,7 +188,10 @@ public:
          DoubleToString(tickVolSurge, 4),
          DoubleToString(atrSpikeRatio, 4),
          spoofingSuspect,
-         DoubleToString(priceChangePct, 6)
+         DoubleToString(priceChangePct, 6),
+         env,
+         login,
+         server
       );
 
       FileClose(handle);

@@ -83,12 +83,12 @@ input double InpTrailStepPips = 5.0;         // トレーリングステップ(p
 input bool   InpEnableLogging = true;                 // ログ出力有効
 input ENUM_LOG_LEVEL InpLogMinLevel = LOG_INFO;       // 最小ログレベル
 input bool   InpLogToFile = true;                     // ファイル出力
-input bool   InpLogUseCommonFolder = true;            // Commonフォルダ使用
-input string InpLogFileName = "EA_PullbackEntry_v5.log"; // ログファイル名
+input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
+input string InpLogFileName = "OneDriveLogs\\logs\\EA_PullbackEntry_v5.log"; // ログファイル名（MQL5/Files配下）
 
 //--- Data collection (MT4 log sync compatible)
 input bool   InpEnableAiLearningCsv = true;                    // AI学習CSV出力（DB同期用）
-input string InpTerminalId = "10900k-mt5-live";               // 端末固定ID（10900k-mt5-live, 10900k-mt5-demo, matsu-mt5-live, matsu-mt5-demo）
+input string InpTerminalId = "10900k-mt5-fx";                 // 端末固定ID（例: 10900k-mt5-fx, 10900k-mt5-index, matsu-mt5-fx, matsu-mt5-index）
 input string InpAiLearningFolder = "OneDriveLogs\\data\\AI_Learning"; // MQL5/Files配下
 
 //=== GLOBAL OBJECTS ===
@@ -120,6 +120,59 @@ string AccountModeTag()
    if(mode == ACCOUNT_TRADE_MODE_CONTEST)
       return "CONTEST";
    return "UNKNOWN";
+}
+
+string BuildLogFileName(const string baseName)
+{
+   string name = (StringLen(baseName) > 0) ? baseName : "EA_PullbackEntry_v5.log";
+
+   // split extension (last dot)
+   int lastDot = -1;
+   for(int i = 0; i < StringLen(name); i++)
+   {
+      if(StringGetCharacter(name, i) == '.')
+         lastDot = i;
+   }
+
+   string ext = (lastDot >= 0) ? StringSubstr(name, lastDot) : ".log";
+   string stem = (lastDot >= 0) ? StringSubstr(name, 0, lastDot) : name;
+
+   return stem + "_" + _Symbol + "_" + AccountModeTag() + ext;
+}
+
+bool EnsureFolderPath(string folderPath)
+{
+   if(StringLen(folderPath) <= 0)
+      return false;
+
+   string parts[];
+   int n = StringSplit(folderPath, '\\', parts);
+   if(n <= 0)
+      return false;
+
+   string current = "";
+   for(int i = 0; i < n; i++)
+   {
+      if(StringLen(parts[i]) == 0)
+         continue;
+      current = (StringLen(current) == 0) ? parts[i] : (current + "\\" + parts[i]);
+      FolderCreate(current);
+   }
+   return true;
+}
+
+string FolderPart(const string path)
+{
+   int lastSep = -1;
+   for(int i = 0; i < StringLen(path); i++)
+   {
+      const ushort ch = (ushort)StringGetCharacter(path, i);
+      if(ch == '\\' || ch == '/')
+         lastSep = i;
+   }
+   if(lastSep < 0)
+      return "";
+   return StringSubstr(path, 0, lastSep);
 }
 
 long GenerateMagicNumber()
@@ -194,7 +247,10 @@ int OnInit()
 {
    const long activeMagic = InpAutoMagicNumber ? GenerateMagicNumber() : InpMagicNumber;
    string instanceId = "EA_PullbackEntry_v5_FX|" + _Symbol + "|Acct:" + AccountModeTag() + "|Magic:" + (string)activeMagic + "|CID:" + (string)ChartID();
-   CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, InpLogFileName, InpLogUseCommonFolder);
+   string logFileName = BuildLogFileName(InpLogFileName);
+   if(!InpLogUseCommonFolder)
+      EnsureFolderPath(FolderPart(logFileName));
+   CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, logFileName, InpLogUseCommonFolder);
 
    // Pips→Points変換（5桁ブローカー: 1pip = 10points）
    if(_Digits == 3 || _Digits == 5)
@@ -221,6 +277,7 @@ int OnInit()
    CLogger::Log(LOG_INFO, "Preset: " + GetPresetName(InpPreset));
    CLogger::Log(LOG_INFO, "Symbol: " + _Symbol);
    CLogger::Log(LOG_INFO, "Magic: " + (string)activeMagic + (InpAutoMagicNumber ? " (自動生成)" : " (手動設定)"));
+   CLogger::Log(LOG_INFO, "LogFile: " + logFileName);
    
    // Build Config
    CPullbackConfig cfg;
