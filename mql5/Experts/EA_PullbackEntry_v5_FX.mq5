@@ -24,8 +24,9 @@ input int InpPresetApplyMode = 1;  // Preset適用モード: 0=使わない(Inpu
 
 //--- Basic Settings
 input double InpLotSize = 0.10;              // ロットサイズ
+input bool   InpAutoMagicNumber = false;     // マジックナンバー自動生成（true時、下の値は無視）
 input long   InpMagicNumber = 55000001;      // マジックナンバー
-input int    InpDeviationPoints = 50;        // 最大スリッページ(points)
+input double InpDeviationPips = 5.0;         // 最大スリッページ(pips) ※M15推奨: 3-5pips
 
 //--- EMA Settings
 input int    InpEmaShort = 12;               // 短期EMA
@@ -109,6 +110,28 @@ double g_TrailStepPoints = 0;
 
 string BoolStr(const bool v){ return v ? "true" : "false"; }
 
+string AccountModeTag()
+{
+   const long mode = AccountInfoInteger(ACCOUNT_TRADE_MODE);
+   if(mode == ACCOUNT_TRADE_MODE_REAL)
+      return "LIVE";
+   if(mode == ACCOUNT_TRADE_MODE_DEMO)
+      return "DEMO";
+   if(mode == ACCOUNT_TRADE_MODE_CONTEST)
+      return "CONTEST";
+   return "UNKNOWN";
+}
+
+long GenerateMagicNumber()
+{
+   // EA名 + Symbol + TF + 口座モード から安定ハッシュ（衝突を減らす）
+   string key = MQLInfoString(MQL_PROGRAM_NAME) + "|" + _Symbol + "|" + PeriodToString((ENUM_TIMEFRAMES)_Period) + "|" + AccountModeTag();
+   ulong hash = 0;
+   for(int i = 0; i < StringLen(key); i++)
+      hash = hash * 31 + (ulong)StringGetCharacter(key, i);
+   return (long)(55000000 + (hash % 1000000));
+}
+
 void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
                          const CPullbackConfig &cfg,
                          const SFilterConfig &filterCfg,
@@ -169,7 +192,8 @@ void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   string instanceId = "EA_PullbackEntry_v5_FX|" + _Symbol + "|Magic:" + (string)InpMagicNumber + "|CID:" + (string)ChartID();
+   const long activeMagic = InpAutoMagicNumber ? GenerateMagicNumber() : InpMagicNumber;
+   string instanceId = "EA_PullbackEntry_v5_FX|" + _Symbol + "|Acct:" + AccountModeTag() + "|Magic:" + (string)activeMagic + "|CID:" + (string)ChartID();
    CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, InpLogFileName, InpLogUseCommonFolder);
 
    // Pips→Points変換（5桁ブローカー: 1pip = 10points）
@@ -196,7 +220,7 @@ int OnInit()
    CLogger::Log(LOG_INFO, "=== EA_PullbackEntry v5.0 FX (MQL5 OOP) ===");
    CLogger::Log(LOG_INFO, "Preset: " + GetPresetName(InpPreset));
    CLogger::Log(LOG_INFO, "Symbol: " + _Symbol);
-   CLogger::Log(LOG_INFO, "Magic: " + (string)InpMagicNumber);
+   CLogger::Log(LOG_INFO, "Magic: " + (string)activeMagic + (InpAutoMagicNumber ? " (自動生成)" : " (手動設定)"));
    
    // Build Config
    CPullbackConfig cfg;
@@ -219,9 +243,9 @@ int OnInit()
    }
    
    // 常にInput値を適用（mode=0/1ではこれがメイン、mode=2ではCUSTOM用上書き）
-   cfg.MagicNumber = InpMagicNumber;
+   cfg.MagicNumber = activeMagic;
    cfg.LotSize = InpLotSize;
-   cfg.DeviationPoints = InpDeviationPoints;
+   cfg.DeviationPoints = (int)(InpDeviationPips * g_pipMultiplier);
 
    // Data collection
    cfg.EnableAiLearningLog = InpEnableAiLearningCsv;
@@ -280,7 +304,7 @@ int OnInit()
    
    // Create Position Manager
    SPositionConfig posCfg;
-   posCfg.MagicNumber = InpMagicNumber;
+   posCfg.MagicNumber = activeMagic;
    posCfg.Symbol = _Symbol;
    posCfg.EnablePartialClose = InpEnablePartialClose;
    posCfg.PartialCloseStages = InpPartialStages;
@@ -297,7 +321,7 @@ int OnInit()
    posCfg.TrailingStepPoints = g_TrailStepPoints;
    posCfg.TrailingATRMulti = 1.0;
    posCfg.ATRPeriod = InpATRPeriod;
-   posCfg.MaxSlippagePoints = InpDeviationPoints;
+   posCfg.MaxSlippagePoints = (int)(InpDeviationPips * g_pipMultiplier);
 
    DumpEffectiveConfig(InpPreset, cfg, filterCfg, posCfg);
    
