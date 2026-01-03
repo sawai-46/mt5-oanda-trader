@@ -124,7 +124,7 @@ string AccountModeTag()
 long GenerateMagicNumber()
 {
    // EA名 + Symbol + TF + 口座モード から安定ハッシュ（衝突を減らす）
-   string key = MQLInfoString(MQL_PROGRAM_NAME) + "|" + _Symbol + "|" + PeriodToString((ENUM_TIMEFRAMES)_Period) + "|" + AccountModeTag();
+   string key = MQLInfoString(MQL_PROGRAM_NAME) + "|" + _Symbol + "|" + EnumToString((ENUM_TIMEFRAMES)Period()) + "|" + AccountModeTag();
    ulong hash = 0;
    for(int i = 0; i < StringLen(key); i++)
       hash = hash * 31 + (ulong)StringGetCharacter(key, i);
@@ -142,7 +142,7 @@ void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
    double spreadPrice = spreadPts * point;
 
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5] Preset=%s Symbol=%s TF=%s Digits=%d Point=%g Spread=%lld pts (%.5f)",
-                                       GetPresetName(preset), _Symbol, EnumToString(PERIOD_CURRENT), digits, point, spreadPts, spreadPrice));
+                                       GetPresetName(preset), _Symbol, EnumToString((ENUM_TIMEFRAMES)Period()), digits, point, spreadPts, spreadPrice));
 
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] Magic=%lld Lot=%.2f DeviationPoints=%d",
                                        cfg.MagicNumber, cfg.LotSize, cfg.DeviationPoints));
