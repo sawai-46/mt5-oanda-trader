@@ -88,7 +88,8 @@ input string InpLogFileName = "OneDriveLogs\\logs\\EA_PullbackEntry_v5.log"; // 
 
 //--- Data collection (MT4 log sync compatible)
 input bool   InpEnableAiLearningCsv = true;                    // AI学習CSV出力（DB同期用）
-input string InpTerminalId = "10900k-mt5-fx";                 // 端末固定ID（例: 10900k-mt5-fx, 10900k-mt5-index, matsu-mt5-fx, matsu-mt5-index）
+input string InpTerminalId = "10900k-mt5-fx";                 // 端末固定ID（例: 10900k-mt5-fx, matsu-mt5-fx）
+input bool   InpAutoAppendSymbol = true;                       // TerminalIDにシンボルを自動追加
 input string InpAiLearningFolder = "OneDriveLogs\\data\\AI_Learning"; // MQL5/Files配下
 
 //=== GLOBAL OBJECTS ===
@@ -306,7 +307,17 @@ int OnInit()
 
    // Data collection
    cfg.EnableAiLearningLog = InpEnableAiLearningCsv;
-   cfg.TerminalId = InpTerminalId;
+   // TerminalIdにシンボル自動追加
+   if(InpAutoAppendSymbol)
+   {
+      string tfStr = EnumToString((ENUM_TIMEFRAMES)_Period);
+      StringReplace(tfStr, "PERIOD_", "");
+      cfg.TerminalId = InpTerminalId + "_" + _Symbol + "_" + tfStr;
+   }
+   else
+   {
+      cfg.TerminalId = InpTerminalId;
+   }
    cfg.AiLearningFolder = InpAiLearningFolder;
    
    // mode=0/1 または PRESET_CUSTOM: Inputから全パラメータを読み込み

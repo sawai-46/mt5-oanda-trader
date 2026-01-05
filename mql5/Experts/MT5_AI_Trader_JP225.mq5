@@ -38,7 +38,7 @@ input double InpRiskPercent = 1.0;         // リスク率(%)
 input double InpBaseLotSize = 0.10;        // 基本ロット
 input double InpMaxLotSize = 1.0;          // 最大ロット（上限）
 input bool   InpEnableLotAdjustment = true; // ロット自動調整有効化
-input int    InpMaxSlippagePoints = 20;    // 最大スリッページ(points) ※JP225: 20pt=20円
+input double InpMaxSlippageYen = 20.0;     // 最大スリッページ(円) ※M15推奨: 20円
 input int    InpMaxSpreadYen = 20;         // 最大スプレッド(円) ※OANDA推奨: 20円
 input double InpStopLossYen = 50.0;        // SL(円) ※M15推奨: 40-60円
 input double InpTakeProfitYen = 100.0;     // TP(円) ※M15推奨: 80-120円
@@ -143,8 +143,8 @@ void DumpEffectiveConfig_AI_HTTP()
                                       InpMT5_ID, g_uniqueId, GetPresetName(), g_inferenceServerUrl, InpServerTimeout));
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] Risk=%.2f BaseLot=%.2f MaxLot=%.2f LotAdjust=%s",
                                       InpRiskPercent, InpBaseLotSize, InpMaxLotSize, BoolStr(InpEnableLotAdjustment)));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] Slippage=%dpt MaxSpread=%dpt MaxPos=%d MinBars=%d MinConf=%.2f",
-                                      InpMaxSlippagePoints, (int)g_MaxSpreadPoints, InpMaxPositions, InpMinBarsSinceLastTrade, InpMinConfidence));
+   CLogger::Log(LOG_INFO, StringFormat(\"[CONFIG][AI_HTTP_MT5] Slippage=%.1fyen MaxSpread=%dpt MaxPos=%d MinBars=%d MinConf=%.2f\",
+                                      InpMaxSlippageYen, (int)g_MaxSpreadPoints, InpMaxPositions, InpMinBarsSinceLastTrade, InpMinConfidence));
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] SL=%.1fpt TP=%.1fpt ATR_Period=%d ATR_Th=%s (price units) / %s MT5pt ATR_now=%s (price units) / %s MT5pt",
                                       g_StopLossPoints,
                                       g_TakeProfitPoints,
@@ -244,7 +244,7 @@ int OnInit()
    
    // Trade設定
    m_trade.SetExpertMagicNumber(g_ActiveMagicNumber);
-   m_trade.SetDeviationInPoints(InpMaxSlippagePoints);
+   m_trade.SetDeviationInPoints((int)(InpMaxSlippageYen * yenToPoints));
    m_trade.SetTypeFilling(ORDER_FILLING_IOC);
 
    // Logger instanceId finalized after magic is set
