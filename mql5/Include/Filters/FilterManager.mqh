@@ -39,6 +39,13 @@ struct SFilterConfig
    bool     EnableChannelFilter;
    int      ChannelPeriod;
    double   MinChannelWidthPoints;
+
+   // MTF Trend Filter
+   bool     EnableMTFFilter;
+   ENUM_TIMEFRAMES MTFTimeframe;
+   int      MTFEmaShort;
+   int      MTFEmaMid;
+   int      MTFEmaLong;
    
    // Default values
    SFilterConfig()
@@ -61,7 +68,12 @@ struct SFilterConfig
      ATRMinPoints(30.0),
      EnableChannelFilter(false),
      ChannelPeriod(20),
-     MinChannelWidthPoints(300.0)
+     MinChannelWidthPoints(300.0),
+     EnableMTFFilter(false),
+     MTFTimeframe(PERIOD_H1),
+     MTFEmaShort(12),
+     MTFEmaMid(25),
+     MTFEmaLong(100)
    {
    }
 };
@@ -75,6 +87,9 @@ private:
    SFilterConfig m_cfg;
    int           m_handleADX;
    int           m_handleATR;
+   int           m_handleMtfEmaS;
+   int           m_handleMtfEmaM;
+   int           m_handleMtfEmaL;
    
    string        m_lastRejectReason;
 
@@ -83,6 +98,9 @@ public:
    CFilterManager()
    : m_handleADX(INVALID_HANDLE),
      m_handleATR(INVALID_HANDLE),
+     m_handleMtfEmaS(INVALID_HANDLE),
+     m_handleMtfEmaM(INVALID_HANDLE),
+     m_handleMtfEmaL(INVALID_HANDLE),
      m_lastRejectReason("")
    {
    }
@@ -92,6 +110,14 @@ public:
    {
       if(m_handleADX != INVALID_HANDLE) IndicatorRelease(m_handleADX);
       if(m_handleATR != INVALID_HANDLE) IndicatorRelease(m_handleATR);
+      ReleaseMtfIndicators();
+   }
+
+   void ReleaseMtfIndicators()
+   {
+      if(m_handleMtfEmaS != INVALID_HANDLE) { IndicatorRelease(m_handleMtfEmaS); m_handleMtfEmaS = INVALID_HANDLE; }
+      if(m_handleMtfEmaM != INVALID_HANDLE) { IndicatorRelease(m_handleMtfEmaM); m_handleMtfEmaM = INVALID_HANDLE; }
+      if(m_handleMtfEmaL != INVALID_HANDLE) { IndicatorRelease(m_handleMtfEmaL); m_handleMtfEmaL = INVALID_HANDLE; }
    }
    
    //--- Initialize with config
@@ -104,6 +130,13 @@ public:
       
       if((m_cfg.EnableATRFilter || m_cfg.EnableChannelFilter) && StringLen(m_cfg.Symbol) > 0)
          m_handleATR = iATR(m_cfg.Symbol, timeframe, m_cfg.ATRPeriod);
+
+      if(m_cfg.EnableMTFFilter && StringLen(m_cfg.Symbol) > 0)
+      {
+         m_handleMtfEmaS = iMA(m_cfg.Symbol, m_cfg.MTFTimeframe, m_cfg.MTFEmaShort, 0, MODE_EMA, PRICE_CLOSE);
+         m_handleMtfEmaM = iMA(m_cfg.Symbol, m_cfg.MTFTimeframe, m_cfg.MTFEmaMid, 0, MODE_EMA, PRICE_CLOSE);
+         m_handleMtfEmaL = iMA(m_cfg.Symbol, m_cfg.MTFTimeframe, m_cfg.MTFEmaLong, 0, MODE_EMA, PRICE_CLOSE);
+      }
    }
    
    //--- Check all filters - returns true if all pass
@@ -129,6 +162,37 @@ public:
       return true;
    }
    
+   //--- Check MTF Direction (returns true if direction is allowed)
+   bool CheckMTF(ENUM_ORDER_TYPE orderType)
+   {
+      if(!m_cfg.EnableMTFFilter) return true;
+      if(m_handleMtfEmaS == INVALID_HANDLE || m_handleMtfEmaM == INVALID_HANDLE || m_handleMtfEmaL == INVALID_HANDLE) return true;
+
+      double s[], m[], l[];
+      ArraySetAsSeries(s, true); ArraySetAsSeries(m, true); ArraySetAsSeries(l, true);
+
+      if(CopyBuffer(m_handleMtfEmaS, 0, 1, 1, s) != 1) return true;
+      if(CopyBuffer(m_handleMtfEmaM, 0, 1, 1, m) != 1) return true;
+      if(CopyBuffer(m_handleMtfEmaL, 0, 1, 1, l) != 1) return true;
+
+      bool isUp = (s[0] > m[0] && m[0] > l[0]);
+      bool isDown = (s[0] < m[0] && m[0] < l[0]);
+
+      if(orderType == ORDER_TYPE_BUY)
+      {
+         if(isUp) return true;
+         m_lastRejectReason = "MTF Filter: Not Perfect UpTrend";
+         return false;
+      }
+      else if(orderType == ORDER_TYPE_SELL)
+      {
+         if(isDown) return true;
+         m_lastRejectReason = "MTF Filter: Not Perfect DownTrend";
+         return false;
+      }
+      return true;
+   }
+
    //--- Get last rejection reason
    string GetLastRejectReason() const { return m_lastRejectReason; }
 

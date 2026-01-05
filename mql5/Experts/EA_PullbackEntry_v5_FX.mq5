@@ -47,6 +47,13 @@ input int    InpStartHour = 8;               // 開始時刻(JST)
 input int    InpEndHour = 21;                // 終了時刻(JST)
 input bool   InpTradeOnFriday = true;        // 金曜取引
 
+//--- MTF Filter
+input bool            InpEnableMTFFilter = false;   // MTFフィルター有効
+input ENUM_TIMEFRAMES InpMTFTimeframe = PERIOD_H1;  // MTF時間足
+input int             InpMTFEmaShort = 12;          // MTF EMA短期
+input int             InpMTFEmaMid = 25;            // MTF EMA中期
+input int             InpMTFEmaLong = 100;          // MTF EMA長期
+
 //--- Spread/ADX/ATR Filter
 input int    InpMaxSpreadPips = 20;          // 最大スプレッド(pips)
 input bool   InpUseADXFilter = true;         // ADXフィルター
@@ -366,6 +373,12 @@ int OnInit()
    filterCfg.EnableATRFilter = true;
    filterCfg.ATRPeriod = InpATRPeriod;
    filterCfg.ATRMinPoints = g_ATRMinPoints;
+   // MTF Config
+   filterCfg.EnableMTFFilter = InpEnableMTFFilter;
+   filterCfg.MTFTimeframe = InpMTFTimeframe;
+   filterCfg.MTFEmaShort = InpMTFEmaShort;
+   filterCfg.MTFEmaMid = InpMTFEmaMid;
+   filterCfg.MTFEmaLong = InpMTFEmaLong;
    
    g_filterManager = new CFilterManager();
    g_filterManager.Init(filterCfg, PERIOD_CURRENT);
@@ -431,6 +444,19 @@ void OnTick()
    
    // Strategy entry logic
    if(g_strategy != NULL)
+   {
+      // Check MTF Trend Bias
+      bool allowBuy = true;
+      bool allowSell = true;
+      if(g_filterManager != NULL)
+      {
+         allowBuy = g_filterManager.CheckMTF(ORDER_TYPE_BUY);
+         allowSell = g_filterManager.CheckMTF(ORDER_TYPE_SELL);
+      }
+      
+      // Update strategy permissions
+      g_strategy.SetAllowedDirections(allowBuy, allowSell);
       g_strategy.OnTick();
+   }
 }
 //+------------------------------------------------------------------+

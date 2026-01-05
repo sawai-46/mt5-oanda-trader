@@ -107,8 +107,13 @@ private:
       return true;
    }
 
+   bool m_allowBuy;
+   bool m_allowSell;
+
    bool TrendIsBuy()
    {
+      if(!m_allowBuy) return false;
+      
       double s, m, l;
       if(!GetEmaValues(1, s, m, l)) return false;
       if(!m_cfg.RequirePerfectOrder) return (s > m);
@@ -117,6 +122,8 @@ private:
 
    bool TrendIsSell()
    {
+      if(!m_allowSell) return false;
+
       double s, m, l;
       if(!GetEmaValues(1, s, m, l)) return false;
       if(!m_cfg.RequirePerfectOrder) return (s < m);
@@ -383,10 +390,18 @@ private:
       return true;
    }
 
+   void SetAllowedDirections(bool allowBuy, bool allowSell)
+   {
+      m_allowBuy = allowBuy;
+      m_allowSell = allowSell;
+   }
+
 public:
    CPullbackStrategy(string symbol, ENUM_TIMEFRAMES timeframe, const CPullbackConfig &cfg)
    : CStrategyBase(symbol, timeframe),
      m_cfg(cfg),
+     m_allowBuy(true),
+     m_allowSell(true),
      m_handleEmaShort(INVALID_HANDLE),
      m_handleEmaMid(INVALID_HANDLE),
      m_handleEmaLong(INVALID_HANDLE),
