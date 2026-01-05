@@ -85,11 +85,11 @@ input double InpTakeProfit_ATR_Multi = 2.0;    // TP用ATR倍率
 input bool   InpEnable_AI_Learning_Log = true; // AI学習データ記録有効化
 
 //--- Logging (optional)
-input bool   InpEnableLogging = true;
-input ENUM_LOG_LEVEL InpLogMinLevel = LOG_INFO;
-input bool   InpLogToFile = false;
-input bool   InpLogUseCommonFolder = true;
-input string InpLogFileName = "MT5_AI_Trader.log";
+input bool   InpEnableLogging = true;                // ログ出力有効化
+input ENUM_LOG_LEVEL InpLogMinLevel = LOG_INFO;      // 最小ログレベル
+input bool   InpLogToFile = false;                   // ファイルへのログ出力
+input bool   InpLogUseCommonFolder = true;           // 共通フォルダを使用(Common/Files)
+input string InpLogFileName = "MT5_AI_Trader.log";   // ログファイル名
 
 //--- グローバル変数
 datetime g_lastBarTime = 0;
