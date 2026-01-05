@@ -45,6 +45,7 @@ input bool   InpEnableTimeFilter = true;     // 時間フィルター有効
 input int    InpGMTOffset = 3;               // GMTオフセット
 input int    InpStartHour = 8;               // 開始時刻(JST)
 input int    InpEndHour = 21;                // 終了時刻(JST)
+input bool   InpUseDST = false;              // 夏時間有効
 input bool   InpTradeOnFriday = true;        // 金曜取引
 
 //--- MTF Filter
@@ -320,7 +321,7 @@ int OnInit()
    filterCfg.Symbol = _Symbol;
    filterCfg.EnableTimeFilter = InpEnableTimeFilter;
    filterCfg.GMTOffset = InpGMTOffset;
-   filterCfg.UseDST = false;
+   filterCfg.UseDST = InpUseDST;
    filterCfg.StartMinute = 0;
    filterCfg.EndMinute = 0;
    filterCfg.StartHour = InpStartHour;
