@@ -33,7 +33,15 @@ public:
    int             EmaShortPeriod;
    int             EmaMidPeriod;
    int             EmaLongPeriod;
-   bool            RequirePerfectOrder;
+   int             EmaLongPeriod;
+   bool            UseEmaShort;
+   bool            UseEmaMid;
+   bool            UseEmaLong;
+   bool            LegacyPerfectOrder; // Renamed to avoid confusion, or reused. 
+   // Actually, lets replace RequirePerfectOrder with granular flags logic.
+   // But to avoid breaking existing code in one go, I will keep the field but ignore it in new logic?
+   // No, I should clean it up.
+   // I will simply add the new bools.
 
    // Pullback
    bool            UseTouchPullback;
@@ -69,7 +77,10 @@ public:
      EmaShortPeriod(12),
      EmaMidPeriod(25),
      EmaLongPeriod(100),
-     RequirePerfectOrder(true),
+     EmaLongPeriod(100),
+     UseEmaShort(true),
+     UseEmaMid(true),
+     UseEmaLong(true),
      UseTouchPullback(true),
      UseCrossPullback(true),
      UseBreakPullback(false),

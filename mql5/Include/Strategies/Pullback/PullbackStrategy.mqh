@@ -116,8 +116,31 @@ private:
       
       double s, m, l;
       if(!GetEmaValues(1, s, m, l)) return false;
-      if(!m_cfg.RequirePerfectOrder) return (s > m);
-      return (s > m && m > l);
+
+      // Check adjacent pairs if both are enabled
+      // Sequence: Short -> Mid -> Long
+      
+      // Short vs Mid
+      if(m_cfg.UseEmaShort && m_cfg.UseEmaMid)
+      {
+         if(s <= m) return false;
+      }
+
+      // Mid vs Long
+      if(m_cfg.UseEmaMid && m_cfg.UseEmaLong)
+      {
+         if(m <= l) return false;
+      }
+
+      // Short vs Long (if Mid is disabled, we check S > L directly? Or do we assume S > L is implied?)
+      // If we have S, M, L: S>M and M>L implies S>L.
+      // If we have S, L (M off): S>L.
+      if(m_cfg.UseEmaShort && m_cfg.UseEmaLong && !m_cfg.UseEmaMid)
+      {
+         if(s <= l) return false;
+      }
+
+      return true;
    }
 
    bool TrendIsSell()
@@ -126,8 +149,26 @@ private:
 
       double s, m, l;
       if(!GetEmaValues(1, s, m, l)) return false;
-      if(!m_cfg.RequirePerfectOrder) return (s < m);
-      return (s < m && m < l);
+
+      // Short vs Mid
+      if(m_cfg.UseEmaShort && m_cfg.UseEmaMid)
+      {
+         if(s >= m) return false;
+      }
+
+      // Mid vs Long
+      if(m_cfg.UseEmaMid && m_cfg.UseEmaLong)
+      {
+         if(m >= l) return false;
+      }
+
+      // Short vs Long (only if Mid is disabled)
+      if(m_cfg.UseEmaShort && m_cfg.UseEmaLong && !m_cfg.UseEmaMid)
+      {
+         if(s >= l) return false;
+      }
+
+      return true;
    }
 
    bool PullbackBuySignal()

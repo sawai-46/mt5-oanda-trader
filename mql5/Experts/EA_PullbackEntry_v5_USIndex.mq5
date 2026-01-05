@@ -30,9 +30,11 @@ input double InpDeviationDollars = 3.0;      // 最大スリッページ(ドル)
 
 //--- EMA Settings
 input int    InpEmaShort = 12;               // 短期EMA
+input bool   InpUseEmaShort = true;          // 短期EMA使用
 input int    InpEmaMid = 25;                 // 中期EMA
+input bool   InpUseEmaMid = true;            // 中期EMA使用
 input int    InpEmaLong = 100;               // 長期EMA
-input bool   InpRequirePerfectOrder = true;  // パーフェクトオーダー必須
+input bool   InpUseEmaLong = true;           // 長期EMA使用
 
 //--- Pullback Settings
 input bool   InpUseTouchPullback = true;     // タッチプルバック
@@ -52,8 +54,11 @@ input bool   InpTradeOnFriday = true;        // 金曜取引
 input bool            InpEnableMTFFilter = false;   // MTFフィルター有効
 input ENUM_TIMEFRAMES InpMTFTimeframe = PERIOD_H1;  // MTF時間足
 input int             InpMTFEmaShort = 12;          // MTF EMA短期
+input bool            InpUseMTFEmaShort = true;     // MTF短期EMA使用
 input int             InpMTFEmaMid = 25;            // MTF EMA中期
+input bool            InpUseMTFEmaMid = true;       // MTF中期EMA使用
 input int             InpMTFEmaLong = 100;          // MTF EMA長期
+input bool            InpUseMTFEmaLong = true;      // MTF長期EMA使用
 
 //--- Spread/ADX/ATR Filter
 input double InpMaxSpreadDollars = 8.0;      // 最大スプレッド(ドル) ※OANDA推奨: 8ドル
@@ -173,9 +178,10 @@ void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
 
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] Magic=%lld Lot=%.2f DeviationPoints=%d",
                                        cfg.MagicNumber, cfg.LotSize, cfg.DeviationPoints));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] EMA: short=%d mid=%d long=%d PerfectOrder=%s Pullback(ref=%d touch=%s cross=%s break=%s)",
-                                       cfg.EmaShortPeriod, cfg.EmaMidPeriod, cfg.EmaLongPeriod,
-                                       BoolStr(cfg.RequirePerfectOrder),
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] EMA: short=%d(en=%s) mid=%d(en=%s) long=%d(en=%s) Pullback(ref=%d touch=%s cross=%s break=%s)",
+                                       cfg.EmaShortPeriod, BoolStr(cfg.UseEmaShort),
+                                       cfg.EmaMidPeriod, BoolStr(cfg.UseEmaMid),
+                                       cfg.EmaLongPeriod, BoolStr(cfg.UseEmaLong),
                                        (int)cfg.PullbackEmaRef,
                                        BoolStr(cfg.UseTouchPullback), BoolStr(cfg.UseCrossPullback), BoolStr(cfg.UseBreakPullback)));
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] Filters: MaxSpreadPoints=%d ATR(period=%d min=%.1f) ADX(en=%s period=%d min=%.1f)",
@@ -295,7 +301,9 @@ int OnInit()
       cfg.EmaShortPeriod = InpEmaShort;
       cfg.EmaMidPeriod = InpEmaMid;
       cfg.EmaLongPeriod = InpEmaLong;
-      cfg.RequirePerfectOrder = InpRequirePerfectOrder;
+      cfg.UseEmaShort = InpUseEmaShort;
+      cfg.UseEmaMid = InpUseEmaMid;
+      cfg.UseEmaLong = InpUseEmaLong;
       cfg.UseTouchPullback = InpUseTouchPullback;
       cfg.UseCrossPullback = InpUseCrossPullback;
       cfg.UseBreakPullback = InpUseBreakPullback;
@@ -341,6 +349,9 @@ int OnInit()
    filterCfg.MTFEmaShort = InpMTFEmaShort;
    filterCfg.MTFEmaMid = InpMTFEmaMid;
    filterCfg.MTFEmaLong = InpMTFEmaLong;
+   filterCfg.UseMTFEmaShort = InpUseMTFEmaShort;
+   filterCfg.UseMTFEmaMid = InpUseMTFEmaMid;
+   filterCfg.UseMTFEmaLong = InpUseMTFEmaLong;
    
    g_filterManager = new CFilterManager();
    g_filterManager.Init(filterCfg, PERIOD_CURRENT);

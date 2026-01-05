@@ -30,7 +30,9 @@ void ApplyPreset(CPullbackConfig &cfg, ENUM_PULLBACK_PRESET preset)
          cfg.EmaShortPeriod = 12;
          cfg.EmaMidPeriod = 25;
          cfg.EmaLongPeriod = 100;
-         cfg.RequirePerfectOrder = true;
+         cfg.UseEmaShort = true;
+         cfg.UseEmaMid = true;
+         cfg.UseEmaLong = true;
          cfg.UseTouchPullback = true;
          cfg.UseCrossPullback = true;
          cfg.UseBreakPullback = false;
@@ -46,7 +48,9 @@ void ApplyPreset(CPullbackConfig &cfg, ENUM_PULLBACK_PRESET preset)
          cfg.EmaShortPeriod = 12;
          cfg.EmaMidPeriod = 25;
          cfg.EmaLongPeriod = 100;
-         cfg.RequirePerfectOrder = true;
+         cfg.UseEmaShort = true;
+         cfg.UseEmaMid = true;
+         cfg.UseEmaLong = true;
          cfg.UseTouchPullback = true;
          cfg.UseCrossPullback = true;
          cfg.UseBreakPullback = false;
@@ -62,7 +66,9 @@ void ApplyPreset(CPullbackConfig &cfg, ENUM_PULLBACK_PRESET preset)
          cfg.EmaShortPeriod = 12;
          cfg.EmaMidPeriod = 25;
          cfg.EmaLongPeriod = 100;
-         cfg.RequirePerfectOrder = false;  // パーフェクトオーダー不要
+         cfg.UseEmaShort = true;
+         cfg.UseEmaMid = true;
+         cfg.UseEmaLong = false;  // パーフェクトオーダー不要（S>Mのみ）
          cfg.UseTouchPullback = true;
          cfg.UseCrossPullback = true;
          cfg.UseBreakPullback = true;      // ブレイクも許可
@@ -78,7 +84,9 @@ void ApplyPreset(CPullbackConfig &cfg, ENUM_PULLBACK_PRESET preset)
          cfg.EmaShortPeriod = 8;
          cfg.EmaMidPeriod = 20;
          cfg.EmaLongPeriod = 50;
-         cfg.RequirePerfectOrder = false;
+         cfg.UseEmaShort = true;
+         cfg.UseEmaMid = true;
+         cfg.UseEmaLong = false;
          cfg.UseTouchPullback = true;
          cfg.UseCrossPullback = true;
          cfg.UseBreakPullback = true;

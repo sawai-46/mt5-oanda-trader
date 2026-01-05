@@ -46,6 +46,9 @@ struct SFilterConfig
    int      MTFEmaShort;
    int      MTFEmaMid;
    int      MTFEmaLong;
+   bool     UseMTFEmaShort;
+   bool     UseMTFEmaMid;
+   bool     UseMTFEmaLong;
    
    // Default values
    SFilterConfig()
@@ -73,7 +76,10 @@ struct SFilterConfig
      MTFTimeframe(PERIOD_H1),
      MTFEmaShort(12),
      MTFEmaMid(25),
-     MTFEmaLong(100)
+     MTFEmaLong(100),
+     UseMTFEmaShort(true),
+     UseMTFEmaMid(true),
+     UseMTFEmaLong(true)
    {
    }
 };
@@ -163,6 +169,7 @@ public:
    }
    
    //--- Check MTF Direction (returns true if direction is allowed)
+   //--- Check MTF Direction (returns true if direction is allowed)
    bool CheckMTF(ENUM_ORDER_TYPE orderType)
    {
       if(!m_cfg.EnableMTFFilter) return true;
@@ -175,19 +182,49 @@ public:
       if(CopyBuffer(m_handleMtfEmaM, 0, 1, 1, m) != 1) return true;
       if(CopyBuffer(m_handleMtfEmaL, 0, 1, 1, l) != 1) return true;
 
-      bool isUp = (s[0] > m[0] && m[0] > l[0]);
-      bool isDown = (s[0] < m[0] && m[0] < l[0]);
+      bool isUp = true;
+      bool isDown = true;
+
+      // Logic: If a pair is enabled, check order. If any check fails, flag becomes false.
+
+      // Up checks (S > M > L)
+      if(m_cfg.UseMTFEmaShort && m_cfg.UseMTFEmaMid)
+      {
+         if(s[0] <= m[0]) isUp = false;
+      }
+      if(m_cfg.UseMTFEmaMid && m_cfg.UseMTFEmaLong)
+      {
+         if(m[0] <= l[0]) isUp = false;
+      }
+      if(m_cfg.UseMTFEmaShort && m_cfg.UseMTFEmaLong && !m_cfg.UseMTFEmaMid)
+      {
+         if(s[0] <= l[0]) isUp = false;
+      }
+
+      // Down checks (S < M < L)
+      if(m_cfg.UseMTFEmaShort && m_cfg.UseMTFEmaMid)
+      {
+         if(s[0] >= m[0]) isDown = false;
+      }
+      if(m_cfg.UseMTFEmaMid && m_cfg.UseMTFEmaLong)
+      {
+         if(m[0] >= l[0]) isDown = false;
+      }
+      if(m_cfg.UseMTFEmaShort && m_cfg.UseMTFEmaLong && !m_cfg.UseMTFEmaMid)
+      {
+         if(s[0] >= l[0]) isDown = false;
+      }
 
       if(orderType == ORDER_TYPE_BUY)
       {
          if(isUp) return true;
-         m_lastRejectReason = "MTF Filter: Not Perfect UpTrend";
+         m_lastRejectReason = "MTF Filter: Trend condition not met (Up)";
          return false;
       }
       else if(orderType == ORDER_TYPE_SELL)
       {
          if(isDown) return true;
-         m_lastRejectReason = "MTF Filter: Not Perfect DownTrend";
+         m_lastRejectReason = "MTF Filter: Trend condition not met (Down)";
          return false;
       }
       return true;
