@@ -33,15 +33,9 @@ public:
    int             EmaShortPeriod;
    int             EmaMidPeriod;
    int             EmaLongPeriod;
-   int             EmaLongPeriod;
    bool            UseEmaShort;
    bool            UseEmaMid;
    bool            UseEmaLong;
-   bool            LegacyPerfectOrder; // Renamed to avoid confusion, or reused. 
-   // Actually, lets replace RequirePerfectOrder with granular flags logic.
-   // But to avoid breaking existing code in one go, I will keep the field but ignore it in new logic?
-   // No, I should clean it up.
-   // I will simply add the new bools.
 
    // Pullback
    bool            UseTouchPullback;
@@ -76,7 +70,6 @@ public:
        AiLearningFolder("OneDriveLogs\\data\\AI_Learning"),
      EmaShortPeriod(12),
      EmaMidPeriod(25),
-     EmaLongPeriod(100),
      EmaLongPeriod(100),
      UseEmaShort(true),
      UseEmaMid(true),
