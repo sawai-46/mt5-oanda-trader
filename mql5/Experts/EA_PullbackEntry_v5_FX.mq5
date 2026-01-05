@@ -444,6 +444,19 @@ void OnTick()
    
    // Strategy entry logic
    if(g_strategy != NULL)
+   {
+      // Check MTF Trend Bias
+      bool allowBuy = true;
+      bool allowSell = true;
+      if(g_filterManager != NULL)
+      {
+         allowBuy = g_filterManager.CheckMTF(ORDER_TYPE_BUY);
+         allowSell = g_filterManager.CheckMTF(ORDER_TYPE_SELL);
+      }
+      
+      // Update strategy permissions
+      g_strategy.SetAllowedDirections(allowBuy, allowSell);
       g_strategy.OnTick();
+   }
 }
 //+------------------------------------------------------------------+
