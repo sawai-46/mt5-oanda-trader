@@ -390,13 +390,13 @@ private:
       return true;
    }
 
+public:
    void SetAllowedDirections(bool allowBuy, bool allowSell)
    {
       m_allowBuy = allowBuy;
       m_allowSell = allowSell;
    }
 
-public:
    CPullbackStrategy(string symbol, ENUM_TIMEFRAMES timeframe, const CPullbackConfig &cfg)
    : CStrategyBase(symbol, timeframe),
      m_cfg(cfg),
