@@ -87,9 +87,9 @@ input bool   InpEnable_AI_Learning_Log = true; // AI学習データ記録有効�
 //--- Logging (optional)
 input bool   InpEnableLogging = true;                // ログ出力有効化
 input ENUM_LOG_LEVEL InpLogMinLevel = LOG_INFO;      // 最小ログレベル
-input bool   InpLogToFile = false;                   // ファイルへのログ出力
-input bool   InpLogUseCommonFolder = true;           // 共通フォルダを使用(Common/Files)
-input string InpLogFileName = "MT5_AI_Trader.log";   // ログファイル名
+input bool   InpLogToFile = true;                   // ファイルへのログ出力
+input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
+input string InpLogFileName = "OneDriveLogs\\logs\\MT5_AI_Trader.log";   // ログファイル名（MQL5/Files配下）
 
 //--- グローバル変数
 datetime g_lastBarTime = 0;
