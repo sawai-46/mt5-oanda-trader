@@ -11,6 +11,7 @@
 
 #include <Trade\Trade.mqh>
 #include <Integration/Logger.mqh>
+#include <Utils/JsonLite.mqh>
 
 //--- 推論サーバー戦略プリセット
 enum PresetOption
@@ -528,10 +529,15 @@ bool SendHttpRequest(string url, string postData, string &response)
    uchar result[];
    string headers = "Content-Type: application/json\r\n";
    string result_headers;
-   
-   StringToCharArray(postData, post, 0, StringLen(postData));
-   ArrayResize(post, StringLen(postData));
-   
+
+   ResetLastError();
+   int postLen = StringToCharArray(postData, post, 0, StringLen(postData), CP_UTF8);
+   if(postLen < 0) postLen = 0;
+   // StringToCharArray may append a terminating 0 byte; do not send it.
+   if(postLen > 0 && post[postLen - 1] == 0)
+      postLen--;
+   ArrayResize(post, postLen);
+
    int res = WebRequest(
       "POST",
       url,
@@ -541,14 +547,30 @@ bool SendHttpRequest(string url, string postData, string &response)
       result,
       result_headers
    );
-   
+
+   response = CharArrayToString(result, 0, ArraySize(result), CP_UTF8);
+
    if(res == -1)
    {
-      Print("WebRequest Error: ", GetLastError());
+      int err = GetLastError();
+      CLogger::Log(LOG_ERROR, StringFormat("WebRequest failed. err=%d url=%s", err, url));
+      if(err == 4014)
+      {
+         CLogger::Log(LOG_ERROR, "MT5のWebRequest許可URLに推論サーバーURLを追加してください（ツール→オプション→エキスパートアドバイザ）");
+         CLogger::Log(LOG_ERROR, StringFormat("許可URL例: %s", g_inferenceServerUrl));
+      }
       return false;
    }
-   
-   response = CharArrayToString(result, 0, ArraySize(result));
+
+   if(res != 200)
+   {
+      string body = response;
+      if(StringLen(body) > 500)
+         body = StringSubstr(body, 0, 500) + "...";
+      CLogger::Log(LOG_ERROR, StringFormat("HTTP error. status=%d url=%s body=%s", res, url, body));
+      return false;
+   }
+
    return true;
 }
 
@@ -626,30 +648,13 @@ bool TestServerConnection()
 //+------------------------------------------------------------------+
 bool ParseAnalyzeResponse(string response, int &signal, double &confidence, bool &entryAllowed)
 {
-   int signalPos = StringFind(response, "\"signal\":");
-   int confPos = StringFind(response, "\"confidence\":");
-   int entryPos = StringFind(response, "\"entry_allowed\":");
-   
-   if(signalPos < 0 || confPos < 0 || entryPos < 0)
+   if(!CJsonLite::TryGetInt(response, "signal", signal))
       return false;
-   
-   // signal抽出
-   string signalStr = StringSubstr(response, signalPos + 9, 3);
-   signalStr = StringTrimLeft(signalStr);
-   signalStr = StringTrimRight(signalStr);
-   signal = (int)StringToInteger(signalStr);
-   
-   // confidence抽出
-   string confStr = StringSubstr(response, confPos + 14, 10);
-   int commaPos = StringFind(confStr, ",");
-   if(commaPos > 0)
-      confStr = StringSubstr(confStr, 0, commaPos);
-   confidence = StringToDouble(confStr);
-   
-   // entry_allowed抽出
-   string entryStr = StringSubstr(response, entryPos + 17, 5);
-   entryAllowed = (StringFind(entryStr, "true") >= 0);
-   
+   if(!CJsonLite::TryGetDouble(response, "confidence", confidence))
+      return false;
+   if(!CJsonLite::TryGetBool(response, "entry_allowed", entryAllowed))
+      return false;
+
    return true;
 }
 

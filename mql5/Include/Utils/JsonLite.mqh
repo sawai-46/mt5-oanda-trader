@@ -116,6 +116,28 @@ public:
       }
       return false;
    }
+
+   static bool TryGetBool(const string json, const string key, bool &outValue)
+   {
+      int p = 0;
+      if(!FindKey(json, key, p)) return false;
+
+      int n = StringLen(json);
+      if(p >= n) return false;
+
+      // Accept: true / false (unquoted)
+      if(p + 4 <= n && StringSubstr(json, p, 4) == "true")
+      {
+         outValue = true;
+         return true;
+      }
+      if(p + 5 <= n && StringSubstr(json, p, 5) == "false")
+      {
+         outValue = false;
+         return true;
+      }
+      return false;
+   }
 };
 
 #endif
