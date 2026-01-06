@@ -94,7 +94,7 @@ input string InpLogFileName = "OneDriveLogs\\logs\\MT5_AI_Trader.log";   // ロ�
 
 //--- グローバル変数
 datetime g_lastBarTime = 0;
-int g_lastTradeBar = 0;
+int g_lastTradeBar = 100;  // 初回起動時に即座にリクエスト送信可能にするため大きな値で初期化
 ulong g_ActiveMagicNumber = 0;
 string g_uniqueId = "";
 string g_inferenceServerUrl = "";
@@ -335,21 +335,42 @@ void OnTick()
 //+------------------------------------------------------------------+
 void AnalyzeAndTrade()
 {
+   // デバッグ: 毎回実行確認
+   static datetime lastDebugTime = 0;
+   datetime now = TimeCurrent();
+   bool showDebug = (now - lastDebugTime >= 60);  // 60秒ごとにデバッグ出力
+   
+   if(showDebug)
+   {
+      Print("[DEBUG] AnalyzeAndTrade called - checking filters...");
+      lastDebugTime = now;
+   }
+   
    // フィルターチェック
    if(!PassesTimeFilter())
+   {
+      if(showDebug) Print("[DEBUG] SKIP: TimeFilter failed (現在時刻が稼働時間外)");
       return;
+   }
    
-   if(CountOpenPositions() >= InpMaxPositions)
+   int openPos = CountOpenPositions();
+   if(openPos >= InpMaxPositions)
+   {
+      if(showDebug) Print("[DEBUG] SKIP: MaxPositions reached (", openPos, "/", InpMaxPositions, ")");
       return;
+   }
    
    if(g_lastTradeBar < InpMinBarsSinceLastTrade)
+   {
+      if(showDebug) Print("[DEBUG] SKIP: MinBarsSinceLastTrade (", g_lastTradeBar, "/", InpMinBarsSinceLastTrade, ")");
       return;
+   }
    
    // スプレッドチェック
    double spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
    if(spread > g_MaxSpreadPoints)
    {
-      Print("スプレッドが広すぎます: ", spread, " points");
+      Print("スプレッドが広すぎます: ", spread, " points (上限: ", g_MaxSpreadPoints, ")");
       return;
    }
    
@@ -373,19 +394,29 @@ void AnalyzeAndTrade()
    int signal = 0;
    double confidence = 0.0;
    bool entryAllowed = false;
+   string reason = "";
    
-   if(!ParseAnalyzeResponse(responseStr, signal, confidence, entryAllowed))
+   if(!ParseAnalyzeResponse(responseStr, signal, confidence, entryAllowed, reason))
    {
-      Print("レスポンスの解析に失敗しました");
+      Print("レスポンスの解析に失敗しました: ", StringSubstr(responseStr, 0, 200));
       return;
    }
    
+   // レスポンスログ（MT4と同様）
+   Print("Response: signal=", signal, " conf=", DoubleToString(confidence, 3), " reason=", reason);
+   
    // エントリー判定
    if(!entryAllowed || signal == 0)
+   {
+      // No signal - 正常動作（ログ出力済み）
       return;
+   }
    
    if(confidence < InpMinConfidence)
+   {
+      Print("信頼度不足でスキップ: ", DoubleToString(confidence, 3), " < ", DoubleToString(InpMinConfidence, 2));
       return;
+   }
    
    // ATR閾値チェック
    double atr = GetATR(InpATRPeriod);
@@ -646,7 +677,7 @@ bool TestServerConnection()
 //+------------------------------------------------------------------+
 //| 分析レスポンス解析                                               |
 //+------------------------------------------------------------------+
-bool ParseAnalyzeResponse(string response, int &signal, double &confidence, bool &entryAllowed)
+bool ParseAnalyzeResponse(string response, int &signal, double &confidence, bool &entryAllowed, string &reason)
 {
    if(!CJsonLite::TryGetInt(response, "signal", signal))
       return false;
@@ -654,7 +685,10 @@ bool ParseAnalyzeResponse(string response, int &signal, double &confidence, bool
       return false;
    if(!CJsonLite::TryGetBool(response, "entry_allowed", entryAllowed))
       return false;
-
+   
+   // reasonはオプション（なくても失敗にしない）
+   CJsonLite::TryGetString(response, "reason", reason);
+   
    return true;
 }
 
