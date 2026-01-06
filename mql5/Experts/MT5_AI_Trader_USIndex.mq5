@@ -99,7 +99,8 @@ input int    InpMainLogicIntervalSec = 60;            // メインロジック�
 datetime g_lastBarTime = 0;
 int g_lastTradeBar = 100;
 ulong g_ActiveMagicNumber = 0;
-int g_partialCloseLevel[1000]; // 拡張
+int g_partialCloseLevel[];
+string g_uniqueId = "";
 string g_inferenceServerUrl = "";
 CTrade m_trade;
 
@@ -112,9 +113,6 @@ double g_ATRThresholdPoints = 0;
 double g_PartialClose1Points = 0;
 double g_PartialClose2Points = 0;
 double g_PartialClose3Points = 0;
-
-// Partial Close状態管理
-int g_partialCloseLevel[];
 
 string BoolStr(const bool v)
 {
@@ -305,7 +303,7 @@ void OnTick()
       last_bar_time = current_bar_time;
    }
 
-   // 2. メインロジック（分析・エントリー）はタイザー制御
+   // 2. メインロジック（分析・エントリー）はタイマー制御
    static datetime last_logic_exec = 0;
    datetime now = TimeCurrent();
    if(now - last_logic_exec < InpMainLogicIntervalSec)
@@ -349,7 +347,7 @@ void AnalyzeAndTrade()
    }
    
    // スプレッドチェック
-   double spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+   double spread = (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
    if(spread > g_MaxSpreadPoints)
    {
       LogSkipReason(StringFormat("スプレッド過大: %.1f pts (上限: %.1f)", spread, g_MaxSpreadPoints));
