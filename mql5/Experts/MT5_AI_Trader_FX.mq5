@@ -6,7 +6,7 @@
 //+------------------------------------------------------------------+
 #property copyright "2025"
 #property link      ""
-#property version   "2.11"
+#property version   "2.17"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -60,7 +60,7 @@ input bool   InpTradeOnFriday = true;              // 金曜取引許可
 input int    InpMaxPositions = 2;          // 最大ポジション数
 input int    InpMinBarsSinceLastTrade = 10; // 最小バー間隔
 input double InpMinConfidence = 0.65;      // 最小信頼度
-input bool   InpShowDebugLog = true;       // デバッグログを出力する
+input bool   InpShowDebugLog = false;      // デバッグログを出力する
 
 //--- ATR設定
 input int    InpATRPeriod = 14;            // ATR期間
@@ -91,7 +91,8 @@ input bool   InpEnableLogging = true;                // ログ出力有効化
 input ENUM_LOG_LEVEL InpLogMinLevel = LOG_INFO;      // 最小ログレベル
 input bool   InpLogToFile = true;                   // ファイルへのログ出力
 input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
-input string InpLogFileName = "OneDriveLogs\\data\\logs\\MT5_AI_Trader.log";   // ログファイル名（MQL5/Files配下）
+input string InpLogFileName = "OneDriveLogs\\logs\\MT5_AI_Trader.log";   // ログファイル名（MQL5/Files配下）
+input int    InpSkipLogCooldown = 60;                 // 同一スキップログの抑制秒数
 
 //--- グローバル変数
 datetime g_lastBarTime = 0;
@@ -133,38 +134,19 @@ string AccountModeTag()
 
 void DumpEffectiveConfig_AI_HTTP()
 {
-   long spreadPoints = 0;
-   SymbolInfoInteger(_Symbol, SYMBOL_SPREAD, spreadPoints);
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_FX] Magic=%lld ID=%s URL=%s", g_ActiveMagicNumber, InpMT5_ID, g_inferenceServerUrl));
+}
 
-   const double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-   const double atr = GetATR(InpATRPeriod);
-   const double atrPoints = (point > 0.0) ? (atr / point) : 0.0;
-
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] Symbol=%s TF=%s Digits=%d Point=%g SpreadPoints=%d",
-                                      _Symbol, PeriodToString((ENUM_TIMEFRAMES)_Period), _Digits, point, spreadPoints));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] MT5_ID=%s UniqueID=%s Preset=%s URL=%s Timeout=%dms",
-                                      InpMT5_ID, g_uniqueId, GetPresetName(), g_inferenceServerUrl, InpServerTimeout));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] Risk=%.2f BaseLot=%.2f MaxLot=%.2f LotAdjust=%s",
-                                      InpRiskPercent, InpBaseLotSize, InpMaxLotSize, BoolStr(InpEnableLotAdjustment)));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] Slippage=%.1fpips MaxSpread=%dpt MaxPos=%d MinBars=%d MinConf=%.2f DebugLog=%s",
-                                      InpMaxSlippagePips, (int)g_MaxSpreadPoints, InpMaxPositions, InpMinBarsSinceLastTrade, InpMinConfidence, BoolStr(InpShowDebugLog)));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] SL=%.1fpt TP=%.1fpt ATR_Period=%d ATR_Th=%s (price units) / %s MT5pt ATR_now=%s (price units) / %s MT5pt",
-                                      g_StopLossPoints,
-                                      g_TakeProfitPoints,
-                                      InpATRPeriod,
-                                      DoubleToString(g_ATRThresholdPoints * point, _Digits),
-                                      DoubleToString(g_ATRThresholdPoints, 1),
-                                      DoubleToString(atr, _Digits),
-                                      DoubleToString(atrPoints, 1)));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] TimeFilter=%s GMT_Offset=%d DST=%s Start=%02d:%02d End=%02d:%02d Fri=%s",
-                                      BoolStr(InpEnable_Time_Filter), InpGMT_Offset, BoolStr(InpUse_DST),
-                                      InpCustom_Start_Hour, InpCustom_Start_Minute, InpCustom_End_Hour, InpCustom_End_Minute,
-                                      BoolStr(InpTradeOnFriday)));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] PartialClose=%s Stages=%d MoveBE1=%s MoveSL2=%s",
-                                      BoolStr(InpEnablePartialClose), InpPartialCloseStages,
-                                      BoolStr(InpMoveToBreakEvenAfterLevel1), BoolStr(InpMoveSLAfterLevel2)));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] SLTP_ATR=%s SLx=%.2f TPx=%.2f",
-                                      BoolStr(InpUse_ATR_SLTP), InpStopLoss_ATR_Multi, InpTakeProfit_ATR_Multi));
+void LogSkipReason(string reason)
+{
+   static datetime last_skip_log_time = 0;
+   static string last_skip_reason = "";
+   if (InpSkipLogCooldown > 0) {
+      if (last_skip_reason == reason && TimeCurrent() - last_skip_log_time < InpSkipLogCooldown) return;
+   }
+   last_skip_reason = reason;
+   last_skip_log_time = TimeCurrent();
+   CLogger::Log(LOG_INFO, ">>> スキップ: " + reason);
 }
 
 //+------------------------------------------------------------------+
@@ -272,14 +254,7 @@ int OnInit()
          g_uniqueId = InpMT5_ID + "_" + _Symbol + "_" + tfStr;
    }
    
-   CLogger::Log(LOG_INFO, "=== MT5 AI Trader v2.0 HTTP (OANDA) ===");
-   CLogger::Log(LOG_INFO, "シグナル生成: Python推論サーバー (16モジュール)");
-   CLogger::Log(LOG_INFO, "Inference Server: " + g_inferenceServerUrl);
-   CLogger::Log(LOG_INFO, "Symbol: " + _Symbol);
-   CLogger::Log(LOG_INFO, "Unique ID: " + g_uniqueId);
-   CLogger::Log(LOG_INFO, "Preset: " + GetPresetName());
-   CLogger::Log(LOG_INFO, "Magic Number: " + (string)g_ActiveMagicNumber + (InpAutoMagicNumber ? " (自動生成)" : " (手動設定)"));
-   CLogger::Log(LOG_INFO, "Partial Close: " + (InpEnablePartialClose ? "ON" : "OFF") + " (" + (string)InpPartialCloseStages + "段階)");
+   CLogger::Log(LOG_INFO, "MT5 AI Trader v2.13 (OANDA)");
 
    DumpEffectiveConfig_AI_HTTP();
    

@@ -6,7 +6,7 @@
 //+------------------------------------------------------------------+
 #property copyright "2025"
 #property link      ""
-#property version   "2.11"
+#property version   "2.17"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -60,7 +60,7 @@ input bool   InpTradeOnFriday = true;              // 金曜取引許可
 input int    InpMaxPositions = 2;          // 最大ポジション数
 input int    InpMinBarsSinceLastTrade = 10; // 最小バー間隔
 input double InpMinConfidence = 0.65;      // 最小信頼度
-input bool   InpShowDebugLog = true;       // デバッグログを出力する (ターミナルに詳細表示)
+input bool   InpShowDebugLog = false;      // デバッグログを出力する (ターミナルに詳細表示)
 
 //--- ATR設定
 input int    InpATRPeriod = 14;            // ATR期間
@@ -91,7 +91,8 @@ input bool   InpEnableLogging = true;                // ログ出力有効化
 input ENUM_LOG_LEVEL InpLogMinLevel = LOG_INFO;      // 最小ログレベル
 input bool   InpLogToFile = true;                   // ファイルへのログ出力
 input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
-input string InpLogFileName = "OneDriveLogs\\data\\logs\\MT5_AI_Trader.log";   // ログファイル名（MQL5/Files配下）
+input string InpLogFileName = "OneDriveLogs\\logs\\MT5_AI_Trader.log";   // ログファイル名（MQL5/Files配下）
+input int    InpSkipLogCooldown = 60;                 // 同一スキップログの抑制秒数
 
 //--- グローバル変数
 datetime g_lastBarTime = 0;
@@ -131,6 +132,23 @@ string AccountModeTag()
 }
 
 void DumpEffectiveConfig_AI_HTTP()
+{
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_JP] Magic=%lld ID=%s URL=%s", g_ActiveMagicNumber, InpMT5_ID, g_inferenceServerUrl));
+}
+
+void LogSkipReason(string reason)
+{
+   static datetime last_skip_log_time = 0;
+   static string last_skip_reason = "";
+   if (InpSkipLogCooldown > 0) {
+      if (last_skip_reason == reason && TimeCurrent() - last_skip_log_time < InpSkipLogCooldown) return;
+   }
+   last_skip_reason = reason;
+   last_skip_log_time = TimeCurrent();
+   CLogger::Log(LOG_INFO, ">>> スキップ: " + reason);
+}
+
+void DumpEffectiveConfig_AI_HTTP_OLD()
 {
    long spreadPoints = 0;
    SymbolInfoInteger(_Symbol, SYMBOL_SPREAD, spreadPoints);

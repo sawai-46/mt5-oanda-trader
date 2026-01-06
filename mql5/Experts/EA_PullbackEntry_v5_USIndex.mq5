@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "2025"
 #property link      ""
-#property version   "5.10"
+#property version   "5.17"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -93,12 +93,13 @@ input double InpTrailStartDollars = 20.0;     // トレーリング開始(ドル
 input double InpTrailStepDollars = 5.0;       // トレーリングステップ(ドル)
 
 //--- Logging
-input bool   InpShowDebugLog = true;                  // デバッグログを出力する
+input bool   InpShowDebugLog = false;                 // デバッグログを出力する
 input bool   InpEnableLogging = true;                 // ログ出力有効
 input ENUM_LOG_LEVEL InpLogMinLevel = LOG_INFO;       // 最小ログレベル
 input bool   InpLogToFile = true;                     // ファイル出力
 input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
-input string InpLogFileName = "OneDriveLogs\\data\\logs\\EA_PullbackEntry_v5.log"; // ログファイル名（MQL5/Files配下）
+input string InpLogFileName = "OneDriveLogs\\logs\\EA_PullbackEntry_v5.log"; // ログファイル名（MQL5/Files配下）
+input int    InpSkipLogCooldown = 60;                 // 同一スキップログの抑制秒数
 
 //--- Data collection (MT4 log sync compatible)
 input bool   InpEnableAiLearningCsv = true;                    // AI学習CSV出力（DB同期用）
@@ -205,59 +206,21 @@ long GenerateMagicNumber()
 }
 
 void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
-                         const CPullbackConfig &cfg,
-                         const SFilterConfig &filterCfg,
-                         const SPositionConfig &posCfg)
+                         const CPullbackConfig &cfg)
 {
-   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
-   long spreadPts = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
-   double spreadPrice = spreadPts * point;
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBE_US] Symbol=%s Magic=%lld Preset=%s", _Symbol, cfg.MagicNumber, GetPresetName(preset)));
+}
 
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5] Preset=%s Symbol=%s TF=%s Digits=%d Point=%g Spread=%lld pts (%.5f)",
-                                       GetPresetName(preset), _Symbol, EnumToString((ENUM_TIMEFRAMES)Period()), digits, point, spreadPts, spreadPrice));
-
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] Magic=%lld Lot=%.2f DeviationPoints=%d",
-                                       cfg.MagicNumber, cfg.LotSize, cfg.DeviationPoints));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] EMA: short=%d(en=%s) mid=%d(en=%s) long=%d(en=%s) Pullback(ref=%d touch=%s cross=%s break=%s)",
-                                       cfg.EmaShortPeriod, BoolStr(cfg.UseEmaShort),
-                                       cfg.EmaMidPeriod, BoolStr(cfg.UseEmaMid),
-                                       cfg.EmaLongPeriod, BoolStr(cfg.UseEmaLong),
-                                       (int)cfg.PullbackEmaRef,
-                                       BoolStr(cfg.UseTouchPullback), BoolStr(cfg.UseCrossPullback), BoolStr(cfg.UseBreakPullback)));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] Filters: MaxSpreadPoints=%d ATR(period=%d min=%.1f) ADX(en=%s period=%d min=%.1f)",
-                                       cfg.MaxSpreadPoints,
-                                       cfg.ATRPeriod, cfg.ATRThresholdPoints,
-                                       BoolStr(cfg.UseADXFilter), cfg.ADXPeriod, cfg.ADXMinLevel));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] SLTP: useSL=%s useTP=%s mode=%d SL_fixed=%.1f TP_fixed=%.1f SL_ATR=%.2f TP_ATR=%.2f",
-                                       BoolStr(cfg.UseStopLoss), BoolStr(cfg.UseTakeProfit), (int)cfg.SLTPMode,
-                                       cfg.StopLossFixedPoints, cfg.TakeProfitFixedPoints,
-                                       cfg.StopLossAtrMulti, cfg.TakeProfitAtrMulti));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][cfg] AiLearning: enabled=%s terminalId=%s folder=%s",
-                                       BoolStr(cfg.EnableAiLearningLog), cfg.TerminalId, cfg.AiLearningFolder));
-
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][filter] Time(en=%s GMTOffset=%d Start=%02d:%02d End=%02d:%02d Fri=%s DST=%s)",
-                                       BoolStr(filterCfg.EnableTimeFilter),
-                                       filterCfg.GMTOffset,
-                                       filterCfg.StartHour, filterCfg.StartMinute,
-                                       filterCfg.EndHour, filterCfg.EndMinute,
-                                       BoolStr(filterCfg.TradeOnFriday), BoolStr(filterCfg.UseDST)));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][filter] Spread(en=%s max=%d) ADX(en=%s period=%d min=%.1f) ATR(en=%s period=%d min=%.1f)",
-                                       BoolStr(filterCfg.EnableSpreadFilter), filterCfg.MaxSpreadPoints,
-                                       BoolStr(filterCfg.EnableADXFilter), filterCfg.ADXPeriod, filterCfg.ADXMinLevel,
-                                       BoolStr(filterCfg.EnableATRFilter), filterCfg.ATRPeriod, filterCfg.ATRMinPoints));
-
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][pos] Partial(en=%s stages=%d L1=%.1f(%.1f%%) L2=%.1f(%.1f%%) L3=%.1f(%.1f%%) BE_after_L1=%s SL_after_L2=%s)",
-                                       BoolStr(posCfg.EnablePartialClose), posCfg.PartialCloseStages,
-                                       posCfg.PartialClose1Points, posCfg.PartialClose1Percent,
-                                       posCfg.PartialClose2Points, posCfg.PartialClose2Percent,
-                                       posCfg.PartialClose3Points, posCfg.PartialClose3Percent,
-                                       BoolStr(posCfg.MoveToBreakEvenAfterLevel1), BoolStr(posCfg.MoveSLAfterLevel2)));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBEv5][pos] Trailing(mode=%d start=%.1f step=%.1f atrMulti=%.2f atrPeriod=%d) SlippagePoints=%d",
-                                       (int)posCfg.TrailingMode,
-                                       posCfg.TrailingStartPoints, posCfg.TrailingStepPoints,
-                                       posCfg.TrailingATRMulti, posCfg.ATRPeriod,
-                                       posCfg.MaxSlippagePoints));
+void LogSkipReason(string reason)
+{
+   static datetime last_skip_log_time = 0;
+   static string last_skip_reason = "";
+   if (InpSkipLogCooldown > 0) {
+      if (last_skip_reason == reason && TimeCurrent() - last_skip_log_time < InpSkipLogCooldown) return;
+   }
+   last_skip_reason = reason;
+   last_skip_log_time = TimeCurrent();
+   CLogger::Log(LOG_INFO, ">>> スキップ: " + reason);
 }
 
 //+------------------------------------------------------------------+
@@ -423,7 +386,7 @@ int OnInit()
    posCfg.ATRPeriod = InpATRPeriod;
    posCfg.MaxSlippagePoints = (int)(InpDeviationDollars * g_dollarMultiplier);
 
-   DumpEffectiveConfig(InpPreset, cfg, filterCfg, posCfg);
+   DumpEffectiveConfig(InpPreset, cfg);
    
    g_posManager = new CPositionManager();
    g_posManager.Init(posCfg);
