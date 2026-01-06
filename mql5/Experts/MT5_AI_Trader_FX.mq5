@@ -372,6 +372,9 @@ void AnalyzeAndTrade()
       return;
    }
    
+   // シンボル名のクリーンアップ（OANDA等のアンダースコア対応はサーバー側で行うが、EA側でもログ出力を整える）
+   string currentSymbol = _Symbol;
+   
    // OHLCV データ準備 (100本)
    string jsonData = PrepareOHLCVJson(100);
    if(StringLen(jsonData) == 0)
@@ -380,13 +383,14 @@ void AnalyzeAndTrade()
       return;
    }
    
-   if(InpShowDebugLog && showStatus) Print("[DEBUG] 推論リクエスト送信中...");
+   if(InpShowDebugLog && showStatus) Print("[DEBUG] 推論リクエスト送信中... Sym:", currentSymbol);
 
    // HTTP POSTリクエスト送信
    string responseStr = "";
    if(!SendHttpRequest(g_inferenceServerUrl + "/analyze", jsonData, responseStr))
    {
-      Print("推論サーバーとの通信に失敗しました");
+      // SendHttpRequest内でもログは出るが、ここで上位の文脈を追加
+      Print("推論サーバーとの通信に失敗しました (", g_inferenceServerUrl, ")");
       return;
    }
    
