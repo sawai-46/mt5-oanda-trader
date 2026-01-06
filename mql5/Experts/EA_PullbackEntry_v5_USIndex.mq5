@@ -100,7 +100,7 @@ input bool   InpLogToFile = true;                     // ファイル出力
 input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
 input string InpLogFileName = "OneDriveLogs\\logs\\EA_PullbackEntry_v5.log"; // ログファイル名（MQL5/Files配下）
 input int    InpSkipLogCooldown = 60;                 // 同一スキップログの抑制秒数
-input int    InpLogIntervalSec = 60;                  // メインロジック実行間隔(秒)
+input int    InpMainLogicIntervalSec = 60;            // メインロジック実行間隔(秒)
 
 //--- Data collection (MT4 log sync compatible)
 input bool   InpEnableAiLearningCsv = true;                    // AI学習CSV出力（DB同期用）
@@ -413,18 +413,18 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   // 1. ポジション監視（利確・SL移動）は常に実行
+   if(g_posManager != NULL)
+      g_posManager.OnTick();
+
+   // 2. メインロジック（分析・エントリー）はタイザー制御
    static datetime last_logic_exec = 0;
    datetime now = TimeCurrent();
    
-   // 60秒間隔で実行
-   if(now - last_logic_exec < InpLogIntervalSec)
+   if(now - last_logic_exec < InpMainLogicIntervalSec)
       return;
       
    last_logic_exec = now;
-
-   // Position management (partial close, trailing)
-   if(g_posManager != NULL)
-      g_posManager.OnTick();
    
    // Skip if filters fail
    if(g_filterManager != NULL && !g_filterManager.CheckAll())

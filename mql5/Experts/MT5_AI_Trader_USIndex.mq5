@@ -93,13 +93,13 @@ input bool   InpLogToFile = true;                   // ファイルへのログ�
 input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
 input string InpLogFileName = "OneDriveLogs\\logs\\MT5_AI_Trader.log";   // ログファイル名（MQL5/Files配下）
 input int    InpSkipLogCooldown = 60;                 // 同一スキップログの抑制秒数
-input int    InpLogIntervalSec = 60;                  // メインロジック実行間隔(秒)
+input int    InpMainLogicIntervalSec = 60;            // メインロジック実行間隔(秒)
 
 //--- グローバル変数
 datetime g_lastBarTime = 0;
-int g_lastTradeBar = 0;
+int g_lastTradeBar = 100;
 ulong g_ActiveMagicNumber = 0;
-string g_uniqueId = "";
+int g_partialCloseLevel[1000]; // 拡張
 string g_inferenceServerUrl = "";
 CTrade m_trade;
 
@@ -261,7 +261,7 @@ int OnInit()
    // Partial Close配列初期化
    if(InpEnablePartialClose)
    {
-      ArrayResize(g_partialCloseLevel, 100);
+      ArrayResize(g_partialCloseLevel, 1000);
       ArrayInitialize(g_partialCloseLevel, 0);
    }
    
@@ -290,22 +290,28 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
-   static datetime last_logic_exec = 0;
-   datetime now = TimeCurrent();
-   
-   // 60秒間隔で実行
-   if(now - last_logic_exec < InpLogIntervalSec)
-      return;
-      
-   last_logic_exec = now;
-   
-   // Partial Close チェック
+   // 1. ポジション監視（利確・SL移動）は常に実行
    if(InpEnablePartialClose)
    {
       CheckPartialClose();
    }
-   
-   // メインロジック
+
+   // New Bar検出と間隔カウント
+   static datetime last_bar_time = 0;
+   datetime current_bar_time = iTime(_Symbol, PERIOD_CURRENT, 0);
+   if(current_bar_time != last_bar_time)
+   {
+      if(last_bar_time != 0) g_lastTradeBar++;
+      last_bar_time = current_bar_time;
+   }
+
+   // 2. メインロジック（分析・エントリー）はタイザー制御
+   static datetime last_logic_exec = 0;
+   datetime now = TimeCurrent();
+   if(now - last_logic_exec < InpMainLogicIntervalSec)
+      return;
+      
+   last_logic_exec = now;
    AnalyzeAndTrade();
 }
 
@@ -338,7 +344,7 @@ void AnalyzeAndTrade()
    
    if(g_lastTradeBar < InpMinBarsSinceLastTrade)
    {
-      if(InpShowDebugLog && showStatus) CLogger::Log(LOG_DEBUG, StringFormat("スキップ: 前回のトレードから間隔不足 (%d bars)", g_lastTradeBar));
+      if(showStatus) LogSkipReason(StringFormat("前回のトレードから間隔不足 (%d bars)", g_lastTradeBar));
       return;
    }
    
@@ -346,7 +352,7 @@ void AnalyzeAndTrade()
    double spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
    if(spread > g_MaxSpreadPoints)
    {
-      if(InpShowDebugLog) CLogger::Log(LOG_DEBUG, StringFormat("スプレッド過大: %.1f pts (上限: %.1f)", spread, g_MaxSpreadPoints));
+      LogSkipReason(StringFormat("スプレッド過大: %.1f pts (上限: %.1f)", spread, g_MaxSpreadPoints));
       return;
    }
    
@@ -405,14 +411,7 @@ void AnalyzeAndTrade()
    
    if(atr_points < g_ATRThresholdPoints)
    {
-      if(InpShowDebugLog)
-      {
-         CLogger::Log(LOG_DEBUG, StringFormat("ATR不足: %s (price units) / %s MT5pt < %s (price units) / %s MT5pt",
-                            DoubleToString(atr, _Digits),
-                            DoubleToString(atr_points, 1),
-                            DoubleToString(g_ATRThresholdPoints * point, _Digits),
-                            DoubleToString(g_ATRThresholdPoints, 1)));
-      }
+      LogSkipReason(StringFormat("ATR不足: %.1f pts < %.1f pts", atr_points, g_ATRThresholdPoints));
       return;
    }
    
@@ -690,7 +689,7 @@ void CheckPartialClose()
       if(PositionGetInteger(POSITION_MAGIC) != g_ActiveMagicNumber) continue;
       if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
       
-      int ticketIndex = (int)(ticket % 100);
+      int ticketIndex = (int)(ticket % 1000);
       int currentLevel = g_partialCloseLevel[ticketIndex];
       if(currentLevel >= maxLevel) continue;
       
@@ -764,9 +763,8 @@ void CheckPartialClose()
       
       if(m_trade.PositionClosePartial(ticket, lotsToClose))
       {
-         Print("★ Partial Close Level ", newLevel, ": Ticket=", ticket,
-               " Lots=", DoubleToString(lotsToClose, 2),
-               " Profit=", DoubleToString(profitPoints, 1), " points");
+         CLogger::Log(LOG_INFO, StringFormat("[TP_PARTIAL] Level %d: Ticket=#%lld Lots=%.2f Profit=%.1f pts", 
+               newLevel, ticket, lotsToClose, profitPoints));
          
          g_partialCloseLevel[ticketIndex] = newLevel;
          
@@ -781,8 +779,8 @@ void CheckPartialClose()
                   PositionGetString(POSITION_SYMBOL) == _Symbol)
                {
                   m_trade.PositionModify(newTicket, openPrice, PositionGetDouble(POSITION_TP));
-                  Print(">>> SLを建値へ移動: ", DoubleToString(openPrice, _Digits));
-                  g_partialCloseLevel[(int)(newTicket % 100)] = newLevel;
+                  CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Level 1: Moved to Break-even @ %.5f", openPrice));
+                  g_partialCloseLevel[(int)(newTicket % 1000)] = newLevel;
                   break;
                }
             }
@@ -805,8 +803,8 @@ void CheckPartialClose()
                      level1Price = openPrice - g_PartialClose1Points * point;
                   
                   m_trade.PositionModify(newTicket, level1Price, PositionGetDouble(POSITION_TP));
-                  Print(">>> SLをLevel1利益位置へ移動: ", DoubleToString(level1Price, _Digits));
-                  g_partialCloseLevel[(int)(newTicket % 100)] = newLevel;
+                  CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Level 2: Moved to Level1 profit @ %.5f", level1Price));
+                  g_partialCloseLevel[(int)(newTicket % 1000)] = newLevel;
                   break;
                }
             }

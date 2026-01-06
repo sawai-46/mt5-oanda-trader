@@ -8,6 +8,7 @@
 
 #include <Trade\Trade.mqh>
 #include <Trade\PositionInfo.mqh>
+#include <Integration/Logger.mqh>
 
 //--- Trailing Mode
 enum ENUM_TRAILING_MODE
@@ -92,7 +93,7 @@ public:
    CPositionManager()
    : m_handleATR(INVALID_HANDLE)
    {
-      ArrayResize(m_partialLevels, 100);
+      ArrayResize(m_partialLevels, 1000); // 衝突回避のため拡張
       ArrayInitialize(m_partialLevels, 0);
    }
    
@@ -116,7 +117,7 @@ public:
          m_handleATR = iATR(m_cfg.Symbol, PERIOD_CURRENT, m_cfg.ATRPeriod);
       }
       
-      Print("CPositionManager initialized: Magic=", m_cfg.MagicNumber);
+      CLogger::Log(LOG_INFO, StringFormat("[POS_MGR] Initialized: Magic=%lld Symbol=%s", m_cfg.MagicNumber, m_cfg.Symbol));
    }
    
    //--- Main tick handler - call from EA's OnTick
@@ -132,13 +133,13 @@ public:
    //--- Get partial close level for ticket
    int GetPartialLevel(ulong ticket)
    {
-      return m_partialLevels[(int)(ticket % 100)];
+      return m_partialLevels[(int)(ticket % 1000)];
    }
    
    //--- Set partial close level for ticket
    void SetPartialLevel(ulong ticket, int level)
    {
-      m_partialLevels[(int)(ticket % 100)] = level;
+      m_partialLevels[(int)(ticket % 1000)] = level;
    }
 
 private:
@@ -156,7 +157,7 @@ private:
          if(PositionGetInteger(POSITION_MAGIC) != m_cfg.MagicNumber) continue;
          if(PositionGetString(POSITION_SYMBOL) != m_cfg.Symbol) continue;
          
-         int ticketIdx = (int)(ticket % 100);
+         int ticketIdx = (int)(ticket % 1000);
          int currentLevel = m_partialLevels[ticketIdx];
          if(currentLevel >= maxLevel) continue;
          
@@ -222,8 +223,8 @@ private:
                
                if(lotsToClose < minLot)
                {
-                  Print("!!! Partial Close L", newLevel, " skipped: lots too small (current=", 
-                        DoubleToString(currentLots, 2), ", minLot=", DoubleToString(minLot, 2), ")");
+                  CLogger::Log(LOG_WARN, StringFormat("[PARTIAL_SKIP] Ticket=#%lld: Lots too small (current=%.2f, minLot=%.2f)", 
+                        ticket, currentLots, minLot));
                   continue;
                }
             }
@@ -231,9 +232,8 @@ private:
          
          if(m_trade.PositionClosePartial(ticket, lotsToClose))
          {
-            Print("★ Partial Close L", newLevel, ": #", ticket,
-                  " Lots=", DoubleToString(lotsToClose, 2),
-                  " Profit=", DoubleToString(profitPoints, 0), "pts");
+            CLogger::Log(LOG_INFO, StringFormat("[TP_PARTIAL] Level %d: #%lld Lots=%.2f Profit=%.0fpts", 
+                  newLevel, ticket, lotsToClose, profitPoints));
             
             m_partialLevels[ticketIdx] = newLevel;
             
@@ -244,7 +244,7 @@ private:
             ulong remainingTicket = FindRemainingPosition();
             if(remainingTicket > 0)
             {
-               m_partialLevels[(int)(remainingTicket % 100)] = newLevel;
+               m_partialLevels[(int)(remainingTicket % 1000)] = newLevel;
                
                // Level 1: Move SL to break-even
                if(newLevel == 1 && m_cfg.MoveToBreakEvenAfterLevel1)
@@ -303,7 +303,7 @@ private:
       {
          double newSL = NormalizeDouble(entryPrice, (int)SymbolInfoInteger(m_cfg.Symbol, SYMBOL_DIGITS));
          if(m_trade.PositionModify(ticket, newSL, tp))
-            Print(">>> SL moved to break-even: ", DoubleToString(newSL, (int)SymbolInfoInteger(m_cfg.Symbol, SYMBOL_DIGITS)));
+            CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Ticket=#%lld: Moved to Break-even @ %.5f", ticket, newSL));
       }
    }
    
@@ -316,7 +316,7 @@ private:
       newSL = NormalizeDouble(newSL, (int)SymbolInfoInteger(m_cfg.Symbol, SYMBOL_DIGITS));
       
       if(m_trade.PositionModify(ticket, newSL, tp))
-         Print(">>> SL moved to ", DoubleToString(newSL, (int)SymbolInfoInteger(m_cfg.Symbol, SYMBOL_DIGITS)));
+         CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Ticket=#%lld: Moved to Level1 profit @ %.5f", ticket, newSL));
    }
    
    //--- Trailing Stop
@@ -380,7 +380,7 @@ private:
          {
             newSL = NormalizeDouble(newSL, (int)SymbolInfoInteger(m_cfg.Symbol, SYMBOL_DIGITS));
             if(m_trade.PositionModify(ticket, newSL, tp))
-               Print(">>> Trailing: SL=", DoubleToString(newSL, (int)SymbolInfoInteger(m_cfg.Symbol, SYMBOL_DIGITS)));
+               CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Ticket=#%lld: Trailing @ %.5f", ticket, newSL));
          }
       }
    }

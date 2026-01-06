@@ -98,7 +98,7 @@ input bool   InpLogToFile = true;                     // ファイル出力
 input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
 input string InpLogFileName = "OneDriveLogs\\logs\\EA_PullbackEntry_v5.log"; // ログファイル名（MQL5/Files配下）
 input int    InpSkipLogCooldown = 60;                 // 同一スキップログの抑制秒数
-input int    InpLogIntervalSec = 60;                  // メインロジック実行間隔(秒)
+input int    InpMainLogicIntervalSec = 60;            // メインロジック実行間隔(秒)
 
 //--- Data collection (MT4 log sync compatible)
 input bool   InpEnableAiLearningCsv = true;                    // AI学習CSV出力（DB同期用）
@@ -111,8 +111,11 @@ CPullbackStrategy *g_strategy = NULL;
 CPositionManager  *g_posManager = NULL;
 CFilterManager    *g_filterManager = NULL;
 
-// 円→Points変換値（JP225: 1円 = 1point）
-int    g_MaxSpreadPoints = 0;
+// 円→Points変換値（OnInitで計算）
+double g_yenMultiplier = 1.0;
+double g_MaxSpreadPoints = 0;
+double g_StopLossPoints = 0;
+double g_TakeProfitPoints = 0;
 double g_ATRMinPoints = 0;
 double g_SLFixedPoints = 0;
 double g_TPFixedPoints = 0;
@@ -236,19 +239,25 @@ int OnInit()
    if(InpShowDebugLog) minLevel = LOG_DEBUG;
    CLogger::Configure(instanceId, InpEnableLogging, minLevel, InpLogToFile, logFileName, InpLogUseCommonFolder);
 
-   // 円→Points変換（JP225: 1円 = 1point）
-   g_MaxSpreadPoints = InpMaxSpreadYen;        // 円 = points
-   g_ATRMinPoints = InpATRMinYen;
-   g_SLFixedPoints = InpSLFixedYen;
-   g_TPFixedPoints = InpTPFixedYen;
-   g_Partial1Points = InpPartial1Yen;
-   g_Partial2Points = InpPartial2Yen;
-   g_Partial3Points = InpPartial3Yen;
-   g_TrailStartPoints = InpTrailStartYen;
-   g_TrailStepPoints = InpTrailStepYen;
-   
-   CLogger::Log(LOG_INFO, StringFormat("★ 円→Points変換: SL=%.1f円→%.0fpts TP=%.1f円→%.0fpts",
-                InpSLFixedYen, g_SLFixedPoints, InpTPFixedYen, g_TPFixedPoints));
+    // 円→Points変換（JP225: 1円 ≈ 1point / 0.1 / 0.01 dependiendo del broker）
+    double symbolPoint = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+    if(symbolPoint > 0)
+       g_yenMultiplier = 1.0 / symbolPoint;  // 例: point=0.1 → multiplier=10
+    else
+       g_yenMultiplier = 1.0;  // デフォルト
+ 
+    g_MaxSpreadPoints = (int)(InpMaxSpreadYen * g_yenMultiplier);
+    g_ATRMinPoints = InpATRMinYen * g_yenMultiplier;
+    g_SLFixedPoints = InpSLFixedYen * g_yenMultiplier;
+    g_TPFixedPoints = InpTPFixedYen * g_yenMultiplier;
+    g_Partial1Points = InpPartial1Yen * g_yenMultiplier;
+    g_Partial2Points = InpPartial2Yen * g_yenMultiplier;
+    g_Partial3Points = InpPartial3Yen * g_yenMultiplier;
+    g_TrailStartPoints = InpTrailStartYen * g_yenMultiplier;
+    g_TrailStepPoints = InpTrailStepYen * g_yenMultiplier;
+    
+    CLogger::Log(LOG_INFO, StringFormat("★ 円→Points変換: multiplier=%.0f SL=%.1f円→%.0fpts TP=%.1f円→%.0fpts",
+                 g_yenMultiplier, InpSLFixedYen, g_SLFixedPoints, InpTPFixedYen, g_TPFixedPoints));
 
    CLogger::Log(LOG_INFO, "PullbackEntry v5.12 JP225 (MQL5)");
    
@@ -275,7 +284,7 @@ int OnInit()
    // 常にInput値を適用（mode=0/1ではこれがメイン、mode=2ではCUSTOM用上書き）
    cfg.MagicNumber = activeMagic;
    cfg.LotSize = InpLotSize;
-   cfg.DeviationPoints = (int)InpDeviationYen;  // JP225: 1円=1pt
+   cfg.DeviationPoints = (int)(InpDeviationYen * g_yenMultiplier);
 
    // Data collection
    cfg.EnableAiLearningLog = InpEnableAiLearningCsv;
@@ -372,7 +381,7 @@ int OnInit()
    posCfg.TrailingStepPoints = g_TrailStepPoints;
    posCfg.TrailingATRMulti = 1.0;
    posCfg.ATRPeriod = InpATRPeriod;
-   posCfg.MaxSlippagePoints = (int)InpDeviationYen;  // JP225: 1円=1pt
+   posCfg.MaxSlippagePoints = (int)(InpDeviationYen * g_yenMultiplier);
 
    DumpEffectiveConfig(InpPreset, cfg);
    
@@ -400,18 +409,18 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   // 1. ポジション監視（利確・SL移動）は常に実行
+   if(g_posManager != NULL)
+      g_posManager.OnTick();
+
+   // 2. メインロジック（分析・エントリー）はタイザー制御
    static datetime last_logic_exec = 0;
    datetime now = TimeCurrent();
    
-   // 60秒間隔で実行
-   if(now - last_logic_exec < InpLogIntervalSec)
+   if(now - last_logic_exec < InpMainLogicIntervalSec)
       return;
       
    last_logic_exec = now;
-
-   // Position management (partial close, trailing)
-   if(g_posManager != NULL)
-      g_posManager.OnTick();
    
    // Skip if filters fail
    if(g_filterManager != NULL && !g_filterManager.CheckAll())
