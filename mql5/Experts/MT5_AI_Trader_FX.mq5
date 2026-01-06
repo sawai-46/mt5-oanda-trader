@@ -93,6 +93,7 @@ input bool   InpLogToFile = true;                   // ファイルへのログ�
 input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
 input string InpLogFileName = "OneDriveLogs\\logs\\MT5_AI_Trader.log";   // ログファイル名（MQL5/Files配下）
 input int    InpSkipLogCooldown = 60;                 // 同一スキップログの抑制秒数
+input int    InpLogIntervalSec = 60;                  // メインロジック実行間隔(秒)
 
 //--- グローバル変数
 datetime g_lastBarTime = 0;
@@ -290,13 +291,14 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
-   // 新しいバーでのみ実行
-   datetime currentBarTime = iTime(_Symbol, PERIOD_CURRENT, 0);
-   if(currentBarTime == g_lastBarTime)
-      return;
+   static datetime last_logic_exec = 0;
+   datetime now = TimeCurrent();
    
-   g_lastBarTime = currentBarTime;
-   g_lastTradeBar++;
+   // 60秒間隔で実行（ロジックとログの頻度を抑制）
+   if(now - last_logic_exec < InpLogIntervalSec)
+      return;
+      
+   last_logic_exec = now;
    
    // Partial Close チェック
    if(InpEnablePartialClose)
@@ -345,7 +347,7 @@ void AnalyzeAndTrade()
    double spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
    if(spread > g_MaxSpreadPoints)
    {
-      if(InpShowDebugLog) CLogger::Log(LOG_DEBUG, StringFormat("スプレッド過大: %.1f pts (上限: %.1f)", spread, g_MaxSpreadPoints));
+      LogSkipReason(StringFormat("スプレッド過大: %.1f pts (上限: %.1f)", spread, g_MaxSpreadPoints));
       return;
    }
    
