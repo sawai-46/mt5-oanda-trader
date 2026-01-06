@@ -6,7 +6,7 @@
 //+------------------------------------------------------------------+
 #property copyright "2025"
 #property link      ""
-#property version   "2.00"
+#property version   "2.10"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -146,8 +146,8 @@ void DumpEffectiveConfig_AI_HTTP()
                                       InpMT5_ID, g_uniqueId, GetPresetName(), g_inferenceServerUrl, InpServerTimeout));
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] Risk=%.2f BaseLot=%.2f MaxLot=%.2f LotAdjust=%s",
                                       InpRiskPercent, InpBaseLotSize, InpMaxLotSize, BoolStr(InpEnableLotAdjustment)));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] Slippage=%.1fpips MaxSpread=%dpt MaxPos=%d MinBars=%d MinConf=%.2f",
-                                      InpMaxSlippagePips, (int)g_MaxSpreadPoints, InpMaxPositions, InpMinBarsSinceLastTrade, InpMinConfidence));
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] Slippage=%.1fpips MaxSpread=%dpt MaxPos=%d MinBars=%d MinConf=%.2f DebugLog=%s",
+                                      InpMaxSlippagePips, (int)g_MaxSpreadPoints, InpMaxPositions, InpMinBarsSinceLastTrade, InpMinConfidence, BoolStr(InpShowDebugLog)));
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] SL=%.1fpt TP=%.1fpt ATR_Period=%d ATR_Th=%s (price units) / %s MT5pt ATR_now=%s (price units) / %s MT5pt",
                                       g_StopLossPoints,
                                       g_TakeProfitPoints,
