@@ -60,6 +60,7 @@ input bool   InpTradeOnFriday = true;              // 金曜取引許可
 input int    InpMaxPositions = 2;          // 最大ポジション数
 input int    InpMinBarsSinceLastTrade = 10; // 最小バー間隔
 input double InpMinConfidence = 0.65;      // 最小信頼度
+input bool   InpShowDebugLog = true;       // デバッグログを出力する
 
 //--- ATR設定
 input int    InpATRPeriod = 14;            // ATR期間
@@ -330,39 +331,36 @@ void OnTick()
    AnalyzeAndTrade();
 }
 
-//+------------------------------------------------------------------+
-//| メイン分析・トレードロジック                                      |
-//+------------------------------------------------------------------+
 void AnalyzeAndTrade()
 {
-   // デバッグ: 毎回実行確認
+   // デバッグログ用のタイマー
    static datetime lastDebugTime = 0;
    datetime now = TimeCurrent();
-   bool showDebug = (now - lastDebugTime >= 60);  // 60秒ごとにデバッグ出力
+   bool showStatus = InpShowDebugLog && (now - lastDebugTime >= 60);
    
-   if(showDebug)
+   if(showStatus)
    {
-      Print("[DEBUG] AnalyzeAndTrade called - checking filters...");
+      Print("[DEBUG] AnalyzeAndTrade 開始 - フィルタチェック中...");
       lastDebugTime = now;
    }
    
    // フィルターチェック
    if(!PassesTimeFilter())
    {
-      if(showDebug) Print("[DEBUG] SKIP: TimeFilter failed (現在時刻が稼働時間外)");
+      if(InpShowDebugLog && showStatus) Print("[DEBUG] スキップ: 稼働時間外");
       return;
    }
    
    int openPos = CountOpenPositions();
    if(openPos >= InpMaxPositions)
    {
-      if(showDebug) Print("[DEBUG] SKIP: MaxPositions reached (", openPos, "/", InpMaxPositions, ")");
+      if(InpShowDebugLog && showStatus) Print("[DEBUG] スキップ: 最大ポジション数に到達 (", openPos, ")");
       return;
    }
    
    if(g_lastTradeBar < InpMinBarsSinceLastTrade)
    {
-      if(showDebug) Print("[DEBUG] SKIP: MinBarsSinceLastTrade (", g_lastTradeBar, "/", InpMinBarsSinceLastTrade, ")");
+      if(InpShowDebugLog && showStatus) Print("[DEBUG] スキップ: 前回のトレードから間隔不足 (", g_lastTradeBar, " bars)");
       return;
    }
    
@@ -370,7 +368,7 @@ void AnalyzeAndTrade()
    double spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
    if(spread > g_MaxSpreadPoints)
    {
-      Print("スプレッドが広すぎます: ", spread, " points (上限: ", g_MaxSpreadPoints, ")");
+      if(InpShowDebugLog) Print("[DEBUG] スプレッド過大: ", spread, " pts (上限: ", g_MaxSpreadPoints, ")");
       return;
    }
    
@@ -382,6 +380,8 @@ void AnalyzeAndTrade()
       return;
    }
    
+   if(InpShowDebugLog && showStatus) Print("[DEBUG] 推論リクエスト送信中...");
+
    // HTTP POSTリクエスト送信
    string responseStr = "";
    if(!SendHttpRequest(g_inferenceServerUrl + "/analyze", jsonData, responseStr))
@@ -402,19 +402,22 @@ void AnalyzeAndTrade()
       return;
    }
    
-   // レスポンスログ（MT4と同様）
-   Print("Response: signal=", signal, " conf=", DoubleToString(confidence, 3), " reason=", reason);
+   // レスポンス出力
+   if(InpShowDebugLog || signal != 0)
+   {
+      Print("Response: sig=", signal, " conf=", DoubleToString(confidence, 3), " reason=", reason);
+   }
    
    // エントリー判定
    if(!entryAllowed || signal == 0)
    {
-      // No signal - 正常動作（ログ出力済み）
+      // No signal
       return;
    }
    
    if(confidence < InpMinConfidence)
    {
-      Print("信頼度不足でスキップ: ", DoubleToString(confidence, 3), " < ", DoubleToString(InpMinConfidence, 2));
+      if(InpShowDebugLog) Print("信頼度不足でスキップ: ", DoubleToString(confidence, 3), " < ", DoubleToString(InpMinConfidence, 2));
       return;
    }
    
@@ -425,11 +428,14 @@ void AnalyzeAndTrade()
    
    if(atr_points < g_ATRThresholdPoints)
    {
-      Print(StringFormat("ATR不足: %s (price units) / %s MT5pt < %s (price units) / %s MT5pt",
-                         DoubleToString(atr, _Digits),
-                         DoubleToString(atr_points, 1),
-                         DoubleToString(g_ATRThresholdPoints * point, _Digits),
-                         DoubleToString(g_ATRThresholdPoints, 1)));
+      if(InpShowDebugLog)
+      {
+         Print(StringFormat("ATR不足: %s (price units) / %s MT5pt < %s (price units) / %s MT5pt",
+                            DoubleToString(atr, _Digits),
+                            DoubleToString(atr_points, 1),
+                            DoubleToString(g_ATRThresholdPoints * point, _Digits),
+                            DoubleToString(g_ATRThresholdPoints, 1)));
+      }
       return;
    }
    
