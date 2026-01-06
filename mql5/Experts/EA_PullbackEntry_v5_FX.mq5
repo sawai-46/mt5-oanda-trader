@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "2025"
 #property link      ""
-#property version   "5.00"
+#property version   "5.10"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -91,11 +91,12 @@ input double InpTrailStartPips = 20.0;       // トレーリング開始(pips)
 input double InpTrailStepPips = 5.0;         // トレーリングステップ(pips)
 
 //--- Logging
+input bool   InpShowDebugLog = true;                  // デバッグログを出力する
 input bool   InpEnableLogging = true;                 // ログ出力有効
 input ENUM_LOG_LEVEL InpLogMinLevel = LOG_INFO;       // 最小ログレベル
 input bool   InpLogToFile = true;                     // ファイル出力
 input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
-input string InpLogFileName = "OneDriveLogs\\logs\\EA_PullbackEntry_v5.log"; // ログファイル名（MQL5/Files配下）
+input string InpLogFileName = "OneDriveLogs\\data\\logs\\EA_PullbackEntry_v5.log"; // ログファイル名（MQL5/Files配下）
 
 //--- Data collection (MT4 log sync compatible)
 input bool   InpEnableAiLearningCsv = true;                    // AI学習CSV出力（DB同期用）
@@ -268,7 +269,9 @@ int OnInit()
    string logFileName = BuildLogFileName(InpLogFileName);
    if(!InpLogUseCommonFolder)
       EnsureFolderPath(FolderPart(logFileName));
-   CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, logFileName, InpLogUseCommonFolder);
+   ENUM_LOG_LEVEL minLevel = InpLogMinLevel;
+   if(InpShowDebugLog) minLevel = LOG_DEBUG;
+   CLogger::Configure(instanceId, InpEnableLogging, minLevel, InpLogToFile, logFileName, InpLogUseCommonFolder);
 
    // Pips→Points変換（5桁ブローカー: 1pip = 10points）
    if(_Digits == 3 || _Digits == 5)
@@ -291,7 +294,7 @@ int OnInit()
    CLogger::Log(LOG_INFO, StringFormat("★ Pips→Points変換: multiplier=%.0f SL=%.1fpips→%.0fpts TP=%.1fpips→%.0fpts",
                 g_pipMultiplier, InpSLFixedPips, g_SLFixedPoints, InpTPFixedPips, g_TPFixedPoints));
 
-   CLogger::Log(LOG_INFO, "=== EA_PullbackEntry v5.0 FX (MQL5 OOP) ===");
+   CLogger::Log(LOG_INFO, "=== EA_PullbackEntry v5.10 FX (MQL5 OOP) ===");
    CLogger::Log(LOG_INFO, "Preset: " + GetPresetName(InpPreset));
    CLogger::Log(LOG_INFO, "Symbol: " + _Symbol);
    CLogger::Log(LOG_INFO, "Magic: " + (string)activeMagic + (InpAutoMagicNumber ? " (自動生成)" : " (手動設定)"));
@@ -452,8 +455,7 @@ void OnTick()
    // Skip if filters fail
    if(g_filterManager != NULL && !g_filterManager.CheckAll())
    {
-      if(InpEnableLogging && InpLogMinLevel == LOG_DEBUG)
-         CLogger::Log(LOG_DEBUG, "Filter rejected: " + g_filterManager.GetLastRejectReason());
+      CLogger::Log(LOG_DEBUG, "Filter rejected: " + g_filterManager.GetLastRejectReason());
       return;
    }
    

@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "2025"
 #property link      ""
-#property version   "5.00"
+#property version   "5.10"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -91,11 +91,12 @@ input double InpTrailStartYen = 20.0;        // トレーリング開始(円)
 input double InpTrailStepYen = 5.0;          // トレーリングステップ(円)
 
 //--- Logging
+input bool   InpShowDebugLog = true;                  // デバッグログを出力する
 input bool   InpEnableLogging = true;                 // ログ出力有効
 input ENUM_LOG_LEVEL InpLogMinLevel = LOG_INFO;       // 最小ログレベル
 input bool   InpLogToFile = true;                     // ファイル出力
-input bool   InpLogUseCommonFolder = true;            // Commonフォルダ使用
-input string InpLogFileName = "EA_PullbackEntry_v5.log"; // ログファイル名
+input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
+input string InpLogFileName = "OneDriveLogs\\data\\logs\\EA_PullbackEntry_v5.log"; // ログファイル名（MQL5/Files配下）
 
 //--- Data collection (MT4 log sync compatible)
 input bool   InpEnableAiLearningCsv = true;                    // AI学習CSV出力（DB同期用）
@@ -148,6 +149,46 @@ string BuildLogFileName(const string baseName)
    string stem = (lastDot >= 0) ? StringSubstr(name, 0, lastDot) : name;
 
    return stem + "_" + _Symbol + "_" + AccountModeTag() + ext;
+}
+//+------------------------------------------------------------------+
+//| フォルダパスの作成を保証する                                     |
+//+------------------------------------------------------------------+
+bool EnsureFolderPath(string folderPath)
+{
+   if(StringLen(folderPath) <= 0)
+      return false;
+
+   string parts[];
+   int n = StringSplit(folderPath, '\\', parts);
+   if(n <= 0)
+      return false;
+
+   string current = "";
+   for(int i = 0; i < n; i++)
+   {
+      if(StringLen(parts[i]) == 0)
+         continue;
+      current = (StringLen(current) == 0) ? parts[i] : (current + "\\" + parts[i]);
+      FolderCreate(current);
+   }
+   return true;
+}
+
+//+------------------------------------------------------------------+
+//| パスからフォルダ部分を抽出                                       |
+//+------------------------------------------------------------------+
+string FolderPart(const string path)
+{
+   int lastSep = -1;
+   for(int i = 0; i < StringLen(path); i++)
+   {
+      const ushort ch = (ushort)StringGetCharacter(path, i);
+      if(ch == '\\' || ch == '/')
+         lastSep = i;
+   }
+   if(lastSep < 0)
+      return "";
+   return StringSubstr(path, 0, lastSep);
 }
 
 long GenerateMagicNumber()
@@ -224,7 +265,12 @@ int OnInit()
    const long activeMagic = InpAutoMagicNumber ? GenerateMagicNumber() : InpMagicNumber;
    string instanceId = "EA_PullbackEntry_v5_JP225|" + _Symbol + "|Acct:" + AccountModeTag() + "|Magic:" + (string)activeMagic + "|CID:" + (string)ChartID();
    string logFileName = BuildLogFileName(InpLogFileName);
-   CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, logFileName, InpLogUseCommonFolder);
+   if(!InpLogUseCommonFolder)
+      EnsureFolderPath(FolderPart(logFileName));
+
+   ENUM_LOG_LEVEL minLevel = InpLogMinLevel;
+   if(InpShowDebugLog) minLevel = LOG_DEBUG;
+   CLogger::Configure(instanceId, InpEnableLogging, minLevel, InpLogToFile, logFileName, InpLogUseCommonFolder);
 
    // 円→Points変換（JP225: 1円 = 1point）
    g_MaxSpreadPoints = InpMaxSpreadYen;        // 円 = points
@@ -240,7 +286,7 @@ int OnInit()
    CLogger::Log(LOG_INFO, StringFormat("★ 円→Points変換: SL=%.1f円→%.0fpts TP=%.1f円→%.0fpts",
                 InpSLFixedYen, g_SLFixedPoints, InpTPFixedYen, g_TPFixedPoints));
 
-   CLogger::Log(LOG_INFO, "=== EA_PullbackEntry v5.0 JP225 (MQL5 OOP) ===");
+   CLogger::Log(LOG_INFO, "=== EA_PullbackEntry v5.10 JP225 (MQL5 OOP) ===");
    CLogger::Log(LOG_INFO, "Preset: " + GetPresetName(InpPreset));
    CLogger::Log(LOG_INFO, "Symbol: " + _Symbol);
    CLogger::Log(LOG_INFO, "Magic: " + (string)activeMagic + (InpAutoMagicNumber ? " (自動生成)" : " (手動設定)"));
@@ -401,8 +447,7 @@ void OnTick()
    // Skip if filters fail
    if(g_filterManager != NULL && !g_filterManager.CheckAll())
    {
-      if(InpEnableLogging && InpLogMinLevel == LOG_DEBUG)
-         CLogger::Log(LOG_DEBUG, "Filter rejected: " + g_filterManager.GetLastRejectReason());
+      CLogger::Log(LOG_DEBUG, "Filter rejected: " + g_filterManager.GetLastRejectReason());
       return;
    }
    

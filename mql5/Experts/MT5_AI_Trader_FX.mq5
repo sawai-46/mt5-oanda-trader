@@ -6,7 +6,7 @@
 //+------------------------------------------------------------------+
 #property copyright "2025"
 #property link      ""
-#property version   "2.10"
+#property version   "2.11"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -91,7 +91,7 @@ input bool   InpEnableLogging = true;                // ログ出力有効化
 input ENUM_LOG_LEVEL InpLogMinLevel = LOG_INFO;      // 最小ログレベル
 input bool   InpLogToFile = true;                   // ファイルへのログ出力
 input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
-input string InpLogFileName = "OneDriveLogs\\logs\\MT5_AI_Trader.log";   // ログファイル名（MQL5/Files配下）
+input string InpLogFileName = "OneDriveLogs\\data\\logs\\MT5_AI_Trader.log";   // ログファイル名（MQL5/Files配下）
 
 //--- グローバル変数
 datetime g_lastBarTime = 0;
@@ -256,7 +256,9 @@ int OnInit()
    // Logger instanceId finalized after magic is set
    {
       string instanceId = MQLInfoString(MQL_PROGRAM_NAME) + "|" + _Symbol + "|Acct:" + AccountModeTag() + "|Magic:" + (string)g_ActiveMagicNumber + "|CID:" + (string)ChartID();
-      CLogger::Configure(instanceId, InpEnableLogging, InpLogMinLevel, InpLogToFile, InpLogFileName, InpLogUseCommonFolder);
+      ENUM_LOG_LEVEL minLevel = InpLogMinLevel;
+      if(InpShowDebugLog) minLevel = LOG_DEBUG;
+      CLogger::Configure(instanceId, InpEnableLogging, minLevel, InpLogToFile, InpLogFileName, InpLogUseCommonFolder);
    }
    
    // ユニークID生成
@@ -340,27 +342,27 @@ void AnalyzeAndTrade()
    
    if(showStatus)
    {
-      Print("[DEBUG] AnalyzeAndTrade 開始 - フィルタチェック中...");
+      CLogger::Log(LOG_DEBUG, "AnalyzeAndTrade 開始 - フィルタチェック中...");
       lastDebugTime = now;
    }
    
    // フィルターチェック
    if(!PassesTimeFilter())
    {
-      if(InpShowDebugLog && showStatus) Print("[DEBUG] スキップ: 稼働時間外");
+      if(InpShowDebugLog && showStatus) CLogger::Log(LOG_DEBUG, "スキップ: 稼働時間外");
       return;
    }
    
    int openPos = CountOpenPositions();
    if(openPos >= InpMaxPositions)
    {
-      if(InpShowDebugLog && showStatus) Print("[DEBUG] スキップ: 最大ポジション数に到達 (", openPos, ")");
+      if(InpShowDebugLog && showStatus) CLogger::Log(LOG_DEBUG, StringFormat("スキップ: 最大ポジション数に到達 (%d)", openPos));
       return;
    }
    
    if(g_lastTradeBar < InpMinBarsSinceLastTrade)
    {
-      if(InpShowDebugLog && showStatus) Print("[DEBUG] スキップ: 前回のトレードから間隔不足 (", g_lastTradeBar, " bars)");
+      if(InpShowDebugLog && showStatus) CLogger::Log(LOG_DEBUG, StringFormat("スキップ: 前回のトレードから間隔不足 (%d bars)", g_lastTradeBar));
       return;
    }
    
@@ -368,7 +370,7 @@ void AnalyzeAndTrade()
    double spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
    if(spread > g_MaxSpreadPoints)
    {
-      if(InpShowDebugLog) Print("[DEBUG] スプレッド過大: ", spread, " pts (上限: ", g_MaxSpreadPoints, ")");
+      if(InpShowDebugLog) CLogger::Log(LOG_DEBUG, StringFormat("スプレッド過大: %.1f pts (上限: %.1f)", spread, g_MaxSpreadPoints));
       return;
    }
    
@@ -383,7 +385,7 @@ void AnalyzeAndTrade()
       return;
    }
    
-   if(InpShowDebugLog && showStatus) Print("[DEBUG] 推論リクエスト送信中... Sym:", currentSymbol);
+   if(InpShowDebugLog && showStatus) CLogger::Log(LOG_DEBUG, StringFormat("推論リクエスト送信中... Sym:%s", currentSymbol));
 
    // HTTP POSTリクエスト送信
    string responseStr = "";
@@ -409,7 +411,7 @@ void AnalyzeAndTrade()
    // レスポンス出力
    if(InpShowDebugLog || signal != 0)
    {
-      Print("Response: sig=", signal, " conf=", DoubleToString(confidence, 3), " reason=", reason);
+      CLogger::Log(LOG_DEBUG, StringFormat("Response: sig=%d conf=%s reason=%s", signal, DoubleToString(confidence, 3), reason));
    }
    
    // エントリー判定
@@ -421,7 +423,7 @@ void AnalyzeAndTrade()
    
    if(confidence < InpMinConfidence)
    {
-      if(InpShowDebugLog) Print("信頼度不足でスキップ: ", DoubleToString(confidence, 3), " < ", DoubleToString(InpMinConfidence, 2));
+      if(InpShowDebugLog) CLogger::Log(LOG_DEBUG, StringFormat("信頼度不足でスキップ: %s < %s", DoubleToString(confidence, 3), DoubleToString(InpMinConfidence, 2)));
       return;
    }
    
@@ -434,7 +436,7 @@ void AnalyzeAndTrade()
    {
       if(InpShowDebugLog)
       {
-         Print(StringFormat("ATR不足: %s (price units) / %s MT5pt < %s (price units) / %s MT5pt",
+         CLogger::Log(LOG_DEBUG, StringFormat("ATR不足: %s (price units) / %s MT5pt < %s (price units) / %s MT5pt",
                             DoubleToString(atr, _Digits),
                             DoubleToString(atr_points, 1),
                             DoubleToString(g_ATRThresholdPoints * point, _Digits),
