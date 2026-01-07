@@ -295,12 +295,31 @@ class UnifiedLogSync:
                     reader = csv.DictReader(f, delimiter=';')
                     for row in reader:
                         normalized = {k.lower(): v for k, v in row.items()}
+                        # DEBUG: Print keys for the first row of US30 or similar
+                        if 'us30' in file_path.name.lower() or 'jp225' in file_path.name.lower():
+                            print(f"DEBUG KEYS: {list(normalized.keys())}")
+                        
                         normalized['timestamp'] = self._normalize_timestamp(normalized.get('timestamp', '').replace('.', '-'))
                         normalized['terminal_id'] = terminal_id
                         if 'event' in normalized:
                             normalized['type'] = normalized['event']
                         if 'direction' in normalized:
                             normalized['order_type'] = normalized['direction']
+                        
+                        # Map reason/comment to message
+                        if 'message' not in normalized:
+                            if 'reason' in normalized:
+                                normalized['message'] = normalized['reason']
+                            elif 'comment' in normalized:
+                                normalized['message'] = normalized['comment']
+                            elif 'desc' in normalized:
+                                normalized['message'] = normalized['desc']
+                            elif 'details' in normalized:
+                                normalized['message'] = normalized['details']
+                        
+                        if normalized.get('event') == 'ENTRY_FAILED':
+                             print(f"DEBUG FAIL ROW: {normalized}")
+
                         events.append(normalized)
                 
                 if events:
@@ -313,7 +332,18 @@ class UnifiedLogSync:
 
     def _sync_system_logs(self, base_dir: Path, terminal_id: str, source_system: str):
         """システムログを同期"""
-        log_dirs = [base_dir / "SystemLogs", base_dir / "data" / "logs"]
+        # base_dir is .../MQL4/Files/OneDriveLogs/data
+        # We want .../MQL4/Logs
+        mql_logs_dir = base_dir.parent.parent.parent / "Logs"
+        if not mql_logs_dir.exists():
+             # Try one level up if base_dir was just OneDriveLogs
+             mql_logs_dir = base_dir.parent.parent / "Logs"
+             
+        journal_logs_dir = base_dir.parent.parent.parent.parent / "logs"
+
+        log_dirs = [base_dir / "SystemLogs", base_dir / "data" / "logs", mql_logs_dir, journal_logs_dir]
+        print(f"DEBUG: Searching logs in {log_dirs}")
+        
         for log_dir in log_dirs:
             if not log_dir.exists():
                 continue
@@ -326,16 +356,59 @@ class UnifiedLogSync:
                 entries = []
                 try:
                     file_ts = datetime.fromtimestamp(file_path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
-                    with open(file_path, 'r', encoding='ansi', errors='ignore') as f:
+                    
+                    # Try to get date from filename for YYYYMMDD.log
+                    is_daily_log = False
+                    date_prefix = ""
+                    if re.match(r"\d{8}\.log", file_path.name):
+                        is_daily_log = True
+                        dstr = file_path.name[:8]
+                        date_prefix = f"{dstr[:4]}-{dstr[4:6]}-{dstr[6:]}"
+
+                    encoding = 'cp932'
+                    try:
+                        with open(file_path, 'rb') as f_chk:
+                            head = f_chk.read(2)
+                            if head == b'\xff\xfe' or head == b'\xfe\xff':
+                                encoding = 'utf-16'
+                    except:
+                        pass
+
+                    with open(file_path, 'r', encoding=encoding, errors='replace') as f:
                         for line in f:
                             if not line.strip():
                                 continue
-                            m = re.search(r"(\d{4}[./-]\d{2}[./-]\d{2}\s+\d{2}:\d{2}(?::\d{2})?)", line)
-                            ts = self._normalize_timestamp(m.group(1)) if m else file_ts
+                            
+                            ts = file_ts # default
+                            message = line.strip()
+
+                            if is_daily_log:
+                                # Start with: Code TAB Time TAB Source TAB Message
+                                # e.g. 2	14:05:31.690	Source	Message
+                                parts = line.split('\t')
+                                if len(parts) >= 3:
+                                    # Try to extract time from parts[1]
+                                    t_str = parts[1].strip()
+                                    if re.match(r"\d{2}:\d{2}:\d{2}", t_str):
+                                        ts = f"{date_prefix} {t_str}"
+                                        # Message is the rest
+                                        message = "\t".join(parts[2:]).strip()
+                                
+                                # Fallback regex for other formats if split failed
+                                if ts == file_ts:
+                                     m = re.search(r"(\d{2}:\d{2}:\d{2})", line)
+                                     if m:
+                                         ts = f"{date_prefix} {m.group(1)}"
+                            else:
+                                # Existing regex for full date format
+                                m = re.search(r"(\d{4}[./-]\d{2}[./-]\d{2}\s+\d{2}:\d{2}(?::\d{2})?)", line)
+                                if m:
+                                    ts = self._normalize_timestamp(m.group(1))
+
                             entries.append({
                                 "timestamp": ts,
                                 "terminal_id": terminal_id,
-                                "message": line.strip(),
+                                "message": message,
                                 "raw_line": line.strip()
                             })
                     

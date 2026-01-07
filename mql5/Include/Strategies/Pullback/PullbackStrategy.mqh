@@ -495,7 +495,7 @@ public:
             LogAiLearningRow("BUY", ask, pattern);
          }
          else
-            CLogger::Log(LOG_ERROR, "BUY failed: " + (string)GetLastError());
+            CLogger::Log(LOG_ERROR, "ENTRY_FAILED: BUY failure. Error=" + (string)GetLastError());
 
          return;
       }
@@ -514,7 +514,7 @@ public:
             LogAiLearningRow("SELL", bid, pattern);
          }
          else
-            CLogger::Log(LOG_ERROR, "SELL failed: " + (string)GetLastError());
+            CLogger::Log(LOG_ERROR, "ENTRY_FAILED: SELL failure. Error=" + (string)GetLastError());
 
          return;
       }

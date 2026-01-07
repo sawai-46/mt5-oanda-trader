@@ -454,7 +454,9 @@ void ExecuteTrade(int signal, double confidence)
    }
    else
    {
+      string err = "ENTRY_FAILED: " + (is_long ? "BUY" : "SELL") + " failure. Error=" + (string)GetLastError();
       Print((is_long ? "BUY" : "SELL"), "注文失敗: Error=", GetLastError());
+      CLogger::Log(LOG_ERROR, err);
    }
 }
 
