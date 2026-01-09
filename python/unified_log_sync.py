@@ -196,6 +196,16 @@ class UnifiedLogSync:
                 continue
         return s
 
+    def _terminal_id_from_filename(self, filename: str, prefix: str):
+        if not filename or not filename.startswith(prefix):
+            return None
+        rest = filename[len(prefix):]
+        # drop extension
+        if "." in rest:
+            rest = rest.rsplit(".", 1)[0]
+        # terminal_id is the first token before the first underscore
+        return rest.split("_", 1)[0] if rest else None
+
     def _sync_ai_learning_data(self, base_dir: Path, terminal_id: str, source_system: str, broker: str, chunk_size: int = 5000):
         """AI学習データ(CSV)を同期"""
         search_dirs = [
@@ -221,6 +231,7 @@ class UnifiedLogSync:
         print(f"  Found {len(files)} AI learning data files.")
 
         for file_path in files:
+            file_terminal_id = self._terminal_id_from_filename(file_path.name, "AI_Learning_Data_") or terminal_id
             imported_total = 0
             chunk = []
             try:
@@ -235,12 +246,16 @@ class UnifiedLogSync:
                     if is_header:
                         reader = csv.DictReader(f)
                         for row in reader:
-                            normalized_row = {k.lower().replace(' ', '_'): v for k, v in row.items()}
+                            normalized_row = {
+                                str(k).lower().replace(' ', '_'): v
+                                for k, v in (row or {}).items()
+                                if k
+                            }
                             normalized_row['timestamp'] = self._normalize_timestamp(normalized_row.get('timestamp'))
                             normalized_row['source_system'] = source_system
                             chunk.append(normalized_row)
                             if len(chunk) >= chunk_size:
-                                imported_total += self.db.insert_ai_learning_data(chunk, terminal_id, source_system, broker)
+                                imported_total += self.db.insert_ai_learning_data(chunk, file_terminal_id, source_system, broker)
                                 chunk = []
                     else:
                         f.seek(0)
@@ -258,13 +273,13 @@ class UnifiedLogSync:
                             d['source_system'] = source_system
                             chunk.append(d)
                             if len(chunk) >= chunk_size:
-                                imported_total += self.db.insert_ai_learning_data(chunk, terminal_id, source_system, broker)
+                                imported_total += self.db.insert_ai_learning_data(chunk, file_terminal_id, source_system, broker)
                                 chunk = []
 
                 if chunk:
-                    imported_total += self.db.insert_ai_learning_data(chunk, terminal_id, source_system, broker)
+                    imported_total += self.db.insert_ai_learning_data(chunk, file_terminal_id, source_system, broker)
                 
-                print(f"    [{terminal_id}] Imported {imported_total} rows from {file_path.name}")
+                print(f"    [{file_terminal_id}] Imported {imported_total} rows from {file_path.name}")
                 self._cleanup_file(file_path, base_dir)
             except Exception as e:
                 print(f"    Error processing {file_path}: {e}")
@@ -289,18 +304,20 @@ class UnifiedLogSync:
         print(f"  Found {len(files)} trade log files.")
 
         for file_path in files:
+            file_terminal_id = self._terminal_id_from_filename(file_path.name, "Trade_Log_") or terminal_id
             events = []
             try:
                 with open(file_path, 'r', encoding='ansi', errors='ignore') as f:
                     reader = csv.DictReader(f, delimiter=';')
                     for row in reader:
-                        normalized = {k.lower(): v for k, v in row.items()}
+                        normalized = {str(k).lower(): v for k, v in (row or {}).items() if k}
                         # DEBUG: Print keys for the first row of US30 or similar
                         if 'us30' in file_path.name.lower() or 'jp225' in file_path.name.lower():
                             print(f"DEBUG KEYS: {list(normalized.keys())}")
                         
-                        normalized['timestamp'] = self._normalize_timestamp(normalized.get('timestamp', '').replace('.', '-'))
-                        normalized['terminal_id'] = terminal_id
+                        ts_raw = (normalized.get('timestamp') or '').replace('.', '-')
+                        normalized['timestamp'] = self._normalize_timestamp(ts_raw)
+                        normalized['terminal_id'] = file_terminal_id
                         if 'event' in normalized:
                             normalized['type'] = normalized['event']
                         if 'direction' in normalized:
@@ -324,7 +341,7 @@ class UnifiedLogSync:
                 
                 if events:
                     count = self.db.insert_trade_events(events, source_system, broker)
-                    print(f"    [{terminal_id}] Imported {count} trade events from {file_path.name}")
+                    print(f"    [{file_terminal_id}] Imported {count} trade events from {file_path.name}")
                 
                 self._cleanup_file(file_path, base_dir)
             except Exception as e:

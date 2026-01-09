@@ -123,7 +123,6 @@ MT5はデフォルトで外部URLへのWebRequestがブロックされる。
 ## 3. MT5から疎通確認（売買なし）
 MT5のスクリプト [mql5/Scripts/InferenceHttpSmoke.mq5](../mql5/Scripts/InferenceHttpSmoke.mq5) を実行。
 
-- 入力例:
   - `InpServerUrl = http://127.0.0.1:5001`
   - `InpPredictEndpoint = /predict`
   - `InpPreset = antigravity_pullback`
@@ -133,9 +132,8 @@ MT5のスクリプト [mql5/Scripts/InferenceHttpSmoke.mq5](../mql5/Scripts/Infe
 ### MT5_AI_Trader_HTTP の疎通確認（売買なし）
 このEAは `OnInit()` で `GET /health` を叩き、失敗すると `INIT_FAILED` で止まる。
 
-- EA入力例:
   - `InpInferenceServerURL = http://127.0.0.1:5001`
-  - `InpMT5_ID = 10900k-mt5-live`（あなたの命名案に合わせる）
+ `InpMT5_ID = 10900k-mt5-fx`（例。指数側は `10900k-mt5-index`）
 
 ログに `✓ 推論サーバー接続OK` が出ればOK。
 

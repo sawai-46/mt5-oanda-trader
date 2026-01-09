@@ -1,29 +1,17 @@
 mt4_terminals:
-  - id: 10900k-A
+  - id: 10900k-mt4-fx
     data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\A84B568DA10F82FE5A8FF6A859153D6F\MQL4\Files\OneDriveLogs\data
     broker: Rakuten
-  - id: 10900k-B
-    data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\F350723F1EC14B9854EACE771AE0C0F3\MQL4\Files\OneDriveLogs\data
-    broker: Rakuten
-  - id: matsu-A
-    data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\A84B568DA10F82FE5A8FF6A859153D6F\MQL4\Files\OneDriveLogs\data
-    broker: Rakuten
-  - id: matsu-B
+  - id: 10900k-mt4-index
     data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\F350723F1EC14B9854EACE771AE0C0F3\MQL4\Files\OneDriveLogs\data
     broker: Rakuten
 
 # MT5 OANDA Terminals
 mt5_terminals:
-  - id: 10900k-mt5-live
+  - id: 10900k-mt5-fx
     data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\EE0304F13905552AE0B5EAEFB04866EB\MQL5\Files\OneDriveLogs\data
     broker: OANDA
-  - id: 10900k-mt5-demo
-    data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\877D039290F2391FC790569104895E86\MQL5\Files\OneDriveLogs\data
-    broker: OANDA
-  - id: matsu-mt5-live
-    data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\EE0304F13905552AE0B5EAEFB04866EB\MQL5\Files\OneDriveLogs\data
-    broker: OANDA
-  - id: matsu-mt5-demo
+  - id: 10900k-mt5-index
     data_dir: C:\Users\chanm\AppData\Roaming\MetaQuotes\Terminal\877D039290F2391FC790569104895E86\MQL5\Files\OneDriveLogs\data
     broker: OANDA
 
