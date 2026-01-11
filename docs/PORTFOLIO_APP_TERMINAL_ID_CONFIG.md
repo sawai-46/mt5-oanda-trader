@@ -69,6 +69,25 @@ MT5側はファイル通信ではなく **HTTP(WebRequest)** で推論サーバ�
 
 ---
 
+## 2.5) 口座状態CSV（AIポートフォリオマネージャー連携）
+
+EAは `account_status.csv` を **上書き** で出力します（MT4/MT5とも）。
+
+- 出力先: MT4/MT5 の `MQL*/Files/account_status.csv`
+- 更新: `OnInit` で1回 + `OnTick` で60秒間隔
+- 列: `TerminalId, Timestamp, Balance, Equity, Margin, FreeMargin, Positions`
+
+### 重要（設定）
+
+- MT4 EA: `InpTerminalId` に固定ID（例: `10900k-mt4-fx`）を設定
+- MT5 PullbackEntry v5: `InpTerminalId` に固定IDを設定
+- MT5_AI_Trader（HTTP版）: `InpTerminalId`（未設定なら `InpMT5_ID`）が **口座状態CSVの TerminalId 列** に使われます
+
+推論側の識別（`InpMT5_ID` と `InpAutoAppendSymbol` による `g_uniqueId`）は従来どおり動作し、
+口座状態CSVのTerminalIdとは分離できます。
+
+---
+
 ## 3) 設定ファイルの分離（おすすめ構成）
 
 ### ポートフォリオアプリ側

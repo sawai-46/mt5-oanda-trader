@@ -15,6 +15,7 @@
 #include <Position/PositionManager.mqh>
 #include <Filters/FilterManager.mqh>
 #include <Integration/Logger.mqh>
+#include <Integration/AccountStatusCsv.mqh>
 
 //=== INPUT PARAMETERS ===
 
@@ -393,6 +394,7 @@ int OnInit()
    g_posManager.Init(posCfg);
    
    CLogger::Log(LOG_INFO, "Initialization complete");
+   ExportAccountStatusWithTerminalId(InpTerminalId);
    return(INIT_SUCCEEDED);
 }
 
@@ -413,6 +415,14 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   static datetime last_export = 0;
+   datetime now_export = TimeCurrent();
+   if(now_export - last_export >= 60)
+   {
+      ExportAccountStatusWithTerminalId(InpTerminalId);
+      last_export = now_export;
+   }
+
    // 1. ポジション監視（利確・SL移動）は常に実行
    if(g_posManager != NULL)
       g_posManager.OnTick();

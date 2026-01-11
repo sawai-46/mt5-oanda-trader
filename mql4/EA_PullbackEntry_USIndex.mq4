@@ -15,6 +15,9 @@
 // マジックナンバー自動生成
 #include <MagicNumberGenerator.mqh>
 
+// AIポートフォリオマネージャー連携（口座状態CSV）
+#include <AccountStatusCsv.mqh>
+
 // TradeOptimizer連携（最適化パラメータ自動読み込み）※サービス削除済み - 無効
 // #include <EAParamsLoader.mqh>  // サービス削除済み - 不要
 
@@ -100,6 +103,7 @@ input TradingStrategy Selected_Strategy = STRATEGY_STANDARD;  // 使用する戦
 
 //--- 複数MT4対応
 input string MT4_ID = "10900k-A";                // MT4識別ID（10900k-A, 10900k-B, matsu-A, matsu-B）
+input string InpTerminalId = "10900k-A";         // 論理ターミナルID（例: 10900k-mt4-index）
 
 //--- シンボル選択設定
 input SYMBOL_SELECT_MODE SymbolMode = SYMBOL_AUTO; // シンボル選択モード
@@ -745,6 +749,8 @@ int OnInit()
    Print("===== TradeOptimizer連携 =====");
    Print("サービス削除済み - 無効");
    Print("=====================================");
+
+   ExportAccountStatusWithTerminalId(InpTerminalId);
    
    return(INIT_SUCCEEDED);
 }
@@ -762,6 +768,14 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   static datetime last_export = 0;
+   datetime now = TimeCurrent();
+   if(now - last_export >= 60)
+   {
+      ExportAccountStatusWithTerminalId(InpTerminalId);
+      last_export = now;
+   }
+
    // ===== 起動直後のエントリー防止 =====
    // EA起動後、最低1本のバーが完成するまでエントリーをスキップ
    static int warmup_bars = 0;

@@ -14,12 +14,16 @@
 // マジックナンバー自動生成
 #include <MagicNumberGenerator.mqh>
 
+// AIポートフォリオマネージャー連携（口座状態CSV）
+#include <AccountStatusCsv.mqh>
+
 // ※PullbackEntryロジックはPython推論サーバーに統合済み
 // シグナル生成: Python側
 // ポジション管理: EA側（このファイル）
 
 //--- ファイル通信設定
 input string MT4_ID = "10900k-A";               // MT4識別ID（10900k-A, 10900k-B, matsu-A, matsu-B）
+input string InpTerminalId = "10900k-A";         // 論理ターミナルID（例: 10900k-mt4-index）
 input bool   AutoAppendSymbol = true;           // MT4_IDにSymbolを自動追加
 input string DataDirectory = "OneDriveLogs\\data";            // データディレクトリ
 input int    ResponseTimeout = 30;              // レスポンス待機時間(秒)
@@ -260,6 +264,7 @@ int OnInit()
    }
    
    Print("初期化完了");
+   ExportAccountStatusWithTerminalId(InpTerminalId);
    return(INIT_SUCCEEDED);
 }
 
@@ -283,6 +288,14 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   static datetime last_export = 0;
+   datetime now = TimeCurrent();
+   if(now - last_export >= 60)
+   {
+      ExportAccountStatusWithTerminalId(InpTerminalId);
+      last_export = now;
+   }
+
    // Market Sentinelによる売買許可チェック（毎分更新）
    // Market Sentinelによる売買許可チェック（毎分更新）
    // サービス削除済み - 不要

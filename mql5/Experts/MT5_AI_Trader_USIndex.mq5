@@ -11,6 +11,7 @@
 
 #include <Trade\Trade.mqh>
 #include <Integration/Logger.mqh>
+#include <Integration/AccountStatusCsv.mqh>
 #include <Utils/JsonLite.mqh>
 
 //--- 推論サーバー戦略プリセット
@@ -26,9 +27,17 @@ enum PresetOption
 
 //--- HTTP設定
 input string InpMT5_ID = "10900k-mt5-index";           // MT5識別ID（10900k-mt5-fx, 10900k-mt5-index, matsu-mt5-fx, matsu-mt5-index）
+input string InpTerminalId = "";                       // 口座状態CSV用の端末固定ID（空なら InpMT5_ID を使用。例: 10900k-mt5-index）
 input bool   InpAutoAppendSymbol = true;              // MT5_IDにSymbolを自動追加
 input string InpInferenceServerURL = "http://127.0.0.1:5001";  // 推論サーバーURL
 input int    InpServerTimeout = 30000;                          // タイムアウト(ms)
+
+string GetAccountStatusTerminalId()
+{
+   if(StringLen(InpTerminalId) > 0)
+      return InpTerminalId;
+   return InpMT5_ID;
+}
 
 //--- プリセット設定
 input PresetOption InpPreset = PRESET_antigravity_pullback;  // 戦略プリセット
@@ -272,6 +281,7 @@ int OnInit()
    }
    
    CLogger::Log(LOG_INFO, "初期化完了");
+   ExportAccountStatusWithTerminalId(GetAccountStatusTerminalId());
    return(INIT_SUCCEEDED);
 }
 
@@ -288,6 +298,14 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   static datetime last_export = 0;
+   datetime now_export = TimeCurrent();
+   if(now_export - last_export >= 60)
+   {
+      ExportAccountStatusWithTerminalId(GetAccountStatusTerminalId());
+      last_export = now_export;
+   }
+
    // 1. ポジション監視（利確・SL移動）は常に実行
    if(InpEnablePartialClose)
    {

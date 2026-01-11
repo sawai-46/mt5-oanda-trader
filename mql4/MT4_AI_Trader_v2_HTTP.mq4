@@ -8,6 +8,9 @@
 #property version   "2.10"
 #property strict
 
+// AIポートフォリオマネージャー連携（口座状態CSV）
+#include <AccountStatusCsv.mqh>
+
 // Market Sentinel連携（サービス削除済み - 無効）
 // #include <MarketSentinel.mqh>
 
@@ -17,6 +20,7 @@
 
 //--- HTTP設定
 input string MT4_ID = "HTTP-Bot";               // MT4識別ID
+input string InpTerminalId = "HTTP-Bot";        // 論理ターミナルID（例: 10900k-mt4-fx）
 input string InferenceServerURL = "http://localhost:5555";  // 推論サーバーURL
 input int    ServerTimeout = 30000;                          // タイムアウト(ms)
 
@@ -155,6 +159,7 @@ int OnInit()
    }
    
    Print("初期化完了");
+   ExportAccountStatusWithTerminalId(InpTerminalId);
    return(INIT_SUCCEEDED);
 }
 
@@ -178,6 +183,14 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   static datetime last_export = 0;
+   datetime now = TimeCurrent();
+   if(now - last_export >= 60)
+   {
+      ExportAccountStatusWithTerminalId(InpTerminalId);
+      last_export = now;
+   }
+
    // Market Sentinelによる売買許可チェック（サービス削除済み - 無効）
    
    // 新しいバーでのみ実行
