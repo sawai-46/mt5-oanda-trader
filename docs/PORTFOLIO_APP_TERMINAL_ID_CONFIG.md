@@ -72,10 +72,21 @@ MT5側はファイル通信ではなく **HTTP(WebRequest)** で推論サーバ�
 ## 2.5) 口座状態CSV（AIポートフォリオマネージャー連携）
 
 EAは `account_status.csv` を **上書き** で出力します（MT4/MT5とも）。
+つまり、**履歴は溜めず「最新スナップショット」だけが残ります**。
 
 - 出力先: MT4/MT5 の `MQL*/Files/account_status.csv`
 - 更新: `OnInit` で1回 + `OnTick` で60秒間隔
 - 列: `TerminalId, Timestamp, Balance, Equity, Margin, FreeMargin, Positions`
+
+### 注意（複数EAを同一ターミナルで動かす場合）
+
+同一ターミナル（同一 `MQL*/Files`）で複数EAが同時に `account_status.csv` を書くと、
+**最後に書いたEAの内容で上書き** されます。
+
+推奨：
+
+- `account_status.csv` の書き出しは「代表EA（1つ）」に限定する
+- 履歴が必要になった場合は、EA側で追記せず、ポートフォリオアプリ側で定期取得してDBに保存する
 
 ### 重要（設定）
 
