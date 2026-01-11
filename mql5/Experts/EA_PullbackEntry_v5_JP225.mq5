@@ -86,6 +86,10 @@ input double InpPartial3Percent = 100.0;     // 3段階目決済率(%)
 input bool   InpMoveToBreakEven = true;      // Level1後に建値移動
 input bool   InpMoveSLAfterLevel2 = true;    // Level2後にSL移動(Level1利益位置へ)
 
+//--- Persistent TP State (Terminal Global Variables)
+input bool   InpEnablePersistentTpState = true;       // 段階利確(部分決済レベル)を永続化
+input bool   InpLogPersistentTpStateEvents = false;   // 永続化イベントをログ出力
+
 //--- Trailing Stop
 input ENUM_TRAILING_MODE InpTrailingMode = TRAILING_DISABLED;  // トレーリングモード
 input double InpTrailStartYen = 20.0;        // トレーリング開始(円)
@@ -367,6 +371,8 @@ int OnInit()
    SPositionConfig posCfg;
    posCfg.MagicNumber = activeMagic;
    posCfg.Symbol = _Symbol;
+   posCfg.EnablePersistentTpState = InpEnablePersistentTpState;
+   posCfg.LogPersistentTpStateEvents = InpLogPersistentTpStateEvents;
    posCfg.EnablePartialClose = InpEnablePartialClose;
    posCfg.PartialCloseStages = InpPartialStages;
    posCfg.PartialClose1Points = g_Partial1Points;
