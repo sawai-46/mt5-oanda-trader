@@ -1,0 +1,23 @@
+# config.local.yaml（PC固有の上書き用）
+# このファイルは git 管理外です。`python/config.yaml` の設定を上書きします。
+# 例）matsuPC のように DB を別ドライブに置く、PC固有のパスを使う、など。
+
+logging:
+  # 例: matsu PC の大容量HDDに配置
+  database_path: "H:\\TradingData\\unified_logs.db"
+  delete_after_sync: true
+  # 削除ではなくアーカイブ移動（安全）
+  archive_dir: "H:\\EA_Logs_Archived"
+
+# PC固有の Terminal パスを上書きしたい場合は、mt4_terminals / mt5_terminals を
+# このファイル側で定義します（リストは置き換えになるため、必要なIDはすべて書きます）。
+#
+# mt4_terminals:
+#   - id: 10900k-mt4-fx
+#     data_dir: C:\\Users\\chanm\\AppData\\Roaming\\MetaQuotes\\Terminal\\...\\MQL4\\Files\\OneDriveLogs\\data
+#     broker: Rakuten
+#
+# mt5_terminals:
+#   - id: 10900k-mt5-fx
+#     data_dir: C:\\Users\\chanm\\AppData\\Roaming\\MetaQuotes\\Terminal\\...\\MQL5\\Files\\OneDriveLogs\\data
+#     broker: OANDA
