@@ -294,7 +294,8 @@ private:
          return;
 
       datetime now = TimeCurrent();
-      if(m_lastPersistCleanup != 0 && (now - m_lastPersistCleanup) < 30)
+      // クールダウン: 一度削除したら300秒（5分）は再削除しない
+      if(m_lastPersistCleanup != 0 && (now - m_lastPersistCleanup) < 300)
          return;
 
       m_lastPersistCleanup = now;
