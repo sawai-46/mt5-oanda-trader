@@ -944,7 +944,7 @@ void CheckPartialClose()
 
                if(newLevel == 1)
                {
-                  m_trade.PositionModify(newTicket, openPrice, PositionGetDouble(POSITION_TP));
+                  SafePositionModifySL(newTicket, openPrice, PositionGetDouble(POSITION_TP), "BE");
                   CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Level 1: Moved to Break-even @ %.5f (Ticket #%lld)", openPrice, newTicket));
                }
                else // newLevel == 2
@@ -955,7 +955,7 @@ void CheckPartialClose()
                   else
                      level1Price = openPrice - g_PartialClose1Points * point;
                   
-                  m_trade.PositionModify(newTicket, level1Price, PositionGetDouble(POSITION_TP));
+                  SafePositionModifySL(newTicket, level1Price, PositionGetDouble(POSITION_TP), "L1");
                   CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Level 2: Moved to Level1 profit @ %.5f (Ticket #%lld)", level1Price, newTicket));
                }
             }
@@ -981,6 +981,51 @@ ulong FindPositionByIdentifier(long identifier)
       }
    }
    return 0;
+}
+
+//+------------------------------------------------------------------+
+//| SL safety helper                                                 |
+//+------------------------------------------------------------------+
+bool IsFinitePrice(const double v)
+{
+   if(v != v) return false;
+   if(MathAbs(v) > 1e10) return false;
+   return true;
+}
+
+bool SafePositionModifySL(ulong ticket, double desiredSL, double tp, const string tag)
+{
+   if(!PositionSelectByTicket(ticket)) return false;
+
+   ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+   double currentSL = PositionGetDouble(POSITION_SL);
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   if(point <= 0) point = _Point;
+
+   double newSL = NormalizeDouble(desiredSL, digits);
+   if(!IsFinitePrice(newSL) || newSL <= 0.0)
+   {
+      CLogger::Log(LOG_WARN, StringFormat("[SAFE_SL] Skip PositionModify(%s): invalid SL=%.10f ticket=%lld", tag, newSL, ticket));
+      return false;
+   }
+
+   double tol = point * 2.0;
+   if(currentSL > 0.0)
+   {
+      if(posType == POSITION_TYPE_BUY && newSL < currentSL - tol)
+      {
+         CLogger::Log(LOG_WARN, StringFormat("[SAFE_SL] Skip PositionModify(%s): worsening BUY SL %.5f -> %.5f ticket=%lld", tag, currentSL, newSL, ticket));
+         return false;
+      }
+      if(posType == POSITION_TYPE_SELL && newSL > currentSL + tol)
+      {
+         CLogger::Log(LOG_WARN, StringFormat("[SAFE_SL] Skip PositionModify(%s): worsening SELL SL %.5f -> %.5f ticket=%lld", tag, currentSL, newSL, ticket));
+         return false;
+      }
+   }
+
+   return m_trade.PositionModify(ticket, newSL, tp);
 }
 
 //+------------------------------------------------------------------+
