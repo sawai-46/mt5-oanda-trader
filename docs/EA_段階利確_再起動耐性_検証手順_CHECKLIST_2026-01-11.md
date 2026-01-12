@@ -9,7 +9,9 @@
   - ローカル（VS Code / multi-root）: [../../mt4-pullback-trader/docs/EA_段階利確_再起動耐性_検証手順_CHECKLIST_2026-01-11.md](../../mt4-pullback-trader/docs/EA_%E6%AE%B5%E9%9A%8E%E5%88%A9%E7%A2%BA_%E5%86%8D%E8%B5%B7%E5%8B%95%E8%80%90%E6%80%A7_%E6%A4%9C%E8%A8%BC%E6%89%8B%E9%A0%86_CHECKLIST_2026-01-11.md)
 
 ## 0. 目的
-- `Include/Position/PositionManager.mqh` の段階利確（部分決済）ステージが、EAの再初期化（再アタッチ/再コンパイル/端末再起動）後も復元されることを確認する。
+- 段階利確（部分決済）ステージが、EAの再初期化（再アタッチ/再コンパイル/端末再起動）後も復元されることを確認する。
+  - `Include/Position/PositionManager.mqh`（PositionManager採用EA）
+  - `Experts/MT5_AI_Trader_{FX,JP225,USIndex}.mq5`
 - 永続化は「ターミナル Global Variables（GV）」を使用し、キーは `POSITION_IDENTIFIER` を採用（部分決済後にticketが変わっても追従しやすい）。
 
 ---
@@ -25,7 +27,8 @@
 ### 1.2 検証前の掃除（GV）
 - [ ] 検証シンボルが**完全にフラット**であることを確認
 - [ ] MT5のメニュー: `ツール > グローバル変数` で、該当prefixが残っていれば削除
-  - `PERSIST|MT5_PM|<Symbol>|<Magic>|...`
+  - PositionManager系: `PERSIST|MT5_PM|<Symbol>|<Magic>|...`
+  - AI Trader系: `PERSIST|MT5_AIT_XX|<Symbol>|<Magic>|...`（XX = FX / JP / US）
 
 ---
 
@@ -37,9 +40,9 @@
 - [ ] フラット時のみGVが掃除される
 
 ### 2.2 期待するログ（Log ON時）
-- [ ] save: `[PERSIST][MT5_PM] saved ident=... ticket=... stage=...`
-- [ ] restore: `[PERSIST][MT5_PM] restored ident=... ticket=... stage=...`
-- [ ] cleared: `[PERSIST][MT5_PM] cleared GV ...`（フラット時のみ）
+- [ ] save: `[PERSIST][MT5_PM] saved ...` または `[PERSIST][MT5_AIT_XX] saved ...`
+- [ ] restore: `[PERSIST][MT5_PM] restored ...` または `[PERSIST][MT5_AIT_XX] restored ...`
+- [ ] cleared: `[PERSIST][MT5_PM] cleared GV ...` または `[PERSIST][MT5_AIT_XX] cleared GV ...`（フラット時のみ）
 
 ---
 
@@ -65,7 +68,7 @@
 
 ### シナリオE: フラット時の掃除
 - [ ] 最終段階で全決済（or 手動で全決済）
-- [ ] 30秒以内に `cleared GV` が出る（クールダウンあり）
+- [ ] 数分以内に `cleared GV` が出る（クールダウンあり / 300秒）
 - [ ] `ツール > グローバル変数` にprefixが残らない
 
 ---

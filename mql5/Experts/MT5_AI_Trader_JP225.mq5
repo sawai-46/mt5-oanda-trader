@@ -87,6 +87,10 @@ input double InpPartialClose3Percent = 100.0;  // 3段階目決済率(%)
 input bool   InpMoveToBreakEvenAfterLevel1 = true; // Level1後にSL移動(建値へ)
 input bool   InpMoveSLAfterLevel2 = true;      // Level2後にSL移動(Level1利益位置へ)
 
+//--- Partial Close 永続化（再起動/再アタッチ耐性）
+input bool   InpEnablePersistentTpState = true;      // 部分決済レベルを端末GVへ保存/復元
+input bool   InpLogPersistentTpStateEvents = false;  // 保存/復元/削除イベントをログ出力
+
 //--- SL/TP設定
 input bool   InpUse_ATR_SLTP = false;          // ATR倍率使用
 input double InpStopLoss_ATR_Multi = 1.5;      // SL用ATR倍率
@@ -112,6 +116,9 @@ int g_partialCloseLevel[];
 string g_uniqueId = "";
 string g_inferenceServerUrl = "";
 CTrade m_trade;
+
+// Partial Close永続化: クールダウン管理
+datetime g_lastPersistCleanup = 0;
 
 // 円→Points変換値（JP225: 1円 = 1point）
 double g_MaxSpreadPoints = 0;
@@ -349,6 +356,8 @@ void OnTick()
    // 1. ポジション監視（利確・SL移動）は常に実行
    if(InpEnablePartialClose)
    {
+      if(InpEnablePersistentTpState)
+         CleanupPersistIfFlat();
       CheckPartialClose();
    }
 
@@ -732,6 +741,135 @@ bool ParseAnalyzeResponse(string response, int &signal, double &confidence, bool
 }
 
 //+------------------------------------------------------------------+
+//| Partial Close 永続化（端末Global Variables）                      |
+//+------------------------------------------------------------------+
+string PersistPrefix()
+{
+   return "PERSIST|MT5_AIT_JP|" + _Symbol + "|" + (string)g_ActiveMagicNumber + "|";
+}
+
+string PersistKey(long identifier, const string field)
+{
+   return PersistPrefix() + (string)identifier + "|" + field;
+}
+
+double GVGetD(const string key, const double defaultValue = 0.0)
+{
+   if(GlobalVariableCheck(key))
+      return GlobalVariableGet(key);
+   return defaultValue;
+}
+
+bool HasAnyPositionForSymbolMagic()
+{
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != g_ActiveMagicNumber) continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+      return true;
+   }
+   return false;
+}
+
+void PersistClearAllForSymbolMagic()
+{
+   string prefix = PersistPrefix();
+   int total = GlobalVariablesTotal();
+   for(int i = total - 1; i >= 0; i--)
+   {
+      string name = GlobalVariableName(i);
+      if(StringFind(name, prefix) == 0)
+         GlobalVariableDel(name);
+   }
+
+   if(InpLogPersistentTpStateEvents)
+      CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_AIT_JP] cleared GV for %s magic=%lld", _Symbol, g_ActiveMagicNumber));
+}
+
+void CleanupPersistIfFlat()
+{
+   if(!InpEnablePersistentTpState)
+      return;
+   if(HasAnyPositionForSymbolMagic())
+      return;
+
+   datetime now = TimeCurrent();
+   // クールダウン: 一度削除したら300秒（5分）は再削除しない
+   if(g_lastPersistCleanup != 0 && (now - g_lastPersistCleanup) < 300)
+      return;
+
+   g_lastPersistCleanup = now;
+   PersistClearAllForSymbolMagic();
+}
+
+void PersistSaveByTicket(const ulong ticket, const int stage)
+{
+   if(!InpEnablePersistentTpState)
+      return;
+   if(ticket == 0)
+      return;
+   if(!PositionSelectByTicket(ticket))
+      return;
+
+   long identifier = (long)PositionGetInteger(POSITION_IDENTIFIER);
+   int posType = (int)PositionGetInteger(POSITION_TYPE);
+   double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+
+   GlobalVariableSet(PersistKey(identifier, "stage"), (double)stage);
+   GlobalVariableSet(PersistKey(identifier, "type"), (double)posType);
+   GlobalVariableSet(PersistKey(identifier, "openPrice"), openPrice);
+   GlobalVariableSet(PersistKey(identifier, "lastUpdate"), (double)TimeCurrent());
+
+   if(InpLogPersistentTpStateEvents)
+      CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_AIT_JP] saved ident=%lld ticket=%lld stage=%d", identifier, ticket, stage));
+}
+
+void RestoreForSelectedPosition(const ulong ticket)
+{
+   if(!InpEnablePersistentTpState)
+      return;
+   if(ticket == 0)
+      return;
+   if(!PositionSelectByTicket(ticket))
+      return;
+
+   long identifier = (long)PositionGetInteger(POSITION_IDENTIFIER);
+   string stageKey = PersistKey(identifier, "stage");
+   if(!GlobalVariableCheck(stageKey))
+      return;
+
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   if(point <= 0) point = 0.1;
+
+   int persistedStage = (int)GVGetD(stageKey, 0.0);
+   int persistedType = (int)GVGetD(PersistKey(identifier, "type"), -1.0);
+   double persistedOpen = GVGetD(PersistKey(identifier, "openPrice"), 0.0);
+
+   int currentType = (int)PositionGetInteger(POSITION_TYPE);
+   double currentOpen = PositionGetDouble(POSITION_PRICE_OPEN);
+
+   // Guard: type match + open price near match
+   if(persistedType != currentType)
+      return;
+   if(MathAbs(currentOpen - persistedOpen) > (point * 2))
+      return;
+
+   int ticketIndex = (int)(ticket % 1000);
+   int merged = g_partialCloseLevel[ticketIndex];
+   if(persistedStage > merged)
+      merged = persistedStage;
+
+   if(merged != g_partialCloseLevel[ticketIndex])
+   {
+      g_partialCloseLevel[ticketIndex] = merged;
+      if(InpLogPersistentTpStateEvents)
+         CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_AIT_JP] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
+   }
+}
+
+//+------------------------------------------------------------------+
 //| Partial Close チェック                                            |
 //+------------------------------------------------------------------+
 void CheckPartialClose()
@@ -746,6 +884,9 @@ void CheckPartialClose()
       
       if(PositionGetInteger(POSITION_MAGIC) != g_ActiveMagicNumber) continue;
       if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+
+      if(InpEnablePersistentTpState)
+         RestoreForSelectedPosition(ticket);
       
       int ticketIndex = (int)(ticket % 1000);
       int currentLevel = g_partialCloseLevel[ticketIndex];
@@ -825,6 +966,9 @@ void CheckPartialClose()
                newLevel, ticket, lotsToClose, profitPoints));
          
          g_partialCloseLevel[ticketIndex] = newLevel;
+
+         if(InpEnablePersistentTpState)
+            PersistSaveByTicket(ticket, newLevel);
          
          // Level1後にBreakEven移動
          if(newLevel == 1 && InpMoveToBreakEvenAfterLevel1)
@@ -839,6 +983,8 @@ void CheckPartialClose()
                   m_trade.PositionModify(newTicket, openPrice, PositionGetDouble(POSITION_TP));
                   CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Level 1: Moved to Break-even @ %.5f", openPrice));
                   g_partialCloseLevel[(int)(newTicket % 1000)] = newLevel;
+                  if(InpEnablePersistentTpState)
+                     PersistSaveByTicket(newTicket, newLevel);
                   break;
                }
             }
@@ -863,6 +1009,8 @@ void CheckPartialClose()
                   m_trade.PositionModify(newTicket, level1Price, PositionGetDouble(POSITION_TP));
                   CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Level 2: Moved to Level1 profit @ %.5f", level1Price));
                   g_partialCloseLevel[(int)(newTicket % 1000)] = newLevel;
+                  if(InpEnablePersistentTpState)
+                     PersistSaveByTicket(newTicket, newLevel);
                   break;
                }
             }
