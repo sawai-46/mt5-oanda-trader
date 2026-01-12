@@ -160,6 +160,63 @@ public:
 
 private:
    //+------------------------------------------------------------------+
+   //| SL safety helpers                                               |
+   //+------------------------------------------------------------------+
+   bool IsFinitePrice(const double v) const
+   {
+      if(v != v)
+         return false;
+      if(MathAbs(v) > 1e10)
+         return false;
+      return true;
+   }
+
+   bool IsSafeStopLossChange(const ENUM_POSITION_TYPE posType, const double currentSL, const double newSL, const double point) const
+   {
+      if(!IsFinitePrice(newSL))
+         return false;
+      if(newSL <= 0.0)
+         return false;
+
+      double tol = (point > 0.0) ? (point * 2.0) : 0.0;
+      if(currentSL > 0.0)
+      {
+         // BUY: SLを下げる(悪化)のは禁止 / SELL: SLを上げる(悪化)のは禁止
+         if(posType == POSITION_TYPE_BUY && newSL < (currentSL - tol))
+            return false;
+         if(posType == POSITION_TYPE_SELL && newSL > (currentSL + tol))
+            return false;
+      }
+      return true;
+   }
+
+   bool SafePositionModifySL(const ulong ticket, const double desiredSL, const double tp, const string tag)
+   {
+      if(ticket == 0)
+         return false;
+      if(!PositionSelectByTicket(ticket))
+         return false;
+
+      const ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+      const double currentSL = PositionGetDouble(POSITION_SL);
+      const double point = SymbolInfoDouble(m_cfg.Symbol, SYMBOL_POINT);
+      const int digits = (int)SymbolInfoInteger(m_cfg.Symbol, SYMBOL_DIGITS);
+      const double newSL = NormalizeDouble(desiredSL, digits);
+
+      if(!IsSafeStopLossChange(posType, currentSL, newSL, point))
+      {
+         CLogger::Log(LOG_WARN, StringFormat("[SAFE_SL][MT5_PM] Skip PositionModify(%s): ticket=%lld sl=%.5f curSL=%.5f", tag, ticket, newSL, currentSL));
+         return false;
+      }
+
+      if(m_trade.PositionModify(ticket, newSL, tp))
+         return true;
+
+      CLogger::Log(LOG_WARN, StringFormat("[SAFE_SL][MT5_PM] PositionModify failed(%s): ticket=%lld sl=%.5f (err=%d)", tag, ticket, newSL, GetLastError()));
+      return false;
+   }
+
+   //+------------------------------------------------------------------+
    //| Persistent Partial Close (Terminal Global Variables)             |
    //+------------------------------------------------------------------+
    string PersistPrefix() const
@@ -474,7 +531,7 @@ private:
       if(shouldMove)
       {
          double newSL = NormalizeDouble(entryPrice, (int)SymbolInfoInteger(m_cfg.Symbol, SYMBOL_DIGITS));
-         if(m_trade.PositionModify(ticket, newSL, tp))
+         if(SafePositionModifySL(ticket, newSL, tp, "BE"))
             CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Ticket=#%lld: Moved to Break-even @ %.5f", ticket, newSL));
       }
    }
@@ -486,8 +543,8 @@ private:
       
       double tp = PositionGetDouble(POSITION_TP);
       newSL = NormalizeDouble(newSL, (int)SymbolInfoInteger(m_cfg.Symbol, SYMBOL_DIGITS));
-      
-      if(m_trade.PositionModify(ticket, newSL, tp))
+
+      if(SafePositionModifySL(ticket, newSL, tp, "L1"))
          CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Ticket=#%lld: Moved to Level1 profit @ %.5f", ticket, newSL));
    }
    
@@ -551,7 +608,7 @@ private:
          if(newSL > 0)
          {
             newSL = NormalizeDouble(newSL, (int)SymbolInfoInteger(m_cfg.Symbol, SYMBOL_DIGITS));
-            if(m_trade.PositionModify(ticket, newSL, tp))
+            if(SafePositionModifySL(ticket, newSL, tp, "TRAIL"))
                CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Ticket=#%lld: Trailing @ %.5f", ticket, newSL));
          }
       }
