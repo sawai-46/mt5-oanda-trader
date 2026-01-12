@@ -1,6 +1,7 @@
 # MT5 HTTP 推論サーバー接続手順
 
 ## 目的
+
 MT5側はファイル通信ではなく **HTTP(WebRequest)** でPython推論サーバーを呼び出す。
 
 このリポジトリにはHTTP推論サーバーが複数あり、EA/スクリプトによって叩くAPIが異なる。
@@ -28,6 +29,7 @@ PowerShellで以下。
 - `python inference_server_http_7module.py`
 
 デフォルト:
+
 - `http://127.0.0.1:5001`
 - `GET /health`
 - `POST /analyze`
@@ -38,15 +40,18 @@ PowerShellで以下。
 `/analyze`（OHLCV配列）と `/predict`（フラット形式）の両方を提供する。
 
 #### Dockerで起動（おすすめ：MT4と同じ運用に寄せる）
-このリポジトリには MT5用の `docker-compose.yml` を追加してある。
+
+このリポジトリには MT5用の Docker Compose を用意してある（ルートの `docker-compose.yml`）。
 
 - `cd mt5-oanda-trader`
 - `docker compose up -d --build`
 
 確認:
+
 - `http://127.0.0.1:5001/health`
 
 注意:
+
 - `MetaTrader5` Pythonパッケージは基本的にWindows向けのため、Docker（Linux）ではMT5ネイティブ接続は使えない前提。
 - Docker運用では `inference_server_http_7module.py` を正本とし、EAは `/health` と `/analyze` を叩く。
 
@@ -59,12 +64,14 @@ PowerShellで以下。
 - `python inference_server_http_7module.py`
 
 デフォルト:
+
 - `http://127.0.0.1:5001`
 - `GET /health`
 - `POST /predict`
 - `POST /analyze`
 
 必要なら環境変数で調整:
+
 - `PORT` (例: `5001`)
 - `LM_STUDIO_URL` (例: `http://localhost:1234`)
 - `STRATEGY` (例: `full`)
@@ -103,11 +110,46 @@ Antigravity 実体が `mt4-pullback-trader` 側にある場合は、以下いず
   - `KAN_MODEL_PATH` : KANモデルのパス
   - `DAILY_DATA_PATH` : 日足データ（GARCH等で使う場合）
 
+#### 9銘柄（M15）を銘柄別モデルで回す（推奨）
+
+MT4/MT5で指数シンボルが異なる場合（例）:
+
+- MT4: `JP225.mt4, US30.mt4, US500.mt4, NQ100.mt4`
+- MT5: `JP225, US30, US500, US100`
+
+このサーバは内部でシンボルを正規化します。
+
+- `.mt4` 接尾辞は落として `JP225` 扱い
+- `US100` は `NQ100` 扱い（モデル/閾値を共通化）
+
+その上で、環境変数 `TRANSFORMER_MODEL_PATHS_JSON` に JSON を入れると、銘柄×時間足でモデルを切り替えできます。
+
+PowerShell例（Windowsで直接起動する場合）:
+
+```powershell
+cd python
+
+# Antigravity を有効化
+$env:USE_ANTIGRAVITY = "1"
+$env:MODEL_TYPE = "transformer"
+
+# mt4-pullback-trader 側の antigravity を import できるようにする
+$env:MT4_PULLBACK_TRADER_PYTHON = "C:\\Users\\chanm\\OneDrive\\VS Code\\mt4-pullback-trader\\python"
+
+# 9銘柄M15のモデル割当（キーは JP225/US30/US500/NQ100 を基準に統一）
+$env:TRANSFORMER_MODEL_PATHS_JSON = '{"USDJPY_M15":"antigravity/data/transformer_model_USDJPY_15.pt","EURUSD_M15":"antigravity/data/transformer_model_EURUSD_15.pt","AUDUSD_M15":"antigravity/data/transformer_model_AUDUSD_15.pt","EURJPY_M15":"antigravity/data/transformer_model_EURJPY_15.pt","AUDJPY_M15":"antigravity/data/transformer_model_AUDJPY_15.pt","JP225_M15":"antigravity/data/transformer_model_JP225.mt4_15.pt","US30_M15":"antigravity/data/transformer_model_US30.mt4_15.pt","US500_M15":"antigravity/data/transformer_model_US500.mt4_15.pt","NQ100_M15":"antigravity/data/transformer_model_NQ100.mt4_15.pt"}'
+
+python inference_server_http_7module.py
+```
+
+Docker運用の場合は、ルートの [docker-compose.yml](../docker-compose.yml) に同等の設定例を入れてあります。
+
 ※ Antigravity が import できない場合は自動的に無効化され、7moduleのみで推論します。
 
 ---
 
 ## 2. MT5側のWebRequest許可
+
 MT5はデフォルトで外部URLへのWebRequestがブロックされる。
 
 - MT5: `ツール` → `オプション` → `エキスパートアドバイザ` → `WebRequestを許可したURL` に
@@ -116,24 +158,27 @@ MT5はデフォルトで外部URLへのWebRequestがブロックされる。
   を追加
 
 補足:
+
 - 混乱しやすいので、EA側のURLも `http://127.0.0.1:5001` に揃えるのが安全。
 
 ---
 
 ## 3. MT5から疎通確認（売買なし）
+
 MT5のスクリプト [mql5/Scripts/InferenceHttpSmoke.mq5](../mql5/Scripts/InferenceHttpSmoke.mq5) を実行。
 
-  - `InpServerUrl = http://127.0.0.1:5001`
-  - `InpPredictEndpoint = /predict`
-  - `InpPreset = antigravity_pullback`
+- `InpServerUrl = http://127.0.0.1:5001`
+- `InpPredictEndpoint = /predict`
+- `InpPreset = antigravity_pullback`
 
 ログに `HTTP status=200` と `signal/conf/reason` が出ればOK。
 
 ### MT5_AI_Trader_HTTP の疎通確認（売買なし）
+
 このEAは `OnInit()` で `GET /health` を叩き、失敗すると `INIT_FAILED` で止まる。
 
-  - `InpInferenceServerURL = http://127.0.0.1:5001`
- `InpMT5_ID = 10900k-mt5-fx`（例。指数側は `10900k-mt5-index`）
+- `InpInferenceServerURL = http://127.0.0.1:5001`
+- `InpMT5_ID = 10900k-mt5-fx`（例。指数側は `10900k-mt5-index`）
 
 ログに `✓ 推論サーバー接続OK` が出ればOK。
 
@@ -163,6 +208,7 @@ Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5001/analyze" -ContentType
 ---
 
 ## JSON I/F（MT5 → Python）
+
 推奨（フラット形式）:
 
 ```json

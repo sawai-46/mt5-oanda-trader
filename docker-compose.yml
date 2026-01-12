@@ -1,0 +1,42 @@
+services:
+  mt5-inference-http:
+    build:
+      context: ./python
+      dockerfile: Dockerfile
+    image: mt5-oanda-trader-inference-http:local
+    container_name: mt5-inference-http
+    ports:
+      - "5001:5001"
+    environment:
+      PORT: "5001"
+
+      # Core behavior
+      STRATEGY: "full"
+      PRESET: "antigravity_pullback"
+
+      # Antigravity
+      USE_ANTIGRAVITY: "1"
+      MODEL_TYPE: "transformer"
+
+      # Make Antigravity importable (it lives in the MT4 repo)
+      MT4_PULLBACK_TRADER_PYTHON: "/opt/mt4-pullback-trader/python"
+
+      # Per-symbol model mapping (JSON). Keep keys canonical (JP225/US30/US500/NQ100).
+      # MT5 index symbol differences are normalized in the engine (US100 -> NQ100).
+      TRANSFORMER_MODEL_PATHS_JSON: >-
+        {"USDJPY_M15":"/opt/mt4-antigravity-data/transformer_model_USDJPY_15.pt","EURUSD_M15":"/opt/mt4-antigravity-data/transformer_model_EURUSD_15.pt","AUDUSD_M15":"/opt/mt4-antigravity-data/transformer_model_AUDUSD_15.pt","EURJPY_M15":"/opt/mt4-antigravity-data/transformer_model_EURJPY_15.pt","AUDJPY_M15":"/opt/mt4-antigravity-data/transformer_model_AUDJPY_15.pt","JP225_M15":"/opt/mt4-antigravity-data/transformer_model_JP225.mt4_15.pt","US30_M15":"/opt/mt4-antigravity-data/transformer_model_US30.mt4_15.pt","US500_M15":"/opt/mt4-antigravity-data/transformer_model_US500.mt4_15.pt","NQ100_M15":"/opt/mt4-antigravity-data/transformer_model_NQ100.mt4_15.pt"}
+
+      # Optional fallbacks
+      TRANSFORMER_MODEL_PATH: "/opt/mt4-antigravity-data/transformer_model.pt"
+      KAN_MODEL_PATH: ""
+
+      # Optional: tune
+      MAX_WORKERS: "4"
+      REQUEST_TIMEOUT_SEC: "3.0"
+
+    volumes:
+      # MT5 code is baked into the image; these mounts are only for Antigravity + models.
+      - ../mt4-pullback-trader/python:/opt/mt4-pullback-trader/python:ro
+      - ../mt4-pullback-trader/antigravity/data:/opt/mt4-antigravity-data:ro
+
+    restart: unless-stopped

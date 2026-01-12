@@ -51,9 +51,25 @@ antigravity:
   enable_garch: false
 antigravity_orchestrator:
   enabled: true
-  model_type: ensemble
-  transformer_model_path: antigravity/models/transformer_best.pth
-  kan_model_path: antigravity/models/kan_best.pth
+  # NOTE: KANモデルが未配置の場合、ensemble だと初期化失敗/無効化の原因になりやすいので transformer を推奨
+  model_type: transformer
+  # フォールバック（未指定銘柄用）
+  transformer_model_path: antigravity/data/transformer_model.pt
+  # 9銘柄（主にM15）を銘柄別モデルで運用する場合のマッピング
+  transformer_model_paths:
+    USDJPY_M15: antigravity/data/transformer_model_USDJPY_15.pt
+    EURUSD_M15: antigravity/data/transformer_model_EURUSD_15.pt
+    AUDUSD_M15: antigravity/data/transformer_model_AUDUSD_15.pt
+    EURJPY_M15: antigravity/data/transformer_model_EURJPY_15.pt
+    AUDJPY_M15: antigravity/data/transformer_model_AUDJPY_15.pt
+    JP225_M15: antigravity/data/transformer_model_JP225.mt4_15.pt
+    US30_M15: antigravity/data/transformer_model_US30.mt4_15.pt
+    US500_M15: antigravity/data/transformer_model_US500.mt4_15.pt
+    NQ100_M15: antigravity/data/transformer_model_NQ100.mt4_15.pt
+
+  # KAN を使わない場合は空でOK
+  kan_model_path: ''
+  kan_model_paths: {}
   daily_data_path: ''
   ensemble_weights:
     transformer: 0.6

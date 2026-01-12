@@ -30,6 +30,7 @@ MT5 から WebRequest(HTTP/HTTPS) で推論を呼び出す用途。
 from __future__ import annotations
 
 import os
+import json
 import threading
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from datetime import datetime
@@ -159,6 +160,21 @@ def _make_server() -> SevenModuleInferenceServer:
 
     transformer_model_path = os.getenv("TRANSFORMER_MODEL_PATH") or ""
     kan_model_path = os.getenv("KAN_MODEL_PATH") or ""
+    transformer_model_paths_json = (os.getenv("TRANSFORMER_MODEL_PATHS_JSON") or "").strip()
+    kan_model_paths_json = (os.getenv("KAN_MODEL_PATHS_JSON") or "").strip()
+
+    transformer_model_paths = None
+    kan_model_paths = None
+    if transformer_model_paths_json:
+        try:
+            transformer_model_paths = json.loads(transformer_model_paths_json)
+        except Exception:
+            transformer_model_paths = None
+    if kan_model_paths_json:
+        try:
+            kan_model_paths = json.loads(kan_model_paths_json)
+        except Exception:
+            kan_model_paths = None
     daily_data_path = os.getenv("DAILY_DATA_PATH") or ""
 
     max_position = int(os.getenv("MAX_POSITION", "2"))
@@ -176,6 +192,8 @@ def _make_server() -> SevenModuleInferenceServer:
         model_type=model_type,
         transformer_model_path=transformer_model_path,
         kan_model_path=kan_model_path,
+        transformer_model_paths=transformer_model_paths,
+        kan_model_paths=kan_model_paths,
         daily_data_path=daily_data_path,
         max_position=max_position,
     )

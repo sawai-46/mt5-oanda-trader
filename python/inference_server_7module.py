@@ -26,9 +26,10 @@ import csv
 import tempfile
 import re
 import numpy as np
+import threading
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Tuple, Dict, List, Optional
+from typing import Tuple, Dict, List, Optional, Any
 
 # パスを追加
 sys.path.insert(0, str(Path(__file__).parent))
@@ -278,6 +279,8 @@ class SevenModuleAnalyzer:
                  model_type: str = 'ensemble',
                  transformer_model_path: str = None,
                  kan_model_path: str = None,
+                 transformer_model_paths: dict = None,
+                 kan_model_paths: dict = None,
                  daily_data_path: str = None,
                  max_position: int = 2,
                  hedge_mode: bool = False,
@@ -409,22 +412,24 @@ class SevenModuleAnalyzer:
 
         # ★NEW: Antigravity Orchestrator（Transformer/KAN/VPIN/GARCH）
         self.use_antigravity = use_antigravity and ANTIGRAVITY_AVAILABLE
-        self.orchestrator = None
+        self._ag_model_type = model_type
+        self._ag_daily_data_path = daily_data_path
+        self._ag_max_position = max_position
+        self._ag_transformer_default_path = transformer_model_path
+        self._ag_kan_default_path = kan_model_path
+        self._ag_transformer_model_paths = transformer_model_paths if isinstance(transformer_model_paths, dict) else {}
+        self._ag_kan_model_paths = kan_model_paths if isinstance(kan_model_paths, dict) else {}
+        self._ag_orchestrators: Dict[str, AntigravityOrchestrator] = {}
+        self._ag_orchestrator_specs: Dict[str, Dict[str, Any]] = {}
+        self._ag_lock = threading.Lock()
 
         if self.use_antigravity:
-            try:
-                self.orchestrator = AntigravityOrchestrator(
-                    run_mode='SHADOW',
-                    model_type=model_type,
-                    model_path=transformer_model_path,
-                    kan_model_path=kan_model_path,
-                    daily_data_path=daily_data_path,
-                    max_position=max_position
-                )
-                logger.info(f"Antigravity Orchestrator initialized (model_type={model_type})")
-            except Exception as e:
-                logger.warning(f"Failed to initialize Antigravity: {e}")
-                self.use_antigravity = False
+            # NOTE: 複数銘柄を同一プロセスで回す場合、Orchestrator の内部状態（bar_history 等）は銘柄ごとに分離が必須。
+            # 遅延初期化 + (symbol,timeframe) キャッシュで対応。
+            logger.info(
+                "Antigravity Orchestrator enabled: per-symbol/timeframe cache mode "
+                f"(model_type={self._ag_model_type})"
+            )
 
         modules_count = "9+Antigravity" if self.use_antigravity else "9"
         logger.info(
@@ -432,6 +437,148 @@ class SevenModuleAnalyzer:
             f"ATR: FX={self.atr_threshold_fx}pips, Index={self.atr_threshold_index}points, "
             f"SymbolOverrides={len(self.symbol_atr_thresholds)})"
         )
+
+    @staticmethod
+    def _normalize_symbol_candidates(symbol: str) -> List[str]:
+        raw = (symbol or "").strip().upper()
+        candidates: List[str] = []
+        if raw:
+            candidates.append(raw)
+
+        # 'JP225.mt4' のようなケースに対応
+        if raw and '.' in raw:
+            base = raw.split('.', 1)[0].strip()
+            if base and base not in candidates:
+                candidates.append(base)
+
+        # よくある別名（最低限）
+        aliases = {
+            "US100": "NQ100",
+            "NAS100": "NQ100",
+        }
+        for c in list(candidates):
+            if c in aliases:
+                a = aliases[c]
+                if a not in candidates:
+                    candidates.append(a)
+        return candidates
+
+    @staticmethod
+    def _normalize_symbol_for_logic(symbol: str) -> str:
+        """銘柄判定・閾値参照など“ロジック側”で使う正規化。
+
+        - MT4の 'JP225.mt4' のような接尾辞を落とす
+        - MT5の 'US100' を内部基準の 'NQ100' に寄せる
+        """
+        s = (symbol or "").strip().upper()
+        if '.' in s:
+            s = s.split('.', 1)[0].strip()
+        if s in ("US100", "NAS100"):
+            return "NQ100"
+        return s
+
+    @staticmethod
+    def _timeframe_variants(timeframe: str) -> List[str]:
+        tf = (timeframe or "").strip().upper()
+        if not tf:
+            return []
+        variants = [tf]
+
+        # M15 <-> 15 の相互運用
+        if tf.startswith('M') and tf[1:].isdigit():
+            n = tf[1:]
+            if n not in variants:
+                variants.append(n)
+        elif tf.isdigit():
+            m = f"M{tf}"
+            if m not in variants:
+                variants.append(m)
+
+        return variants
+
+    @staticmethod
+    def _select_model_path(mapping: Dict[str, Any], symbol: str, timeframe: str, default_path: Optional[str]) -> Optional[str]:
+        if not isinstance(mapping, dict):
+            return default_path
+
+        symbol_candidates = SevenModuleAnalyzer._normalize_symbol_candidates(symbol)
+        tf_candidates = SevenModuleAnalyzer._timeframe_variants(timeframe)
+
+        # 1) SYMBOL_TF
+        for sym in symbol_candidates:
+            for tf in tf_candidates:
+                key = f"{sym}_{tf}"
+                val = mapping.get(key)
+                if isinstance(val, str) and val.strip():
+                    return val.strip()
+
+        # 2) SYMBOL
+        for sym in symbol_candidates:
+            val = mapping.get(sym)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+
+        # 3) default
+        for k in ("default", "*", "DEFAULT"):
+            val = mapping.get(k)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+
+        return default_path
+
+    def _get_orchestrator(self, symbol: str, timeframe: str) -> Optional[AntigravityOrchestrator]:
+        if not self.use_antigravity:
+            return None
+
+        sym = (symbol or "").strip().upper() or "UNKNOWN"
+        tf = (timeframe or "").strip().upper() or "M?"
+        cache_key = f"{sym}|{tf}"
+
+        transformer_path = self._select_model_path(
+            self._ag_transformer_model_paths,
+            symbol=sym,
+            timeframe=tf,
+            default_path=self._ag_transformer_default_path,
+        )
+        kan_path = self._select_model_path(
+            self._ag_kan_model_paths,
+            symbol=sym,
+            timeframe=tf,
+            default_path=self._ag_kan_default_path,
+        )
+        spec = {
+            "model_type": self._ag_model_type,
+            "transformer_path": transformer_path,
+            "kan_path": kan_path,
+            "daily_data_path": self._ag_daily_data_path,
+            "max_position": self._ag_max_position,
+        }
+
+        with self._ag_lock:
+            existing = self._ag_orchestrators.get(cache_key)
+            existing_spec = self._ag_orchestrator_specs.get(cache_key)
+            if existing is not None and existing_spec == spec:
+                return existing
+
+            try:
+                orch = AntigravityOrchestrator(
+                    run_mode='SHADOW',
+                    model_type=self._ag_model_type,
+                    model_path=transformer_path,
+                    kan_model_path=kan_path,
+                    daily_data_path=self._ag_daily_data_path,
+                    max_position=self._ag_max_position,
+                )
+                self._ag_orchestrators[cache_key] = orch
+                self._ag_orchestrator_specs[cache_key] = spec
+                logger.info(
+                    f"Antigravity Orchestrator ready: {cache_key} "
+                    f"(type={self._ag_model_type}, transformer={transformer_path}, kan={kan_path})"
+                )
+                return orch
+            except Exception as e:
+                logger.warning(f"Failed to initialize Antigravity for {cache_key}: {e}")
+                return None
 
     def _resolve_atr_threshold(self, symbol: str, is_index: bool) -> Tuple[float, str]:
         sym = (symbol or "").strip().upper()
@@ -703,7 +850,8 @@ class SevenModuleAnalyzer:
             
             # ★NEW: 8. PullbackModule（EA_PullbackEntryロジック）
             # 銘柄タイプをあらかじめ判定
-            symbol = data.get('symbol', '').upper()
+            symbol_raw = (data.get('symbol', '') or '').upper()
+            symbol = self._normalize_symbol_for_logic(symbol_raw)
             is_index = is_index_symbol(symbol)
             
             # pip_sizeを銘柄に応じて設定
@@ -871,10 +1019,13 @@ class SevenModuleAnalyzer:
             
             # ★NEW: Antigravity Orchestratorの予測を統合
             antigravity_info = ""
-            if self.use_antigravity and self.orchestrator is not None:
+            symbol_for_ag = (data.get('symbol', '') or '').upper()
+            timeframe_for_ag = str(data.get('timeframe', 'M5')).strip().upper()
+            orchestrator = self._get_orchestrator(symbol=symbol_for_ag, timeframe=timeframe_for_ag)
+            if self.use_antigravity and orchestrator is not None:
                 try:
                     # 履歴が不足している場合、過去データから初期化を試みる
-                    if len(self.orchestrator.bar_history) < 20 and len(closes) >= 20:
+                    if len(orchestrator.bar_history) < 20 and len(closes) >= 20:
                         logger.info(f"Initializing Antigravity history with {len(closes)} past bars")
                         # 最新の足は後で追加するので、それ以前のデータを追加
                         # opens, highs, lows, closes は全て古い順に並んでいる
@@ -886,7 +1037,7 @@ class SevenModuleAnalyzer:
                                 'Close': float(closes[i]),
                                 'Volume': float(volumes[i]) if i < len(volumes) else 1000.0
                             }
-                            self.orchestrator._update_bar_history(b_data)
+                            orchestrator._update_bar_history(b_data)
 
                     # 最新のバーデータをOrchestratorに投入
                     bar_data = {
@@ -896,11 +1047,11 @@ class SevenModuleAnalyzer:
                         'Close': closes[-1],
                         'Volume': float(data.get('volume', 1000))
                     }
-                    self.orchestrator._update_bar_history(bar_data)
+                    orchestrator._update_bar_history(bar_data)
                     
                     # モデル予測を取得（Transformer/KAN/Ensemble）
-                    if len(self.orchestrator.bar_history) >= 20:
-                        model_pred = self.orchestrator._get_model_prediction()
+                    if len(orchestrator.bar_history) >= 20:
+                        model_pred = orchestrator._get_model_prediction()
                         dir_names = ['DOWN', 'FLAT', 'UP']
                         
                         # モデル予測をシグナルに変換（-1, 0, +1）
@@ -918,7 +1069,7 @@ class SevenModuleAnalyzer:
                         )
                         
                         # KAN予測（Ensembleモードの場合は別途取得、そうでなければ同じ）
-                        if self.orchestrator.model_type == 'ensemble':
+                        if orchestrator.model_type == 'ensemble':
                             # Ensemble: 既にTransformer+KANの統合結果
                             module_scores['antigravity_kan'] = ModuleScore(
                                 signal=model_signal,
@@ -930,7 +1081,7 @@ class SevenModuleAnalyzer:
                             module_scores['antigravity_kan'] = ModuleScore(
                                 signal=model_signal,
                                 confidence=model_confidence * 0.8,
-                                reason=f"{self.orchestrator.model_type}:{dir_names[model_pred]}"
+                                reason=f"{orchestrator.model_type}:{dir_names[model_pred]}"
                             )
                         
                         # ★ Antigravity主導のシグナル判定 ★
@@ -968,7 +1119,7 @@ class SevenModuleAnalyzer:
                             logger.info(f"★ CONSENSUS: Antigravity + SubModules agree on {'BUY' if signal > 0 else 'SELL'}")
                         
                         antigravity_info = f" | AG:{dir_names[model_pred]}({antigravity_conf:.2f})"
-                        logger.info(f"Antigravity Core: {self.orchestrator.model_type}={dir_names[model_pred]} (conf={antigravity_conf:.2f}), "
+                        logger.info(f"Antigravity Core: {orchestrator.model_type}={dir_names[model_pred]} (conf={antigravity_conf:.2f}), "
                                    f"SubModules={aggregated.weighted_score:+.3f}, combined_score={combined_score:.3f} -> final={signal}")
                 except Exception as e:
                     logger.debug(f"Antigravity integration error: {e}")
@@ -1115,6 +1266,8 @@ Antigravity予測を重視しつつ、Sub-Modulesによるフィルタリング�
                  model_type: str = 'ensemble',
                  transformer_model_path: str = None,
                  kan_model_path: str = None,
+                 transformer_model_paths: dict = None,
+                 kan_model_paths: dict = None,
                  daily_data_path: str = None,
                  max_position: int = 2,
                  hedge_mode: bool = False,
@@ -1200,6 +1353,8 @@ Antigravity予測を重視しつつ、Sub-Modulesによるフィルタリング�
             model_type=model_type,
             transformer_model_path=transformer_model_path,
             kan_model_path=kan_model_path,
+            transformer_model_paths=transformer_model_paths,
+            kan_model_paths=kan_model_paths,
             daily_data_path=daily_data_path,
             max_position=max_position,
             hedge_mode=hedge_mode,
