@@ -922,43 +922,32 @@ void CheckPartialClose()
       
       if(m_trade.PositionClosePartial(ticket, lotsToClose))
       {
-         CLogger::Log(LOG_INFO, StringFormat("[TP_PARTIAL] Level %d: Ticket=#%lld Lots=%.2f Profit=%.1f pts", 
-               newLevel, ticket, lotsToClose, profitPoints));
+         long identifier = PositionGetInteger(POSITION_IDENTIFIER);
+         CLogger::Log(LOG_INFO, StringFormat("[TP_PARTIAL] Level %d: #%lld Lots=%.2f Profit=%.1f pts Identifier=%lld", 
+               newLevel, ticket, lotsToClose, profitPoints, identifier));
          
          g_partialCloseLevel[ticketIndex] = newLevel;
 
          if(InpEnablePersistentTpState)
             PersistSaveByTicket(ticket, newLevel);
          
-         // Level1後にBreakEven移動
-         if(newLevel == 1 && InpMoveToBreakEvenAfterLevel1)
+         // Level1後にBreakEven移動 / Level2後にSL移動（3段階モード）
+         if((newLevel == 1 && InpMoveToBreakEvenAfterLevel1) || (newLevel == 2 && maxLevel >= 3 && InpMoveSLAfterLevel2))
          {
             Sleep(100);
-            for(int j = PositionsTotal() - 1; j >= 0; j--)
+            ulong newTicket = FindPositionByIdentifier(identifier);
+            if(newTicket > 0)
             {
-               ulong newTicket = PositionGetTicket(j);
-               if(PositionGetInteger(POSITION_MAGIC) == g_ActiveMagicNumber && 
-                  PositionGetString(POSITION_SYMBOL) == _Symbol)
+               g_partialCloseLevel[(int)(newTicket % 1000)] = newLevel;
+               if(InpEnablePersistentTpState)
+                  PersistSaveByTicket(newTicket, newLevel);
+
+               if(newLevel == 1)
                {
                   m_trade.PositionModify(newTicket, openPrice, PositionGetDouble(POSITION_TP));
-                  CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Level 1: Moved to Break-even @ %.5f", openPrice));
-                  g_partialCloseLevel[(int)(newTicket % 1000)] = newLevel;
-                  if(InpEnablePersistentTpState)
-                     PersistSaveByTicket(newTicket, newLevel);
-                  break;
+                  CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Level 1: Moved to Break-even @ %.5f (Ticket #%lld)", openPrice, newTicket));
                }
-            }
-         }
-         
-         // Level2後にSL移動（3段階モード）
-         if(newLevel == 2 && maxLevel >= 3 && InpMoveSLAfterLevel2)
-         {
-            Sleep(100);
-            for(int j = PositionsTotal() - 1; j >= 0; j--)
-            {
-               ulong newTicket = PositionGetTicket(j);
-               if(PositionGetInteger(POSITION_MAGIC) == g_ActiveMagicNumber && 
-                  PositionGetString(POSITION_SYMBOL) == _Symbol)
+               else // newLevel == 2
                {
                   double level1Price;
                   if(posType == POSITION_TYPE_BUY)
@@ -967,16 +956,31 @@ void CheckPartialClose()
                      level1Price = openPrice - g_PartialClose1Points * point;
                   
                   m_trade.PositionModify(newTicket, level1Price, PositionGetDouble(POSITION_TP));
-                  CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Level 2: Moved to Level1 profit @ %.5f", level1Price));
-                  g_partialCloseLevel[(int)(newTicket % 1000)] = newLevel;
-                  if(InpEnablePersistentTpState)
-                     PersistSaveByTicket(newTicket, newLevel);
-                  break;
+                  CLogger::Log(LOG_INFO, StringFormat("[SL_MOVE] Level 2: Moved to Level1 profit @ %.5f (Ticket #%lld)", level1Price, newTicket));
                }
             }
          }
       }
    }
+}
+
+//+------------------------------------------------------------------+
+//| ポジション識別子によるポジション検索                                |
+//+------------------------------------------------------------------+
+ulong FindPositionByIdentifier(long identifier)
+{
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0 && 
+         PositionGetInteger(POSITION_MAGIC) == g_ActiveMagicNumber && 
+         PositionGetString(POSITION_SYMBOL) == _Symbol &&
+         PositionGetInteger(POSITION_IDENTIFIER) == identifier)
+      {
+         return ticket;
+      }
+   }
+   return 0;
 }
 
 //+------------------------------------------------------------------+

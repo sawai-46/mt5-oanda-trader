@@ -394,8 +394,9 @@ private:
          
          if(m_trade.PositionClosePartial(ticket, lotsToClose))
          {
-            CLogger::Log(LOG_INFO, StringFormat("[TP_PARTIAL] Level %d: #%lld Lots=%.2f Profit=%.0fpts", 
-                  newLevel, ticket, lotsToClose, profitPoints));
+            long identifier = PositionGetInteger(POSITION_IDENTIFIER);
+            CLogger::Log(LOG_INFO, StringFormat("[TP_PARTIAL] Level %d: #%lld Lots=%.2f Profit=%.0fpts Identifier=%lld", 
+                  newLevel, ticket, lotsToClose, profitPoints, identifier));
             
             m_partialLevels[ticketIdx] = newLevel;
 
@@ -405,8 +406,8 @@ private:
             // Post-close actions
             Sleep(100);
             
-            // Find remaining position (new ticket after partial close)
-            ulong remainingTicket = FindRemainingPosition();
+            // Find remaining position (same identifier, possibly new ticket after partial close in hedging mode)
+            ulong remainingTicket = FindRemainingPositionByIdentifier(identifier);
             if(remainingTicket > 0)
             {
                m_partialLevels[(int)(remainingTicket % 1000)] = newLevel;
@@ -436,14 +437,17 @@ private:
       }
    }
    
-   //--- Find remaining position after partial close
-   ulong FindRemainingPosition()
+   //--- Find remaining position after partial close using its unique identifier
+   ulong FindRemainingPositionByIdentifier(long identifier)
    {
       for(int i = PositionsTotal() - 1; i >= 0; i--)
       {
          ulong ticket = PositionGetTicket(i);
+         if(ticket == 0) continue;
+         
          if(PositionGetInteger(POSITION_MAGIC) == m_cfg.MagicNumber &&
-            PositionGetString(POSITION_SYMBOL) == m_cfg.Symbol)
+            PositionGetString(POSITION_SYMBOL) == m_cfg.Symbol &&
+            PositionGetInteger(POSITION_IDENTIFIER) == identifier)
          {
             return ticket;
          }
