@@ -190,6 +190,34 @@ private:
       return true;
    }
 
+   bool ModifyPositionSltpByTicket(const ulong ticket, const double sl, const double tp, uint &retcode)
+   {
+      retcode = 0;
+      if(ticket == 0)
+         return false;
+      if(!PositionSelectByTicket(ticket))
+         return false;
+
+      MqlTradeRequest req;
+      MqlTradeResult  res;
+      ZeroMemory(req);
+      ZeroMemory(res);
+
+      req.action   = TRADE_ACTION_SLTP;
+      req.position = ticket;
+      req.symbol   = PositionGetString(POSITION_SYMBOL);
+      req.magic    = (ulong)m_cfg.MagicNumber;
+      req.sl       = sl;
+      req.tp       = tp;
+
+      const bool ok = OrderSend(req, res);
+      retcode = res.retcode;
+      if(!ok)
+         return false;
+
+      return (res.retcode == TRADE_RETCODE_DONE || res.retcode == TRADE_RETCODE_DONE_PARTIAL);
+   }
+
    bool SafePositionModifySL(const ulong ticket, const double desiredSL, const double tp, const string tag)
    {
       if(ticket == 0)
@@ -209,10 +237,13 @@ private:
          return false;
       }
 
-      if(m_trade.PositionModify(ticket, newSL, tp))
+      uint retcode = 0;
+      if(ModifyPositionSltpByTicket(ticket, newSL, tp, retcode))
          return true;
 
-      CLogger::Log(LOG_WARN, StringFormat("[SAFE_SL][MT5_PM] PositionModify failed(%s): ticket=%lld sl=%.5f (err=%d)", tag, ticket, newSL, GetLastError()));
+      const int err = GetLastError();
+      CLogger::Log(LOG_WARN, StringFormat("[SAFE_SL][MT5_PM] Position SLTP modify failed(%s): ticket=%lld sl=%.5f tp=%.5f retcode=%u err=%d", tag, ticket, newSL, tp, retcode, err));
+      ResetLastError();
       return false;
    }
 

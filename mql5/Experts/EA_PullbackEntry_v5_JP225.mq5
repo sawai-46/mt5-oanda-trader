@@ -158,7 +158,8 @@ string BuildLogFileName(const string baseName)
    string ext = (lastDot >= 0) ? StringSubstr(name, lastDot) : ".log";
    string stem = (lastDot >= 0) ? StringSubstr(name, 0, lastDot) : name;
 
-   return stem + "_" + _Symbol + "_" + AccountModeTag() + ext;
+   string tfStr = EnumToString((ENUM_TIMEFRAMES)_Period);
+   return stem + "_" + _Symbol + "_" + tfStr + "_" + AccountModeTag() + ext;
 }
 //+------------------------------------------------------------------+
 //| フォルダパスの作成を保証する                                     |

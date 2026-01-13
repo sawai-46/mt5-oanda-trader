@@ -1020,6 +1020,30 @@ bool IsFinitePrice(const double v)
    return true;
 }
 
+bool ModifyPositionSltpByTicket(const ulong ticket, const double sl, const double tp)
+{
+   if(!PositionSelectByTicket(ticket))
+      return false;
+
+   MqlTradeRequest req;
+   MqlTradeResult  res;
+   ZeroMemory(req);
+   ZeroMemory(res);
+
+   req.action   = TRADE_ACTION_SLTP;
+   req.position = ticket;
+   req.symbol   = PositionGetString(POSITION_SYMBOL);
+   req.magic    = (ulong)g_ActiveMagicNumber;
+   req.sl       = sl;
+   req.tp       = tp;
+
+   bool ok = OrderSend(req, res);
+   if(!ok)
+      return false;
+
+   return (res.retcode == TRADE_RETCODE_DONE || res.retcode == TRADE_RETCODE_DONE_PARTIAL);
+}
+
 bool SafePositionModifySL(ulong ticket, double desiredSL, double tp, const string tag)
 {
    if(!PositionSelectByTicket(ticket)) return false;
@@ -1053,7 +1077,14 @@ bool SafePositionModifySL(ulong ticket, double desiredSL, double tp, const strin
       }
    }
 
-   return m_trade.PositionModify(ticket, newSL, tp);
+   bool ok = ModifyPositionSltpByTicket(ticket, newSL, tp);
+   if(!ok)
+   {
+      int err = GetLastError();
+      CLogger::Log(LOG_WARN, StringFormat("[SAFE_SL] Position SLTP modify failed(%s): ticket=%lld SL=%.5f TP=%.5f err=%d", tag, ticket, newSL, tp, err));
+      ResetLastError();
+   }
+   return ok;
 }
 
 //+------------------------------------------------------------------+
