@@ -4,7 +4,7 @@
 #ifndef __ACCOUNT_STATUS_CSV_MQH__
 #define __ACCOUNT_STATUS_CSV_MQH__
 
-static string AS_SanitizeFilePart(string s)
+string AS_SanitizeFilePart(string s)
 {
    StringTrimLeft(s);
    StringTrimRight(s);
@@ -21,7 +21,7 @@ static string AS_SanitizeFilePart(string s)
    return s;
 }
 
-static bool AS_EnsureFolderPath(string folderPath)
+bool AS_EnsureFolderPath(string folderPath)
 {
    if(StringLen(folderPath) <= 0)
       return false;
@@ -48,7 +48,7 @@ static bool AS_EnsureFolderPath(string folderPath)
    return true;
 }
 
-static void AS_WriteSnapshotCsv(const string filename, const string terminal_id)
+void AS_WriteSnapshotCsv(const string filename, const string terminal_id)
 {
    // Ensure overwrite behavior
    FileDelete(filename);
@@ -61,7 +61,7 @@ static void AS_WriteSnapshotCsv(const string filename, const string terminal_id)
    double balance    = AccountInfoDouble(ACCOUNT_BALANCE);
    double equity     = AccountInfoDouble(ACCOUNT_EQUITY);
    double margin     = AccountInfoDouble(ACCOUNT_MARGIN);
-   double freeMargin = AccountInfoDouble(ACCOUNT_FREEMARGIN);
+   double freeMargin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
    int positions     = (int)PositionsTotal();
 
    FileWrite(
