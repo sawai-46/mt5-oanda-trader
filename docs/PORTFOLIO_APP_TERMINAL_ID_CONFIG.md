@@ -75,6 +75,7 @@ EAは `account_status.csv` を **上書き** で出力します（MT4/MT5とも�
 つまり、**履歴は溜めず「最新スナップショット」だけが残ります**。
 
 - 出力先: MT4/MT5 の `MQL*/Files/account_status.csv`
+  - 互換性維持のため上記は残しつつ、OneDrive集約運用向けに `MQL*/Files/OneDriveLogs/data/account_status/account_status_<TerminalId>.csv` も併せて出力
 - 更新: `OnInit` で1回 + `OnTick` で60秒間隔
 - 列: `TerminalId, Timestamp, Balance, Equity, Margin, FreeMargin, Positions`
 

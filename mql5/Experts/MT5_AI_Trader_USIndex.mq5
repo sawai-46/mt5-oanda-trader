@@ -147,6 +147,25 @@ string AccountModeTag()
    return "UNKNOWN";
 }
 
+string BuildLogFileName(const string baseName)
+{
+   string name = (StringLen(baseName) > 0) ? baseName : "MT5_AI_Trader.log";
+
+   // split extension (last dot)
+   int lastDot = -1;
+   for(int i = 0; i < StringLen(name); i++)
+   {
+      if(StringGetCharacter(name, i) == '.')
+         lastDot = i;
+   }
+
+   string ext = (lastDot >= 0) ? StringSubstr(name, lastDot) : ".log";
+   string stem = (lastDot >= 0) ? StringSubstr(name, 0, lastDot) : name;
+
+   string tfStr = PeriodToString((ENUM_TIMEFRAMES)_Period);
+   return stem + "_" + _Symbol + "_" + tfStr + "_" + AccountModeTag() + ext;
+}
+
 void DumpEffectiveConfig_AI_HTTP()
 {
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_US] Magic=%lld ID=%s URL=%s", g_ActiveMagicNumber, InpMT5_ID, g_inferenceServerUrl));
@@ -254,7 +273,8 @@ int OnInit()
       string instanceId = MQLInfoString(MQL_PROGRAM_NAME) + "|" + _Symbol + "|Acct:" + AccountModeTag() + "|Magic:" + (string)g_ActiveMagicNumber + "|CID:" + (string)ChartID();
       ENUM_LOG_LEVEL minLevel = InpLogMinLevel;
       if(InpShowDebugLog) minLevel = LOG_DEBUG;
-      CLogger::Configure(instanceId, InpEnableLogging, minLevel, InpLogToFile, InpLogFileName, InpLogUseCommonFolder);
+      string logFileName = BuildLogFileName(InpLogFileName);
+      CLogger::Configure(instanceId, InpEnableLogging, minLevel, InpLogToFile, logFileName, InpLogUseCommonFolder);
    }
    
    // ユニークID生成

@@ -13,6 +13,48 @@ private:
    static bool           s_useCommonFolder;
    static string         s_fileName;
 
+   static string FolderPart(const string path)
+   {
+      int lastSep = -1;
+      for(int i = 0; i < StringLen(path); i++)
+      {
+         const ushort ch = (ushort)StringGetCharacter(path, i);
+         if(ch == '\\' || ch == '/')
+            lastSep = i;
+      }
+      if(lastSep < 0)
+         return "";
+      return StringSubstr(path, 0, lastSep);
+   }
+
+   static bool EnsureFolderPath(string folderPath)
+   {
+      if(StringLen(folderPath) <= 0)
+         return false;
+
+      // Safety: do not attempt to create absolute/UNC paths.
+      // MQL5 file APIs typically expect paths relative to MQL5/Files (and optionally FILE_COMMON).
+      if(StringLen(folderPath) >= 2 && StringGetCharacter(folderPath, 1) == ':')
+         return false;
+      if(StringGetCharacter(folderPath, 0) == '\\' || StringGetCharacter(folderPath, 0) == '/')
+         return false;
+
+      string parts[];
+      int n = StringSplit(folderPath, '\\', parts);
+      if(n <= 0)
+         return false;
+
+      string current = "";
+      for(int i = 0; i < n; i++)
+      {
+         if(StringLen(parts[i]) == 0)
+            continue;
+         current = (StringLen(current) == 0) ? parts[i] : (current + "\\" + parts[i]);
+         FolderCreate(current);
+      }
+      return true;
+   }
+
    static string LevelToString(ENUM_LOG_LEVEL level)
    {
       switch(level)
@@ -53,6 +95,10 @@ private:
    {
       if(!s_fileEnabled) return;
       if(StringLen(s_fileName) <= 0) return;
+
+      // Ensure parent folders exist for relative paths (e.g., OneDriveLogs\\logs\\...).
+      // This prevents silent FileOpen failures when the folder tree doesn't exist.
+      EnsureFolderPath(FolderPart(s_fileName));
 
       int flags = FILE_TXT | FILE_WRITE | FILE_READ | FILE_SHARE_WRITE;
       if(s_useCommonFolder)
