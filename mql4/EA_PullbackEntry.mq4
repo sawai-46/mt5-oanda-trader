@@ -1461,12 +1461,22 @@ void ManagePosition()
    if (current_ticket < 0) return;
    
    if (!OrderSelect(current_ticket, SELECT_BY_TICKET)) {
+      if (OrderSelect(current_ticket, SELECT_BY_TICKET, MODE_HISTORY)) {
+         string direction = (OrderType() == OP_BUY) ? "BUY" : "SELL";
+         double profit = OrderProfit() + OrderSwap() + OrderCommission();
+         string close_time = TimeToString(OrderCloseTime(), TIME_DATE | TIME_MINUTES);
+         LogTrade("EXIT", direction, "", current_ticket, OrderClosePrice(), OrderStopLoss(), OrderTakeProfit(), "closed", profit, close_time);
+      }
       current_ticket = -1;
       return;
    }
    
    if (OrderCloseTime() != 0) {
       // クローズ済み
+      string direction = (OrderType() == OP_BUY) ? "BUY" : "SELL";
+      double profit = OrderProfit() + OrderSwap() + OrderCommission();
+      string close_time = TimeToString(OrderCloseTime(), TIME_DATE | TIME_MINUTES);
+      LogTrade("EXIT", direction, "", current_ticket, OrderClosePrice(), OrderStopLoss(), OrderTakeProfit(), "closed", profit, close_time);
       current_ticket = -1;
       return;
    }
@@ -1827,7 +1837,7 @@ void InitializeCsvLog()
    
    if (FileSize(file_handle) == 0) {
       FileWrite(file_handle, "Timestamp", "Symbol", "Event", "Direction", "PullbackType",
-                "Ticket", "Price", "SL", "TP", "Details");
+                "Ticket", "Price", "SL", "TP", "Details", "Profit", "CloseDateTime");
    }
    
    FileClose(file_handle);
@@ -1905,7 +1915,8 @@ string GetTimeframeString(int period)
 //| トレードログ記録                                                  |
 //+------------------------------------------------------------------+
 void LogTrade(string event, string direction, string pullback, int ticket,
-              double price, double sl, double tp, string details = "")
+              double price, double sl, double tp, string details = "",
+              double profit = 0.0, string close_time = "")
 {
    if (!EnableCsvLogging) return;
    
@@ -1921,7 +1932,9 @@ void LogTrade(string event, string direction, string pullback, int ticket,
              DoubleToString(price, Digits),
              DoubleToString(sl, Digits),
              DoubleToString(tp, Digits),
-             details);
+             details,
+             DoubleToString(profit, 2),
+             close_time);
    
    FileClose(file_handle);
 }
