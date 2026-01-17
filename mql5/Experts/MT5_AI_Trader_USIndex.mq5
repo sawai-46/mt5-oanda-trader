@@ -108,6 +108,10 @@ input string InpLogFileName = "OneDriveLogs\\logs\\MT5_AI_Trader.log";   // ロ�
 input int    InpSkipLogCooldown = 60;                 // 同一スキップログの抑制秒数
 input int    InpMainLogicIntervalSec = 60;            // メインロジック実行間隔(秒)
 
+//--- Trade History CSV
+input bool   InpEnableCsvTradeLog = true;             // Trade_History CSV 出力
+input string InpCsvLogFolder = "OneDriveLogs\\Trade_History"; // CSVフォルダ（MQL5/Files配下）
+
 //--- グローバル変数
 datetime g_lastBarTime = 0;
 int g_lastTradeBar = 100;
@@ -116,6 +120,8 @@ int g_partialCloseLevel[];
 string g_uniqueId = "";
 string g_inferenceServerUrl = "";
 CTrade m_trade;
+
+string g_tradeLogPath = "";
 
 // Partial Close永続化: クールダウン管理
 datetime g_lastPersistCleanup = 0;
@@ -181,6 +187,81 @@ void LogSkipReason(string reason)
    last_skip_reason = reason;
    last_skip_log_time = TimeCurrent();
    CLogger::Log(LOG_INFO, ">>> スキップ: " + reason);
+}
+
+bool EnsureFolderPath(const string folderPath)
+{
+   string path = folderPath;
+   StringReplace(path, "/", "\\");
+   while(StringLen(path) > 0 && StringSubstr(path, StringLen(path) - 1, 1) == "\\")
+      path = StringSubstr(path, 0, StringLen(path) - 1);
+
+   if(StringLen(path) == 0)
+      return false;
+
+   string parts[];
+   int n = StringSplit(path, '\\', parts);
+   if(n <= 0)
+      return false;
+
+   string current = "";
+   for(int i = 0; i < n; i++)
+   {
+      if(StringLen(parts[i]) == 0)
+         continue;
+      current = (StringLen(current) == 0) ? parts[i] : (current + "\\" + parts[i]);
+      FolderCreate(current);
+   }
+   return true;
+}
+
+void InitializeTradeHistoryLog()
+{
+   if(!InpEnableCsvTradeLog) return;
+
+   string timeframe = PeriodToString((ENUM_TIMEFRAMES)_Period);
+   string logFile = "Trade_Log_" + InpMT5_ID + "_" + _Symbol + "_" + timeframe + ".csv";
+   string folder = InpCsvLogFolder;
+   EnsureFolderPath(folder);
+
+   g_tradeLogPath = folder + "\\" + logFile;
+   int file_handle = FileOpen(g_tradeLogPath, FILE_READ | FILE_WRITE | FILE_CSV | FILE_ANSI);
+   if(file_handle == INVALID_HANDLE)
+   {
+      Print("❌ CSVログファイル作成失敗: ", g_tradeLogPath, " err=", GetLastError());
+      return;
+   }
+
+   if(FileSize(file_handle) == 0)
+   {
+      FileWrite(file_handle, "Timestamp", "Symbol", "Event", "Direction", "PullbackType",
+                "Ticket", "Price", "SL", "TP", "Details", "Profit", "CloseDateTime");
+   }
+   FileClose(file_handle);
+}
+
+void LogTradeHistory(const string event, const string direction, const string pullback,
+                     const ulong ticket, const double price, const double sl, const double tp,
+                     const string details = "", const double profit = 0.0, const string close_time = "")
+{
+   if(!InpEnableCsvTradeLog || StringLen(g_tradeLogPath) == 0)
+      return;
+
+   int file_handle = FileOpen(g_tradeLogPath, FILE_READ | FILE_WRITE | FILE_CSV | FILE_ANSI);
+   if(file_handle == INVALID_HANDLE)
+      return;
+
+   FileSeek(file_handle, 0, SEEK_END);
+   string timestamp = TimeToString(TimeCurrent(), TIME_DATE | TIME_MINUTES);
+   FileWrite(file_handle, timestamp, _Symbol, event, direction, pullback,
+             (string)ticket,
+             DoubleToString(price, _Digits),
+             DoubleToString(sl, _Digits),
+             DoubleToString(tp, _Digits),
+             details,
+             DoubleToString(profit, 2),
+             close_time);
+   FileClose(file_handle);
 }
 
 //+------------------------------------------------------------------+
@@ -306,6 +387,8 @@ int OnInit()
       CLogger::Log(LOG_ERROR, "URLを'ツール > オプション > エキスパートアドバイザ > WebRequestを許可するURLリスト'に追加してください");
       return(INIT_FAILED);
    }
+
+   InitializeTradeHistoryLog();
    
    CLogger::Log(LOG_INFO, "初期化完了");
    ExportAccountStatusWithTerminalId(GetAccountStatusTerminalId());
@@ -318,6 +401,32 @@ int OnInit()
 void OnDeinit(const int reason)
 {
    CLogger::Log(LOG_INFO, "EA終了 - 理由: " + IntegerToString(reason));
+}
+
+//+------------------------------------------------------------------+
+//| Trade transaction handler (exit logging)                         |
+//+------------------------------------------------------------------+
+void OnTradeTransaction(const MqlTradeTransaction &trans,
+                        const MqlTradeRequest &request,
+                        const MqlTradeResult &result)
+{
+   if(!InpEnableCsvTradeLog) return;
+
+   if(trans.type != TRADE_TRANSACTION_DEAL_ADD)
+      return;
+   if(trans.symbol != _Symbol)
+      return;
+   if(trans.magic != g_ActiveMagicNumber)
+      return;
+
+   if(trans.entry != DEAL_ENTRY_OUT && trans.entry != DEAL_ENTRY_OUT_BY)
+      return;
+
+   string direction = (trans.deal_type == DEAL_TYPE_BUY) ? "BUY" : "SELL";
+   double profit = trans.profit + trans.commission + trans.swap;
+   string close_time = TimeToString((datetime)trans.time, TIME_DATE | TIME_MINUTES);
+   LogTradeHistory("EXIT", direction, "", trans.position, trans.price, 0.0, 0.0,
+                   "deal", profit, close_time);
 }
 
 //+------------------------------------------------------------------+
@@ -498,6 +607,11 @@ void ExecuteTrade(int signal, double confidence)
             " SL=", DoubleToString(sl, _Digits), " TP=", DoubleToString(tp, _Digits),
             " Preset=", GetPresetName());
       g_lastTradeBar = 0;
+      ulong ticket = (ulong)m_trade.ResultOrder();
+      if(ticket == 0)
+         ticket = (ulong)m_trade.ResultDeal();
+      LogTradeHistory("ENTRY", (is_long ? "BUY" : "SELL"), "", ticket, entry_price, sl, tp,
+                      "preset=" + GetPresetName(), 0.0, "");
    }
    else
    {
