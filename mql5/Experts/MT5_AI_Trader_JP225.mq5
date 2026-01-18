@@ -14,6 +14,19 @@
 #include <Integration/AccountStatusCsv.mqh>
 #include <Utils/JsonLite.mqh>
 
+#ifndef TRADE_TRANSACTION_DEAL_ADD
+#define TRADE_TRANSACTION_DEAL_ADD 3
+#endif
+#ifndef DEAL_ENTRY_OUT
+#define DEAL_ENTRY_OUT 1
+#endif
+#ifndef DEAL_ENTRY_OUT_BY
+#define DEAL_ENTRY_OUT_BY 3
+#endif
+#ifndef DEAL_TYPE_BUY
+#define DEAL_TYPE_BUY 0
+#endif
+
 //--- 推論サーバー戦略プリセット
 enum PresetOption
 {
@@ -454,18 +467,32 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
 
    if(trans.type != TRADE_TRANSACTION_DEAL_ADD)
       return;
-   if(trans.symbol != _Symbol)
-      return;
-   if(trans.magic != g_ActiveMagicNumber)
+
+   ulong deal = trans.deal;
+   if(deal == 0) return;
+   if(!HistoryDealSelect(deal)) return;
+
+   string symbol = HistoryDealGetString(deal, DEAL_SYMBOL);
+   if(symbol != _Symbol) return;
+
+   long magic = (long)HistoryDealGetInteger(deal, DEAL_MAGIC);
+   if(magic != g_ActiveMagicNumber) return;
+
+   long entry = HistoryDealGetInteger(deal, DEAL_ENTRY);
+   if(entry != DEAL_ENTRY_OUT && entry != DEAL_ENTRY_OUT_BY)
       return;
 
-   if(trans.entry != DEAL_ENTRY_OUT && trans.entry != DEAL_ENTRY_OUT_BY)
-      return;
+   long deal_type = HistoryDealGetInteger(deal, DEAL_TYPE);
+   string direction = (deal_type == DEAL_TYPE_BUY) ? "BUY" : "SELL";
+   double profit = HistoryDealGetDouble(deal, DEAL_PROFIT)
+                 + HistoryDealGetDouble(deal, DEAL_COMMISSION)
+                 + HistoryDealGetDouble(deal, DEAL_SWAP);
+   double price = HistoryDealGetDouble(deal, DEAL_PRICE);
+   long position_id = (long)HistoryDealGetInteger(deal, DEAL_POSITION_ID);
+   datetime close_time_dt = (datetime)HistoryDealGetInteger(deal, DEAL_TIME);
+   string close_time = TimeToString(close_time_dt, TIME_DATE | TIME_MINUTES);
 
-   string direction = (trans.deal_type == DEAL_TYPE_BUY) ? "BUY" : "SELL";
-   double profit = trans.profit + trans.commission + trans.swap;
-   string close_time = TimeToString((datetime)trans.time, TIME_DATE | TIME_MINUTES);
-   LogTradeHistory("EXIT", direction, "", trans.position, trans.price, 0.0, 0.0,
+   LogTradeHistory("EXIT", direction, "", (ulong)position_id, price, 0.0, 0.0,
                    "deal", profit, close_time);
 }
 
