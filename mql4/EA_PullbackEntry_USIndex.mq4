@@ -1674,18 +1674,20 @@ void CheckPartialClose()
       profit_Points = (entry_price - current_price) / 1.0;
    }
    
-   // 第1利確
+   // 第1利確（段階を順番に実行するため、まず第1段階をチェック）
    if (!partial1_executed && profit_Points >= g_PartialCloseLevel1_Points) {
       ExecutePartialClose(1, g_PartialClosePercent1);
+      return; // この Tick では1段階のみ実行し、次の Tick で次の段階を判定
    }
    
-   // 第2利確
-   if (g_PartialCloseLevels >= 2 && !partial2_executed && profit_Points >= g_PartialCloseLevel2_Points) {
+   // 第2利確（第1段階が完了している場合のみ）
+   if (g_PartialCloseLevels >= 2 && partial1_executed && !partial2_executed && profit_Points >= g_PartialCloseLevel2_Points) {
       ExecutePartialClose(2, g_PartialClosePercent2);
+      return; // この Tick では1段階のみ実行し、次の Tick で次の段階を判定
    }
    
-   // 第3利確
-   if (g_PartialCloseLevels >= 3 && !partial3_executed && profit_Points >= g_PartialCloseLevel3_Points) {
+   // 第3利確（第1・第2段階が完了している場合のみ）
+   if (g_PartialCloseLevels >= 3 && partial1_executed && partial2_executed && !partial3_executed && profit_Points >= g_PartialCloseLevel3_Points) {
       ExecutePartialClose(3, g_PartialClosePercent3);
    }
 }
@@ -1703,7 +1705,10 @@ void ExecutePartialClose(int level, double percent)
    double old_tp = OrderTakeProfit();
    
    double current_lots = OrderLots();
-   double close_lots = NormalizeDouble(current_lots * percent / 100.0, 2);
+   
+   // 初期ロット基準で計算（AI_Traderと同じ方式）
+   double base_lots = (initialLotsPersist > 0.0) ? initialLotsPersist : current_lots;
+   double close_lots = NormalizeDouble(base_lots * percent / 100.0, 2);
    
    if (close_lots < 0.01) return;
    
