@@ -274,6 +274,11 @@ def _run_engine(data: Dict[str, Any]) -> Tuple[int, float, str, str]:
     if engine is None:
         return 0, 0.0, "engine unavailable (fallback)", "fallback"
 
+    # ★NEW: プリセットが指定されていればengineに適用
+    req_preset = (data.get('preset') or '').strip()
+    if req_preset and hasattr(engine, 'module_analyzer') and hasattr(engine.module_analyzer, 'set_preset'):
+        engine.module_analyzer.set_preset(req_preset)
+
     fut = _executor.submit(engine.process_request, "HTTP", data)
     try:
         signal, confidence, reason = fut.result(timeout=_request_timeout_sec)
