@@ -994,6 +994,28 @@ void RestoreForSelectedPosition(const ulong ticket)
       g_partialCloseLevel[ticketIndex] = merged;
       if(InpLogPersistentTpStateEvents)
          CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_AIT_FX] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
+
+      // 復元後にSL位置を再同期（第2利確到達ならTP1へ、それ以外は建値へ）
+      ApplyPersistedStopLoss(ticket, merged, currentOpen, (ENUM_POSITION_TYPE)currentType, point);
+   }
+}
+
+void ApplyPersistedStopLoss(const ulong ticket, const int stage, const double openPrice, const ENUM_POSITION_TYPE posType, const double point)
+{
+   if(stage <= 0) return;
+
+   double tp = PositionGetDouble(POSITION_TP);
+
+   if(stage >= 2 && InpPartialCloseStages >= 3 && InpMoveSLAfterLevel2)
+   {
+      double level1Price = openPrice + ((posType == POSITION_TYPE_BUY) ? g_PartialClose1Points * point : -g_PartialClose1Points * point);
+      SafePositionModifySL(ticket, level1Price, tp, "L1R");
+      return;
+   }
+
+   if(stage >= 1 && InpMoveToBreakEvenAfterLevel1)
+   {
+      SafePositionModifySL(ticket, openPrice, tp, "BER");
    }
 }
 

@@ -352,6 +352,28 @@ private:
          m_partialLevels[idx] = merged;
          if(m_cfg.LogPersistentTpStateEvents)
             CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_PM] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
+
+         // 復元後にSL位置を再同期（第2利確到達ならTP1へ、それ以外は建値へ）
+         ApplyPersistedStopLoss(ticket, merged, currentOpen, (ENUM_POSITION_TYPE)currentType, point);
+      }
+   }
+
+   void ApplyPersistedStopLoss(const ulong ticket, const int stage, const double openPrice, const ENUM_POSITION_TYPE posType, const double point)
+   {
+      if(stage <= 0) return;
+
+      const double tp = PositionGetDouble(POSITION_TP);
+
+      if(stage >= 2 && m_cfg.PartialCloseStages >= 3 && m_cfg.MoveSLAfterLevel2)
+      {
+         double level1Price = openPrice + ((posType == POSITION_TYPE_BUY) ? m_cfg.PartialClose1Points * point : -m_cfg.PartialClose1Points * point);
+         MoveSLTo(ticket, level1Price);
+         return;
+      }
+
+      if(stage >= 1 && m_cfg.MoveToBreakEvenAfterLevel1)
+      {
+         MoveToBreakEven(ticket, openPrice);
       }
    }
 

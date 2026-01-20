@@ -1,0 +1,132 @@
+diff --git a/mql5/Experts/MT5_AI_Trader_FX.mq5 b/mql5/Experts/MT5_AI_Trader_FX.mq5
+index c3bf4bd..5ae859f 100644
+--- a/mql5/Experts/MT5_AI_Trader_FX.mq5
++++ b/mql5/Experts/MT5_AI_Trader_FX.mq5
+@@ -994,6 +994,28 @@ void RestoreForSelectedPosition(const ulong ticket)
+       g_partialCloseLevel[ticketIndex] = merged;
+       if(InpLogPersistentTpStateEvents)
+          CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_AIT_FX] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
++
++      // 復元後にSL位置を再同期（第2利確到達ならTP1へ、それ以外は建値へ）
++      ApplyPersistedStopLoss(ticket, merged, currentOpen, (ENUM_POSITION_TYPE)currentType, point);
++   }
++}
++
++void ApplyPersistedStopLoss(const ulong ticket, const int stage, const double openPrice, const ENUM_POSITION_TYPE posType, const double point)
++{
++   if(stage <= 0) return;
++
++   double tp = PositionGetDouble(POSITION_TP);
++
++   if(stage >= 2 && InpPartialCloseStages >= 3 && InpMoveSLAfterLevel2)
++   {
++      double level1Price = openPrice + ((posType == POSITION_TYPE_BUY) ? g_PartialClose1Points * point : -g_PartialClose1Points * point);
++      SafePositionModifySL(ticket, level1Price, tp, "L1R");
++      return;
++   }
++
++   if(stage >= 1 && InpMoveToBreakEvenAfterLevel1)
++   {
++      SafePositionModifySL(ticket, openPrice, tp, "BER");
+    }
+ }
+ 
+diff --git a/mql5/Experts/MT5_AI_Trader_JP225.mq5 b/mql5/Experts/MT5_AI_Trader_JP225.mq5
+index 12aafa0..db3241f 100644
+--- a/mql5/Experts/MT5_AI_Trader_JP225.mq5
++++ b/mql5/Experts/MT5_AI_Trader_JP225.mq5
+@@ -1027,6 +1027,28 @@ void RestoreForSelectedPosition(const ulong ticket)
+       g_partialCloseLevel[ticketIndex] = merged;
+       if(InpLogPersistentTpStateEvents)
+          CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_AIT_JP] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
++
++      // 復元後にSL位置を再同期（第2利確到達ならTP1へ、それ以外は建値へ）
++      ApplyPersistedStopLoss(ticket, merged, currentOpen, (ENUM_POSITION_TYPE)currentType, point);
++   }
++}
++
++void ApplyPersistedStopLoss(const ulong ticket, const int stage, const double openPrice, const ENUM_POSITION_TYPE posType, const double point)
++{
++   if(stage <= 0) return;
++
++   double tp = PositionGetDouble(POSITION_TP);
++
++   if(stage >= 2 && InpPartialCloseStages >= 3 && InpMoveSLAfterLevel2)
++   {
++      double level1Price = openPrice + ((posType == POSITION_TYPE_BUY) ? g_PartialClose1Points * point : -g_PartialClose1Points * point);
++      SafePositionModifySL(ticket, level1Price, tp, "L1R");
++      return;
++   }
++
++   if(stage >= 1 && InpMoveToBreakEvenAfterLevel1)
++   {
++      SafePositionModifySL(ticket, openPrice, tp, "BER");
+    }
+ }
+ 
+diff --git a/mql5/Experts/MT5_AI_Trader_USIndex.mq5 b/mql5/Experts/MT5_AI_Trader_USIndex.mq5
+index 67570a1..383081c 100644
+--- a/mql5/Experts/MT5_AI_Trader_USIndex.mq5
++++ b/mql5/Experts/MT5_AI_Trader_USIndex.mq5
+@@ -987,6 +987,28 @@ void RestoreForSelectedPosition(const ulong ticket)
+       g_partialCloseLevel[ticketIndex] = merged;
+       if(InpLogPersistentTpStateEvents)
+          CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_AIT_US] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
++
++      // 復元後にSL位置を再同期（第2利確到達ならTP1へ、それ以外は建値へ）
++      ApplyPersistedStopLoss(ticket, merged, currentOpen, (ENUM_POSITION_TYPE)currentType, point);
++   }
++}
++
++void ApplyPersistedStopLoss(const ulong ticket, const int stage, const double openPrice, const ENUM_POSITION_TYPE posType, const double point)
++{
++   if(stage <= 0) return;
++
++   double tp = PositionGetDouble(POSITION_TP);
++
++   if(stage >= 2 && InpPartialCloseStages >= 3 && InpMoveSLAfterLevel2)
++   {
++      double level1Price = openPrice + ((posType == POSITION_TYPE_BUY) ? g_PartialClose1Points * point : -g_PartialClose1Points * point);
++      SafePositionModifySL(ticket, level1Price, tp, "L1R");
++      return;
++   }
++
++   if(stage >= 1 && InpMoveToBreakEvenAfterLevel1)
++   {
++      SafePositionModifySL(ticket, openPrice, tp, "BER");
+    }
+ }
+ 
+diff --git a/mql5/Include/Position/PositionManager.mqh b/mql5/Include/Position/PositionManager.mqh
+index 4e73857..384538b 100644
+--- a/mql5/Include/Position/PositionManager.mqh
++++ b/mql5/Include/Position/PositionManager.mqh
+@@ -352,6 +352,28 @@ private:
+          m_partialLevels[idx] = merged;
+          if(m_cfg.LogPersistentTpStateEvents)
+             CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_PM] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
++
++         // 復元後にSL位置を再同期（第2利確到達ならTP1へ、それ以外は建値へ）
++         ApplyPersistedStopLoss(ticket, merged, currentOpen, (ENUM_POSITION_TYPE)currentType, point);
++      }
++   }
++
++   void ApplyPersistedStopLoss(const ulong ticket, const int stage, const double openPrice, const ENUM_POSITION_TYPE posType, const double point)
++   {
++      if(stage <= 0) return;
++
++      const double tp = PositionGetDouble(POSITION_TP);
++
++      if(stage >= 2 && m_cfg.PartialCloseStages >= 3 && m_cfg.MoveSLAfterLevel2)
++      {
++         double level1Price = openPrice + ((posType == POSITION_TYPE_BUY) ? m_cfg.PartialClose1Points * point : -m_cfg.PartialClose1Points * point);
++         MoveSLTo(ticket, level1Price);
++         return;
++      }
++
++      if(stage >= 1 && m_cfg.MoveToBreakEvenAfterLevel1)
++      {
++         MoveToBreakEven(ticket, openPrice);
+       }
+    }
+ 
