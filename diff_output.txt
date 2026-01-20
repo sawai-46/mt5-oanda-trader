@@ -1,132 +1,520 @@
+diff --git a/diff_output.txt b/diff_output.txt
+index 41ac482..e69de29 100644
+--- a/diff_output.txt
++++ b/diff_output.txt
+@@ -1,132 +0,0 @@
+-diff --git a/mql5/Experts/MT5_AI_Trader_FX.mq5 b/mql5/Experts/MT5_AI_Trader_FX.mq5
+-index c3bf4bd..5ae859f 100644
+---- a/mql5/Experts/MT5_AI_Trader_FX.mq5
+-+++ b/mql5/Experts/MT5_AI_Trader_FX.mq5
+-@@ -994,6 +994,28 @@ void RestoreForSelectedPosition(const ulong ticket)
+-       g_partialCloseLevel[ticketIndex] = merged;
+-       if(InpLogPersistentTpStateEvents)
+-          CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_AIT_FX] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
+-+
+-+      // 復元後にSL位置を再同期（第2利確到達ならTP1へ、それ以外は建値へ）
+-+      ApplyPersistedStopLoss(ticket, merged, currentOpen, (ENUM_POSITION_TYPE)currentType, point);
+-+   }
+-+}
+-+
+-+void ApplyPersistedStopLoss(const ulong ticket, const int stage, const double openPrice, const ENUM_POSITION_TYPE posType, const double point)
+-+{
+-+   if(stage <= 0) return;
+-+
+-+   double tp = PositionGetDouble(POSITION_TP);
+-+
+-+   if(stage >= 2 && InpPartialCloseStages >= 3 && InpMoveSLAfterLevel2)
+-+   {
+-+      double level1Price = openPrice + ((posType == POSITION_TYPE_BUY) ? g_PartialClose1Points * point : -g_PartialClose1Points * point);
+-+      SafePositionModifySL(ticket, level1Price, tp, "L1R");
+-+      return;
+-+   }
+-+
+-+   if(stage >= 1 && InpMoveToBreakEvenAfterLevel1)
+-+   {
+-+      SafePositionModifySL(ticket, openPrice, tp, "BER");
+-    }
+- }
+- 
+-diff --git a/mql5/Experts/MT5_AI_Trader_JP225.mq5 b/mql5/Experts/MT5_AI_Trader_JP225.mq5
+-index 12aafa0..db3241f 100644
+---- a/mql5/Experts/MT5_AI_Trader_JP225.mq5
+-+++ b/mql5/Experts/MT5_AI_Trader_JP225.mq5
+-@@ -1027,6 +1027,28 @@ void RestoreForSelectedPosition(const ulong ticket)
+-       g_partialCloseLevel[ticketIndex] = merged;
+-       if(InpLogPersistentTpStateEvents)
+-          CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_AIT_JP] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
+-+
+-+      // 復元後にSL位置を再同期（第2利確到達ならTP1へ、それ以外は建値へ）
+-+      ApplyPersistedStopLoss(ticket, merged, currentOpen, (ENUM_POSITION_TYPE)currentType, point);
+-+   }
+-+}
+-+
+-+void ApplyPersistedStopLoss(const ulong ticket, const int stage, const double openPrice, const ENUM_POSITION_TYPE posType, const double point)
+-+{
+-+   if(stage <= 0) return;
+-+
+-+   double tp = PositionGetDouble(POSITION_TP);
+-+
+-+   if(stage >= 2 && InpPartialCloseStages >= 3 && InpMoveSLAfterLevel2)
+-+   {
+-+      double level1Price = openPrice + ((posType == POSITION_TYPE_BUY) ? g_PartialClose1Points * point : -g_PartialClose1Points * point);
+-+      SafePositionModifySL(ticket, level1Price, tp, "L1R");
+-+      return;
+-+   }
+-+
+-+   if(stage >= 1 && InpMoveToBreakEvenAfterLevel1)
+-+   {
+-+      SafePositionModifySL(ticket, openPrice, tp, "BER");
+-    }
+- }
+- 
+-diff --git a/mql5/Experts/MT5_AI_Trader_USIndex.mq5 b/mql5/Experts/MT5_AI_Trader_USIndex.mq5
+-index 67570a1..383081c 100644
+---- a/mql5/Experts/MT5_AI_Trader_USIndex.mq5
+-+++ b/mql5/Experts/MT5_AI_Trader_USIndex.mq5
+-@@ -987,6 +987,28 @@ void RestoreForSelectedPosition(const ulong ticket)
+-       g_partialCloseLevel[ticketIndex] = merged;
+-       if(InpLogPersistentTpStateEvents)
+-          CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_AIT_US] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
+-+
+-+      // 復元後にSL位置を再同期（第2利確到達ならTP1へ、それ以外は建値へ）
+-+      ApplyPersistedStopLoss(ticket, merged, currentOpen, (ENUM_POSITION_TYPE)currentType, point);
+-+   }
+-+}
+-+
+-+void ApplyPersistedStopLoss(const ulong ticket, const int stage, const double openPrice, const ENUM_POSITION_TYPE posType, const double point)
+-+{
+-+   if(stage <= 0) return;
+-+
+-+   double tp = PositionGetDouble(POSITION_TP);
+-+
+-+   if(stage >= 2 && InpPartialCloseStages >= 3 && InpMoveSLAfterLevel2)
+-+   {
+-+      double level1Price = openPrice + ((posType == POSITION_TYPE_BUY) ? g_PartialClose1Points * point : -g_PartialClose1Points * point);
+-+      SafePositionModifySL(ticket, level1Price, tp, "L1R");
+-+      return;
+-+   }
+-+
+-+   if(stage >= 1 && InpMoveToBreakEvenAfterLevel1)
+-+   {
+-+      SafePositionModifySL(ticket, openPrice, tp, "BER");
+-    }
+- }
+- 
+-diff --git a/mql5/Include/Position/PositionManager.mqh b/mql5/Include/Position/PositionManager.mqh
+-index 4e73857..384538b 100644
+---- a/mql5/Include/Position/PositionManager.mqh
+-+++ b/mql5/Include/Position/PositionManager.mqh
+-@@ -352,6 +352,28 @@ private:
+-          m_partialLevels[idx] = merged;
+-          if(m_cfg.LogPersistentTpStateEvents)
+-             CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_PM] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
+-+
+-+         // 復元後にSL位置を再同期（第2利確到達ならTP1へ、それ以外は建値へ）
+-+         ApplyPersistedStopLoss(ticket, merged, currentOpen, (ENUM_POSITION_TYPE)currentType, point);
+-+      }
+-+   }
+-+
+-+   void ApplyPersistedStopLoss(const ulong ticket, const int stage, const double openPrice, const ENUM_POSITION_TYPE posType, const double point)
+-+   {
+-+      if(stage <= 0) return;
+-+
+-+      const double tp = PositionGetDouble(POSITION_TP);
+-+
+-+      if(stage >= 2 && m_cfg.PartialCloseStages >= 3 && m_cfg.MoveSLAfterLevel2)
+-+      {
+-+         double level1Price = openPrice + ((posType == POSITION_TYPE_BUY) ? m_cfg.PartialClose1Points * point : -m_cfg.PartialClose1Points * point);
+-+         MoveSLTo(ticket, level1Price);
+-+         return;
+-+      }
+-+
+-+      if(stage >= 1 && m_cfg.MoveToBreakEvenAfterLevel1)
+-+      {
+-+         MoveToBreakEven(ticket, openPrice);
+-       }
+-    }
+- 
+diff --git a/mql5/Experts/EA_PullbackEntry_v5_FX.mq5 b/mql5/Experts/EA_PullbackEntry_v5_FX.mq5
+index 7cca1f9..981c2a0 100644
+--- a/mql5/Experts/EA_PullbackEntry_v5_FX.mq5
++++ b/mql5/Experts/EA_PullbackEntry_v5_FX.mq5
+@@ -49,6 +49,13 @@ input int    InpEndHour = 21;                // 終了時刻(JST)
+ input bool   InpUseDST = false;              // 夏時間有効
+ input bool   InpTradeOnFriday = true;        // 金曜取引
+ 
++//--- 金曜夜〜土曜早朝の全決済（JST）
++input bool   InpEnableFridayCloseJST = true;  // 金曜夜〜土曜早朝の全決済
++input int    InpFridayCloseStartHour = 23;    // 開始時(時) JST
++input int    InpFridayCloseStartMinute = 0;   // 開始時(分) JST
++input int    InpFridayCloseEndHour = 4;       // 終了時(時) JST
++input int    InpFridayCloseEndMinute = 30;    // 終了時(分) JST
++
+ //--- MTF Filter
+ input bool            InpEnableMTFFilter = false;   // MTFフィルター有効
+ input ENUM_TIMEFRAMES InpMTFTimeframe = PERIOD_H1;  // MTF時間足
+@@ -378,6 +385,11 @@ int OnInit()
+    posCfg.PartialClose3Percent = InpPartial3Percent;
+    posCfg.MoveToBreakEvenAfterLevel1 = InpMoveToBreakEven;
+    posCfg.MoveSLAfterLevel2 = InpMoveSLAfterLevel2;
++   posCfg.EnableFridayCloseJST = InpEnableFridayCloseJST;
++   posCfg.FridayCloseStartHour = InpFridayCloseStartHour;
++   posCfg.FridayCloseStartMinute = InpFridayCloseStartMinute;
++   posCfg.FridayCloseEndHour = InpFridayCloseEndHour;
++   posCfg.FridayCloseEndMinute = InpFridayCloseEndMinute;
+    posCfg.TrailingMode = InpTrailingMode;
+    posCfg.TrailingStartPoints = g_TrailStartPoints;
+    posCfg.TrailingStepPoints = g_TrailStepPoints;
+diff --git a/mql5/Experts/EA_PullbackEntry_v5_JP225.mq5 b/mql5/Experts/EA_PullbackEntry_v5_JP225.mq5
+index 1ad01f9..aa17f38 100644
+--- a/mql5/Experts/EA_PullbackEntry_v5_JP225.mq5
++++ b/mql5/Experts/EA_PullbackEntry_v5_JP225.mq5
+@@ -49,6 +49,13 @@ input int    InpEndHour = 21;                // 終了時刻(JST)
+ input bool   InpUseDST = false;              // 夏時間有効
+ input bool   InpTradeOnFriday = true;        // 金曜取引
+ 
++//--- 金曜夜〜土曜早朝の全決済（JST）
++input bool   InpEnableFridayCloseJST = true;  // 金曜夜〜土曜早朝の全決済
++input int    InpFridayCloseStartHour = 23;    // 開始時(時) JST
++input int    InpFridayCloseStartMinute = 0;   // 開始時(分) JST
++input int    InpFridayCloseEndHour = 4;       // 終了時(時) JST
++input int    InpFridayCloseEndMinute = 30;    // 終了時(分) JST
++
+ //--- MTF Filter
+ input bool            InpEnableMTFFilter = false;   // MTFフィルター有効
+ input ENUM_TIMEFRAMES InpMTFTimeframe = PERIOD_H1;  // MTF時間足
+@@ -384,6 +391,11 @@ int OnInit()
+    posCfg.PartialClose3Percent = InpPartial3Percent;
+    posCfg.MoveToBreakEvenAfterLevel1 = InpMoveToBreakEven;
+    posCfg.MoveSLAfterLevel2 = InpMoveSLAfterLevel2;
++   posCfg.EnableFridayCloseJST = InpEnableFridayCloseJST;
++   posCfg.FridayCloseStartHour = InpFridayCloseStartHour;
++   posCfg.FridayCloseStartMinute = InpFridayCloseStartMinute;
++   posCfg.FridayCloseEndHour = InpFridayCloseEndHour;
++   posCfg.FridayCloseEndMinute = InpFridayCloseEndMinute;
+    posCfg.TrailingMode = InpTrailingMode;
+    posCfg.TrailingStartPoints = g_TrailStartPoints;
+    posCfg.TrailingStepPoints = g_TrailStepPoints;
+diff --git a/mql5/Experts/EA_PullbackEntry_v5_USIndex.mq5 b/mql5/Experts/EA_PullbackEntry_v5_USIndex.mq5
+index 4e5c7a6..5c3c815 100644
+--- a/mql5/Experts/EA_PullbackEntry_v5_USIndex.mq5
++++ b/mql5/Experts/EA_PullbackEntry_v5_USIndex.mq5
+@@ -51,6 +51,13 @@ input int    InpEndHour = 21;                // 終了時刻(JST)
+ input bool   InpUseDST = false;              // 夏時間有効
+ input bool   InpTradeOnFriday = true;        // 金曜取引
+ 
++//--- 金曜夜〜土曜早朝の全決済（JST）
++input bool   InpEnableFridayCloseJST = true;  // 金曜夜〜土曜早朝の全決済
++input int    InpFridayCloseStartHour = 23;    // 開始時(時) JST
++input int    InpFridayCloseStartMinute = 0;   // 開始時(分) JST
++input int    InpFridayCloseEndHour = 4;       // 終了時(時) JST
++input int    InpFridayCloseEndMinute = 30;    // 終了時(分) JST
++
+ //--- MTF Filter
+ input bool            InpEnableMTFFilter = false;   // MTFフィルター有効
+ input ENUM_TIMEFRAMES InpMTFTimeframe = PERIOD_H1;  // MTF時間足
+@@ -388,6 +395,11 @@ int OnInit()
+    posCfg.PartialClose3Percent = InpPartial3Percent;
+    posCfg.MoveToBreakEvenAfterLevel1 = InpMoveToBreakEven;
+    posCfg.MoveSLAfterLevel2 = InpMoveSLAfterLevel2;
++   posCfg.EnableFridayCloseJST = InpEnableFridayCloseJST;
++   posCfg.FridayCloseStartHour = InpFridayCloseStartHour;
++   posCfg.FridayCloseStartMinute = InpFridayCloseStartMinute;
++   posCfg.FridayCloseEndHour = InpFridayCloseEndHour;
++   posCfg.FridayCloseEndMinute = InpFridayCloseEndMinute;
+    posCfg.TrailingMode = InpTrailingMode;
+    posCfg.TrailingStartPoints = g_TrailStartPoints;
+    posCfg.TrailingStepPoints = g_TrailStepPoints;
 diff --git a/mql5/Experts/MT5_AI_Trader_FX.mq5 b/mql5/Experts/MT5_AI_Trader_FX.mq5
-index c3bf4bd..5ae859f 100644
+index 5ae859f..cbafc47 100644
 --- a/mql5/Experts/MT5_AI_Trader_FX.mq5
 +++ b/mql5/Experts/MT5_AI_Trader_FX.mq5
-@@ -994,6 +994,28 @@ void RestoreForSelectedPosition(const ulong ticket)
-       g_partialCloseLevel[ticketIndex] = merged;
-       if(InpLogPersistentTpStateEvents)
-          CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_AIT_FX] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
+@@ -78,6 +78,13 @@ input int    InpCustom_End_Hour = 21;              // 稼働終了時(JST)
+ input int    InpCustom_End_Minute = 0;             // 稼働終了分
+ input bool   InpTradeOnFriday = true;              // 金曜取引許可
+ 
++//--- 金曜夜〜土曜早朝の全決済（JST）
++input bool   InpEnableFridayCloseJST = true;      // 金曜夜〜土曜早朝の全決済
++input int    InpFridayCloseStartHour = 23;        // 開始時(時) JST
++input int    InpFridayCloseStartMinute = 0;       // 開始時(分) JST
++input int    InpFridayCloseEndHour = 4;           // 終了時(時) JST
++input int    InpFridayCloseEndMinute = 30;        // 終了時(分) JST
 +
-+      // 復元後にSL位置を再同期（第2利確到達ならTP1へ、それ以外は建値へ）
-+      ApplyPersistedStopLoss(ticket, merged, currentOpen, (ENUM_POSITION_TYPE)currentType, point);
+ //--- フィルター設定
+ input int    InpMaxPositions = 2;          // 最大ポジション数
+ input int    InpMinBarsSinceLastTrade = 10; // 最小バー間隔
+@@ -155,6 +162,38 @@ string BoolStr(const bool v)
+    return v ? "true" : "false";
+ }
+ 
++bool IsFridayCloseWindowJST()
++{
++   if(!InpEnableFridayCloseJST) return false;
++   datetime jst = TimeGMT() + 9 * 3600;
++   MqlDateTime dt; TimeToStruct(jst, dt);
++   int minutes = dt.hour * 60 + dt.min;
++   int start = InpFridayCloseStartHour * 60 + InpFridayCloseStartMinute;
++   int end = InpFridayCloseEndHour * 60 + InpFridayCloseEndMinute;
++   if(dt.day_of_week == 5)
++   {
++      if(start <= end) return (minutes >= start && minutes <= end);
++      return (minutes >= start);
 +   }
++   if(dt.day_of_week == 6 && start > end)
++      return (minutes <= end);
++   return false;
 +}
 +
-+void ApplyPersistedStopLoss(const ulong ticket, const int stage, const double openPrice, const ENUM_POSITION_TYPE posType, const double point)
++void CloseAllPositionsForSymbolMagic(const string reason)
 +{
-+   if(stage <= 0) return;
-+
-+   double tp = PositionGetDouble(POSITION_TP);
-+
-+   if(stage >= 2 && InpPartialCloseStages >= 3 && InpMoveSLAfterLevel2)
++   for(int i = PositionsTotal() - 1; i >= 0; i--)
 +   {
-+      double level1Price = openPrice + ((posType == POSITION_TYPE_BUY) ? g_PartialClose1Points * point : -g_PartialClose1Points * point);
-+      SafePositionModifySL(ticket, level1Price, tp, "L1R");
++      ulong ticket = PositionGetTicket(i);
++      if(ticket == 0) continue;
++      if(PositionGetInteger(POSITION_MAGIC) != g_ActiveMagicNumber) continue;
++      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
++      m_trade.PositionClose(ticket);
++   }
++   if(InpEnableLogging)
++      CLogger::Log(LOG_INFO, StringFormat("[FRI_CLOSE][AI_FX] %s", reason));
++}
++
+ string AccountModeTag()
+ {
+    const long mode = AccountInfoInteger(ACCOUNT_TRADE_MODE);
+@@ -470,6 +509,12 @@ void OnTick()
+       last_export = now_export;
+    }
+ 
++   if(IsFridayCloseWindowJST())
++   {
++      CloseAllPositionsForSymbolMagic("JST Friday close window");
 +      return;
 +   }
 +
-+   if(stage >= 1 && InpMoveToBreakEvenAfterLevel1)
-+   {
-+      SafePositionModifySL(ticket, openPrice, tp, "BER");
-    }
- }
- 
+    // 1. ポジション監視（利確・SL移動）は常に実行
+    if(InpEnablePartialClose)
+    {
 diff --git a/mql5/Experts/MT5_AI_Trader_JP225.mq5 b/mql5/Experts/MT5_AI_Trader_JP225.mq5
-index 12aafa0..db3241f 100644
+index db3241f..19b580d 100644
 --- a/mql5/Experts/MT5_AI_Trader_JP225.mq5
 +++ b/mql5/Experts/MT5_AI_Trader_JP225.mq5
-@@ -1027,6 +1027,28 @@ void RestoreForSelectedPosition(const ulong ticket)
-       g_partialCloseLevel[ticketIndex] = merged;
-       if(InpLogPersistentTpStateEvents)
-          CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_AIT_JP] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
+@@ -78,6 +78,13 @@ input int    InpCustom_End_Hour = 21;              // 稼働終了時(JST)
+ input int    InpCustom_End_Minute = 0;             // 稼働終了分
+ input bool   InpTradeOnFriday = true;              // 金曜取引許可
+ 
++//--- 金曜夜〜土曜早朝の全決済（JST）
++input bool   InpEnableFridayCloseJST = true;      // 金曜夜〜土曜早朝の全決済
++input int    InpFridayCloseStartHour = 23;        // 開始時(時) JST
++input int    InpFridayCloseStartMinute = 0;       // 開始時(分) JST
++input int    InpFridayCloseEndHour = 4;           // 終了時(時) JST
++input int    InpFridayCloseEndMinute = 30;        // 終了時(分) JST
 +
-+      // 復元後にSL位置を再同期（第2利確到達ならTP1へ、それ以外は建値へ）
-+      ApplyPersistedStopLoss(ticket, merged, currentOpen, (ENUM_POSITION_TYPE)currentType, point);
+ //--- フィルター設定
+ input int    InpMaxPositions = 2;          // 最大ポジション数
+ input int    InpMinBarsSinceLastTrade = 10; // 最小バー間隔
+@@ -153,6 +160,38 @@ string BoolStr(const bool v)
+    return v ? "true" : "false";
+ }
+ 
++bool IsFridayCloseWindowJST()
++{
++   if(!InpEnableFridayCloseJST) return false;
++   datetime jst = TimeGMT() + 9 * 3600;
++   MqlDateTime dt; TimeToStruct(jst, dt);
++   int minutes = dt.hour * 60 + dt.min;
++   int start = InpFridayCloseStartHour * 60 + InpFridayCloseStartMinute;
++   int end = InpFridayCloseEndHour * 60 + InpFridayCloseEndMinute;
++   if(dt.day_of_week == 5)
++   {
++      if(start <= end) return (minutes >= start && minutes <= end);
++      return (minutes >= start);
 +   }
++   if(dt.day_of_week == 6 && start > end)
++      return (minutes <= end);
++   return false;
 +}
 +
-+void ApplyPersistedStopLoss(const ulong ticket, const int stage, const double openPrice, const ENUM_POSITION_TYPE posType, const double point)
++void CloseAllPositionsForSymbolMagic(const string reason)
 +{
-+   if(stage <= 0) return;
-+
-+   double tp = PositionGetDouble(POSITION_TP);
-+
-+   if(stage >= 2 && InpPartialCloseStages >= 3 && InpMoveSLAfterLevel2)
++   for(int i = PositionsTotal() - 1; i >= 0; i--)
 +   {
-+      double level1Price = openPrice + ((posType == POSITION_TYPE_BUY) ? g_PartialClose1Points * point : -g_PartialClose1Points * point);
-+      SafePositionModifySL(ticket, level1Price, tp, "L1R");
++      ulong ticket = PositionGetTicket(i);
++      if(ticket == 0) continue;
++      if(PositionGetInteger(POSITION_MAGIC) != g_ActiveMagicNumber) continue;
++      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
++      m_trade.PositionClose(ticket);
++   }
++   if(InpEnableLogging)
++      CLogger::Log(LOG_INFO, StringFormat("[FRI_CLOSE][AI_JP] %s", reason));
++}
++
+ string AccountModeTag()
+ {
+    const long mode = AccountInfoInteger(ACCOUNT_TRADE_MODE);
+@@ -509,6 +548,12 @@ void OnTick()
+       last_export = now_export;
+    }
+ 
++   if(IsFridayCloseWindowJST())
++   {
++      CloseAllPositionsForSymbolMagic("JST Friday close window");
 +      return;
 +   }
 +
-+   if(stage >= 1 && InpMoveToBreakEvenAfterLevel1)
-+   {
-+      SafePositionModifySL(ticket, openPrice, tp, "BER");
-    }
- }
- 
+    // 1. ポジション監視（利確・SL移動）は常に実行
+    if(InpEnablePartialClose)
+    {
 diff --git a/mql5/Experts/MT5_AI_Trader_USIndex.mq5 b/mql5/Experts/MT5_AI_Trader_USIndex.mq5
-index 67570a1..383081c 100644
+index 383081c..69c3cd9 100644
 --- a/mql5/Experts/MT5_AI_Trader_USIndex.mq5
 +++ b/mql5/Experts/MT5_AI_Trader_USIndex.mq5
-@@ -987,6 +987,28 @@ void RestoreForSelectedPosition(const ulong ticket)
-       g_partialCloseLevel[ticketIndex] = merged;
-       if(InpLogPersistentTpStateEvents)
-          CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_AIT_US] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
+@@ -78,6 +78,13 @@ input int    InpCustom_End_Hour = 21;              // 稼働終了時(JST)
+ input int    InpCustom_End_Minute = 0;             // 稼働終了分
+ input bool   InpTradeOnFriday = true;              // 金曜取引許可
+ 
++//--- 金曜夜〜土曜早朝の全決済（JST）
++input bool   InpEnableFridayCloseJST = true;      // 金曜夜〜土曜早朝の全決済
++input int    InpFridayCloseStartHour = 23;        // 開始時(時) JST
++input int    InpFridayCloseStartMinute = 0;       // 開始時(分) JST
++input int    InpFridayCloseEndHour = 4;           // 終了時(時) JST
++input int    InpFridayCloseEndMinute = 30;        // 終了時(分) JST
 +
-+      // 復元後にSL位置を再同期（第2利確到達ならTP1へ、それ以外は建値へ）
-+      ApplyPersistedStopLoss(ticket, merged, currentOpen, (ENUM_POSITION_TYPE)currentType, point);
+ //--- フィルター設定
+ input int    InpMaxPositions = 2;          // 最大ポジション数
+ input int    InpMinBarsSinceLastTrade = 10; // 最小バー間隔
+@@ -154,6 +161,38 @@ string BoolStr(const bool v)
+    return v ? "true" : "false";
+ }
+ 
++bool IsFridayCloseWindowJST()
++{
++   if(!InpEnableFridayCloseJST) return false;
++   datetime jst = TimeGMT() + 9 * 3600;
++   MqlDateTime dt; TimeToStruct(jst, dt);
++   int minutes = dt.hour * 60 + dt.min;
++   int start = InpFridayCloseStartHour * 60 + InpFridayCloseStartMinute;
++   int end = InpFridayCloseEndHour * 60 + InpFridayCloseEndMinute;
++   if(dt.day_of_week == 5)
++   {
++      if(start <= end) return (minutes >= start && minutes <= end);
++      return (minutes >= start);
 +   }
++   if(dt.day_of_week == 6 && start > end)
++      return (minutes <= end);
++   return false;
 +}
 +
-+void ApplyPersistedStopLoss(const ulong ticket, const int stage, const double openPrice, const ENUM_POSITION_TYPE posType, const double point)
++void CloseAllPositionsForSymbolMagic(const string reason)
 +{
-+   if(stage <= 0) return;
-+
-+   double tp = PositionGetDouble(POSITION_TP);
-+
-+   if(stage >= 2 && InpPartialCloseStages >= 3 && InpMoveSLAfterLevel2)
++   for(int i = PositionsTotal() - 1; i >= 0; i--)
 +   {
-+      double level1Price = openPrice + ((posType == POSITION_TYPE_BUY) ? g_PartialClose1Points * point : -g_PartialClose1Points * point);
-+      SafePositionModifySL(ticket, level1Price, tp, "L1R");
++      ulong ticket = PositionGetTicket(i);
++      if(ticket == 0) continue;
++      if(PositionGetInteger(POSITION_MAGIC) != g_ActiveMagicNumber) continue;
++      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
++      m_trade.PositionClose(ticket);
++   }
++   if(InpEnableLogging)
++      CLogger::Log(LOG_INFO, StringFormat("[FRI_CLOSE][AI_US] %s", reason));
++}
++
+ string AccountModeTag()
+ {
+    const long mode = AccountInfoInteger(ACCOUNT_TRADE_MODE);
+@@ -469,6 +508,12 @@ void OnTick()
+       last_export = now_export;
+    }
+ 
++   if(IsFridayCloseWindowJST())
++   {
++      CloseAllPositionsForSymbolMagic("JST Friday close window");
 +      return;
 +   }
 +
-+   if(stage >= 1 && InpMoveToBreakEvenAfterLevel1)
-+   {
-+      SafePositionModifySL(ticket, openPrice, tp, "BER");
-    }
- }
- 
+    // 1. ポジション監視（利確・SL移動）は常に実行
+    if(InpEnablePartialClose)
+    {
 diff --git a/mql5/Include/Position/PositionManager.mqh b/mql5/Include/Position/PositionManager.mqh
-index 4e73857..384538b 100644
+index 384538b..d9d3e71 100644
 --- a/mql5/Include/Position/PositionManager.mqh
 +++ b/mql5/Include/Position/PositionManager.mqh
-@@ -352,6 +352,28 @@ private:
-          m_partialLevels[idx] = merged;
-          if(m_cfg.LogPersistentTpStateEvents)
-             CLogger::Log(LOG_INFO, StringFormat("[PERSIST][MT5_PM] restored ident=%lld ticket=%lld stage=%d", identifier, ticket, merged));
+@@ -48,6 +48,13 @@ struct SPositionConfig
+    double   TrailingStepPoints;
+    double   TrailingATRMulti;
+    int      ATRPeriod;
 +
-+         // 復元後にSL位置を再同期（第2利確到達ならTP1へ、それ以外は建値へ）
-+         ApplyPersistedStopLoss(ticket, merged, currentOpen, (ENUM_POSITION_TYPE)currentType, point);
-+      }
-+   }
-+
-+   void ApplyPersistedStopLoss(const ulong ticket, const int stage, const double openPrice, const ENUM_POSITION_TYPE posType, const double point)
-+   {
-+      if(stage <= 0) return;
-+
-+      const double tp = PositionGetDouble(POSITION_TP);
-+
-+      if(stage >= 2 && m_cfg.PartialCloseStages >= 3 && m_cfg.MoveSLAfterLevel2)
++   // Friday close window (JST)
++   bool     EnableFridayCloseJST;
++   int      FridayCloseStartHour;
++   int      FridayCloseStartMinute;
++   int      FridayCloseEndHour;
++   int      FridayCloseEndMinute;
+    
+    // Slippage
+    int      MaxSlippagePoints;
+@@ -73,7 +80,12 @@ struct SPositionConfig
+      TrailingStepPoints(50.0),
+      TrailingATRMulti(1.0),
+      ATRPeriod(14),
+-     MaxSlippagePoints(50)
++       MaxSlippagePoints(50),
++       EnableFridayCloseJST(true),
++       FridayCloseStartHour(23),
++       FridayCloseStartMinute(0),
++       FridayCloseEndHour(4),
++       FridayCloseEndMinute(30)
+    {
+    }
+ };
+@@ -133,6 +145,12 @@ public:
+    //--- Main tick handler - call from EA's OnTick
+    void OnTick()
+    {
++      if(m_cfg.EnableFridayCloseJST && IsFridayCloseWindowJST())
 +      {
-+         double level1Price = openPrice + ((posType == POSITION_TYPE_BUY) ? m_cfg.PartialClose1Points * point : -m_cfg.PartialClose1Points * point);
-+         MoveSLTo(ticket, level1Price);
++         CloseAllPositionsForSymbolMagic("JST Friday close window");
 +         return;
 +      }
 +
-+      if(stage >= 1 && m_cfg.MoveToBreakEvenAfterLevel1)
-+      {
-+         MoveToBreakEven(ticket, openPrice);
-       }
+       if(m_cfg.EnablePersistentTpState)
+       {
+          RestoreAllOpenPositions();
+@@ -218,6 +236,37 @@ private:
+       return (res.retcode == TRADE_RETCODE_DONE || res.retcode == TRADE_RETCODE_DONE_PARTIAL);
     }
  
++   bool IsFridayCloseWindowJST() const
++   {
++      datetime jst = TimeGMT() + 9 * 3600;
++      MqlDateTime dt; TimeToStruct(jst, dt);
++      int minutes = dt.hour * 60 + dt.min;
++      int start = m_cfg.FridayCloseStartHour * 60 + m_cfg.FridayCloseStartMinute;
++      int end = m_cfg.FridayCloseEndHour * 60 + m_cfg.FridayCloseEndMinute;
++      if(dt.day_of_week == 5)
++      {
++         if(start <= end) return (minutes >= start && minutes <= end);
++         return (minutes >= start);
++      }
++      if(dt.day_of_week == 6 && start > end)
++         return (minutes <= end);
++      return false;
++   }
++
++   void CloseAllPositionsForSymbolMagic(const string reason)
++   {
++      for(int i = PositionsTotal() - 1; i >= 0; i--)
++      {
++         ulong ticket = PositionGetTicket(i);
++         if(ticket == 0) continue;
++         if(PositionGetInteger(POSITION_MAGIC) != m_cfg.MagicNumber) continue;
++         if(PositionGetString(POSITION_SYMBOL) != m_cfg.Symbol) continue;
++         m_trade.PositionClose(ticket);
++      }
++      if(m_cfg.LogPersistentTpStateEvents)
++         CLogger::Log(LOG_INFO, StringFormat("[FRI_CLOSE][MT5_PM] %s magic=%lld", reason, m_cfg.MagicNumber));
++   }
++
+    bool SafePositionModifySL(const ulong ticket, const double desiredSL, const double tp, const string tag)
+    {
+       if(ticket == 0)

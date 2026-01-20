@@ -48,6 +48,13 @@ struct SPositionConfig
    double   TrailingStepPoints;
    double   TrailingATRMulti;
    int      ATRPeriod;
+
+   // Friday close window (JST)
+   bool     EnableFridayCloseJST;
+   int      FridayCloseStartHour;
+   int      FridayCloseStartMinute;
+   int      FridayCloseEndHour;
+   int      FridayCloseEndMinute;
    
    // Slippage
    int      MaxSlippagePoints;
@@ -73,7 +80,12 @@ struct SPositionConfig
      TrailingStepPoints(50.0),
      TrailingATRMulti(1.0),
      ATRPeriod(14),
-     MaxSlippagePoints(50)
+       MaxSlippagePoints(50),
+       EnableFridayCloseJST(true),
+       FridayCloseStartHour(23),
+       FridayCloseStartMinute(0),
+       FridayCloseEndHour(4),
+       FridayCloseEndMinute(30)
    {
    }
 };
@@ -133,6 +145,12 @@ public:
    //--- Main tick handler - call from EA's OnTick
    void OnTick()
    {
+      if(m_cfg.EnableFridayCloseJST && IsFridayCloseWindowJST())
+      {
+         CloseAllPositionsForSymbolMagic("JST Friday close window");
+         return;
+      }
+
       if(m_cfg.EnablePersistentTpState)
       {
          RestoreAllOpenPositions();
@@ -216,6 +234,37 @@ private:
          return false;
 
       return (res.retcode == TRADE_RETCODE_DONE || res.retcode == TRADE_RETCODE_DONE_PARTIAL);
+   }
+
+   bool IsFridayCloseWindowJST() const
+   {
+      datetime jst = TimeGMT() + 9 * 3600;
+      MqlDateTime dt; TimeToStruct(jst, dt);
+      int minutes = dt.hour * 60 + dt.min;
+      int start = m_cfg.FridayCloseStartHour * 60 + m_cfg.FridayCloseStartMinute;
+      int end = m_cfg.FridayCloseEndHour * 60 + m_cfg.FridayCloseEndMinute;
+      if(dt.day_of_week == 5)
+      {
+         if(start <= end) return (minutes >= start && minutes <= end);
+         return (minutes >= start);
+      }
+      if(dt.day_of_week == 6 && start > end)
+         return (minutes <= end);
+      return false;
+   }
+
+   void CloseAllPositionsForSymbolMagic(const string reason)
+   {
+      for(int i = PositionsTotal() - 1; i >= 0; i--)
+      {
+         ulong ticket = PositionGetTicket(i);
+         if(ticket == 0) continue;
+         if(PositionGetInteger(POSITION_MAGIC) != m_cfg.MagicNumber) continue;
+         if(PositionGetString(POSITION_SYMBOL) != m_cfg.Symbol) continue;
+         m_trade.PositionClose(ticket);
+      }
+      if(m_cfg.LogPersistentTpStateEvents)
+         CLogger::Log(LOG_INFO, StringFormat("[FRI_CLOSE][MT5_PM] %s magic=%lld", reason, m_cfg.MagicNumber));
    }
 
    bool SafePositionModifySL(const ulong ticket, const double desiredSL, const double tp, const string tag)

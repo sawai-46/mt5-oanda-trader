@@ -78,6 +78,13 @@ input int    InpCustom_End_Hour = 21;              // 稼働終了時(JST)
 input int    InpCustom_End_Minute = 0;             // 稼働終了分
 input bool   InpTradeOnFriday = true;              // 金曜取引許可
 
+//--- 金曜夜〜土曜早朝の全決済（JST）
+input bool   InpEnableFridayCloseJST = true;      // 金曜夜〜土曜早朝の全決済
+input int    InpFridayCloseStartHour = 23;        // 開始時(時) JST
+input int    InpFridayCloseStartMinute = 0;       // 開始時(分) JST
+input int    InpFridayCloseEndHour = 4;           // 終了時(時) JST
+input int    InpFridayCloseEndMinute = 30;        // 終了時(分) JST
+
 //--- フィルター設定
 input int    InpMaxPositions = 2;          // 最大ポジション数
 input int    InpMinBarsSinceLastTrade = 10; // 最小バー間隔
@@ -151,6 +158,38 @@ double g_PartialClose3Points = 0;
 string BoolStr(const bool v)
 {
    return v ? "true" : "false";
+}
+
+bool IsFridayCloseWindowJST()
+{
+   if(!InpEnableFridayCloseJST) return false;
+   datetime jst = TimeGMT() + 9 * 3600;
+   MqlDateTime dt; TimeToStruct(jst, dt);
+   int minutes = dt.hour * 60 + dt.min;
+   int start = InpFridayCloseStartHour * 60 + InpFridayCloseStartMinute;
+   int end = InpFridayCloseEndHour * 60 + InpFridayCloseEndMinute;
+   if(dt.day_of_week == 5)
+   {
+      if(start <= end) return (minutes >= start && minutes <= end);
+      return (minutes >= start);
+   }
+   if(dt.day_of_week == 6 && start > end)
+      return (minutes <= end);
+   return false;
+}
+
+void CloseAllPositionsForSymbolMagic(const string reason)
+{
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != g_ActiveMagicNumber) continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+      m_trade.PositionClose(ticket);
+   }
+   if(InpEnableLogging)
+      CLogger::Log(LOG_INFO, StringFormat("[FRI_CLOSE][AI_JP] %s", reason));
 }
 
 string AccountModeTag()
@@ -507,6 +546,12 @@ void OnTick()
    {
       ExportAccountStatusWithTerminalId(GetAccountStatusTerminalId());
       last_export = now_export;
+   }
+
+   if(IsFridayCloseWindowJST())
+   {
+      CloseAllPositionsForSymbolMagic("JST Friday close window");
+      return;
    }
 
    // 1. ポジション監視（利確・SL移動）は常に実行
