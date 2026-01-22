@@ -106,6 +106,9 @@ private:
    // Persist cleanup throttle
    datetime         m_lastPersistCleanup;
    
+   // SL sync cooldown (continuous sync)
+   datetime         m_lastSLSyncAttempt;
+
    // ATR handle for trailing
    int              m_handleATR;
 
@@ -113,7 +116,8 @@ public:
    //--- Constructor
    CPositionManager()
    : m_handleATR(INVALID_HANDLE),
-     m_lastPersistCleanup(0)
+     m_lastPersistCleanup(0),
+     m_lastSLSyncAttempt(0)
    {
       ArrayResize(m_partialLevels, 1000); // 衝突回避のため拡張
       ArrayInitialize(m_partialLevels, 0);
@@ -162,6 +166,9 @@ public:
       
       if(m_cfg.TrailingMode != TRAILING_DISABLED)
          CheckTrailingStop();
+
+      // Continuous SL synchronization (runs every tick, respects cooldown)
+      EnsureStopLossSync();
    }
    
    //--- Get partial close level for ticket
@@ -715,6 +722,104 @@ private:
          }
       }
    }
+
+   //+------------------------------------------------------------------+
+   //| Continuous SL Sync: Ensure server SL matches expected floor      |
+   //| - Runs every tick, respects 5-second cooldown for OrderModify    |
+   //| - Uses 'floor logic': FinalSL = max(SyncSL, TrailingSL) for BUY  |
+   //+------------------------------------------------------------------+
+   void EnsureStopLossSync()
+   {
+      // Find the single managed position (newest ticket with matching Symbol/Magic)
+      ulong managedTicket = 0;
+      for(int i = PositionsTotal() - 1; i >= 0; i--)
+      {
+         ulong ticket = PositionGetTicket(i);
+         if(ticket == 0) continue;
+         if(PositionGetInteger(POSITION_MAGIC) != m_cfg.MagicNumber) continue;
+         if(PositionGetString(POSITION_SYMBOL) != m_cfg.Symbol) continue;
+         managedTicket = ticket;
+         break;  // Newest ticket (single position policy)
+      }
+
+      if(managedTicket == 0)
+         return;  // No position to sync
+
+      if(!PositionSelectByTicket(managedTicket))
+         return;
+
+      // Get current state
+      const double point = SymbolInfoDouble(m_cfg.Symbol, SYMBOL_POINT);
+      const int digits = (int)SymbolInfoInteger(m_cfg.Symbol, SYMBOL_DIGITS);
+      const double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+      const double currentSL = PositionGetDouble(POSITION_SL);
+      const double tp = PositionGetDouble(POSITION_TP);
+      const ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+      const int stage = m_partialLevels[(int)(managedTicket % 1000)];
+
+      // Calculate 'Sync SL' (the floor based on stage)
+      double syncSL = 0;
+      if(stage >= 2 && m_cfg.PartialCloseStages >= 3 && m_cfg.MoveSLAfterLevel2)
+      {
+         // After Level 2 in 3-stage mode: SL at TP1 level
+         syncSL = (posType == POSITION_TYPE_BUY)
+                  ? openPrice + m_cfg.PartialClose1Points * point
+                  : openPrice - m_cfg.PartialClose1Points * point;
+      }
+      else if(stage >= 1 && m_cfg.MoveToBreakEvenAfterLevel1)
+      {
+         // After Level 1: SL at break-even (entry price)
+         syncSL = openPrice;
+      }
+
+      if(syncSL <= 0)
+         return;  // No floor defined for current stage
+
+      syncSL = NormalizeDouble(syncSL, digits);
+
+      // 'Floor logic': Final target SL = max(syncSL, currentSL) for BUY, min for SELL
+      // This ensures SL never moves backwards while allowing trailing to advance it
+      double targetSL = syncSL;
+      if(currentSL > 0)
+      {
+         if(posType == POSITION_TYPE_BUY)
+            targetSL = MathMax(syncSL, currentSL);
+         else
+            targetSL = MathMin(syncSL, currentSL);
+      }
+      targetSL = NormalizeDouble(targetSL, digits);
+
+      // Check if sync is needed (Point * 2 tolerance)
+      const double tolerance = point * 2.0;
+      bool needsSync = false;
+      if(posType == POSITION_TYPE_BUY && currentSL < (syncSL - tolerance))
+         needsSync = true;
+      else if(posType == POSITION_TYPE_SELL && currentSL > (syncSL + tolerance))
+         needsSync = true;
+
+      if(!needsSync)
+         return;  // Already in sync
+
+      // Cooldown check (5 seconds)
+      datetime now = TimeCurrent();
+      if((now - m_lastSLSyncAttempt) < 5)
+         return;  // Wait for cooldown
+
+      m_lastSLSyncAttempt = now;
+
+      // Execute sync
+      if(SafePositionModifySL(managedTicket, targetSL, tp, "SYNC"))
+      {
+         CLogger::Log(LOG_INFO, StringFormat("[SL_SYNC] Success: Ticket=#%lld Stage=%d SL=%.5f -> %.5f",
+               managedTicket, stage, currentSL, targetSL));
+      }
+      else
+      {
+         CLogger::Log(LOG_WARN, StringFormat("[SL_SYNC] Failed: Ticket=#%lld Stage=%d TargetSL=%.5f",
+               managedTicket, stage, targetSL));
+      }
+   }
 };
+
 
 #endif

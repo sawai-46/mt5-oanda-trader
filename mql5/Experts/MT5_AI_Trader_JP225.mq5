@@ -146,6 +146,9 @@ string g_tradeLogPath = "";
 // Partial Close永続化: クールダウン管理
 datetime g_lastPersistCleanup = 0;
 
+// 継続的SL同期: クールダウン管理
+datetime g_lastSLSyncAttempt = 0;
+
 // 円→Points変換値（JP225: 1円 = 1point）
 double g_MaxSpreadPoints = 0;
 double g_StopLossPoints = 0;
@@ -561,6 +564,9 @@ void OnTick()
          CleanupPersistIfFlat();
       CheckPartialClose();
    }
+
+   // 継続的SL同期（Stage床ロジック）
+   EnsureStopLossSync();
 
    // New Bar検出と間隔カウント
    static datetime last_bar_time = 0;
@@ -1325,6 +1331,102 @@ bool SafePositionModifySL(ulong ticket, double desiredSL, double tp, const strin
       ResetLastError();
    }
    return ok;
+}
+
+//+------------------------------------------------------------------+
+//| 継続的SL同期: サーバーSLが期待される「床」と一致しているかを確認    |
+//| - 毎Tickでチェック、5秒クールダウンでOrderModify送信              |
+//| - 床ロジック: FinalSL = max(SyncSL, 現在SL) for BUY              |
+//+------------------------------------------------------------------+
+void EnsureStopLossSync()
+{
+   // 該当するポジションを検索（最新の1チケットのみ管理）
+   ulong managedTicket = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != g_ActiveMagicNumber) continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+      managedTicket = ticket;
+      break;  // 最新のチケット（単一ポジション方針）
+   }
+
+   if(managedTicket == 0)
+      return;  // 同期対象なし
+
+   if(!PositionSelectByTicket(managedTicket))
+      return;
+
+   // 現在の状態を取得
+   const double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   const int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   const double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+   const double currentSL = PositionGetDouble(POSITION_SL);
+   const double tp = PositionGetDouble(POSITION_TP);
+   const ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+   const int stage = g_partialCloseLevel[(int)(managedTicket % 1000)];
+
+   // 「Sync SL」を計算（ステージに基づく床）
+   double syncSL = 0;
+   if(stage >= 2 && InpPartialCloseStages >= 3 && InpMoveSLAfterLevel2)
+   {
+      // 3段階モードでLevel 2後: SLをTP1レベルへ
+      syncSL = (posType == POSITION_TYPE_BUY)
+               ? openPrice + g_PartialClose1Points * point
+               : openPrice - g_PartialClose1Points * point;
+   }
+   else if(stage >= 1 && InpMoveToBreakEvenAfterLevel1)
+   {
+      // Level 1後: SLを建値（エントリー価格）へ
+      syncSL = openPrice;
+   }
+
+   if(syncSL <= 0)
+      return;  // 現在のステージでは床が定義されていない
+
+   syncSL = NormalizeDouble(syncSL, digits);
+
+   // 床ロジック: 最終ターゲットSL = max(syncSL, currentSL) for BUY, min for SELL
+   double targetSL = syncSL;
+   if(currentSL > 0)
+   {
+      if(posType == POSITION_TYPE_BUY)
+         targetSL = MathMax(syncSL, currentSL);
+      else
+         targetSL = MathMin(syncSL, currentSL);
+   }
+   targetSL = NormalizeDouble(targetSL, digits);
+
+   // 同期が必要かチェック（Point * 2の許容誤差）
+   const double tolerance = point * 2.0;
+   bool needsSync = false;
+   if(posType == POSITION_TYPE_BUY && currentSL < (syncSL - tolerance))
+      needsSync = true;
+   else if(posType == POSITION_TYPE_SELL && currentSL > (syncSL + tolerance))
+      needsSync = true;
+
+   if(!needsSync)
+      return;  // 既に同期済み
+
+   // クールダウンチェック（5秒）
+   datetime now = TimeCurrent();
+   if((now - g_lastSLSyncAttempt) < 5)
+      return;  // クールダウン待機中
+
+   g_lastSLSyncAttempt = now;
+
+   // 同期実行
+   if(SafePositionModifySL(managedTicket, targetSL, tp, "SYNC"))
+   {
+      CLogger::Log(LOG_INFO, StringFormat("[SL_SYNC] Success: Ticket=#%lld Stage=%d SL=%.5f -> %.5f",
+            managedTicket, stage, currentSL, targetSL));
+   }
+   else
+   {
+      CLogger::Log(LOG_WARN, StringFormat("[SL_SYNC] Failed: Ticket=#%lld Stage=%d TargetSL=%.5f",
+            managedTicket, stage, targetSL));
+   }
 }
 
 //+------------------------------------------------------------------+
