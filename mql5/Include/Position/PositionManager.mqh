@@ -570,10 +570,18 @@ private:
                PersistSaveByTicket(ticket, newLevel);
             
             // Post-close actions
-            Sleep(100);
+            // Sleep(100); -> Inside loop
             
             // Find remaining position (same identifier, possibly new ticket after partial close in hedging mode)
-            ulong remainingTicket = FindRemainingPositionByIdentifier(identifier);
+            ulong remainingTicket = 0;
+            // Retry loop (Max 3 times, 300ms total) to wait for server update
+            for(int r=0; r<3; r++)
+            {
+               Sleep(100);
+               remainingTicket = FindRemainingPositionByIdentifier(identifier);
+               if(remainingTicket > 0) break;
+            }
+
             if(remainingTicket > 0)
             {
                m_partialLevels[(int)(remainingTicket % 1000)] = newLevel;

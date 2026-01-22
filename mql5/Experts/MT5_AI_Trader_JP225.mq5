@@ -1211,8 +1211,17 @@ void CheckPartialClose()
          // Level1後にBreakEven移動 / Level2後にSL移動（3段階モード）
          if((newLevel == 1 && InpMoveToBreakEvenAfterLevel1) || (newLevel == 2 && maxLevel >= 3 && InpMoveSLAfterLevel2))
          {
-            Sleep(100);
-            ulong newTicket = FindPositionByIdentifier(identifier);
+            // Sleep(100); -> Inside loop
+
+            ulong newTicket = 0;
+            // Retry loop (Max 3 times, 300ms total) to wait for server update
+            for(int r=0; r<3; r++)
+            {
+               Sleep(100);
+               newTicket = FindPositionByIdentifier(identifier);
+               if(newTicket > 0) break;
+            }
+
             if(newTicket > 0)
             {
                g_partialCloseLevel[(int)(newTicket % 1000)] = newLevel;
