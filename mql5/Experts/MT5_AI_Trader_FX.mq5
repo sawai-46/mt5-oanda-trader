@@ -149,6 +149,9 @@ datetime g_lastPersistCleanup = 0;
 
 // 継続的SL同期: クールダウン管理
 datetime g_lastSLSyncAttempt = 0;
+double g_lastSLSyncTarget = 0.0;  // 最後のSL同期ターゲット
+int g_slSyncRetryCount = 0;        // 同一ターゲットでのリトライ回数
+datetime g_slSyncLastLogTime = 0;  // 最後のSL同期失敗ログ出力時刻
 
 // Pips→Points変換値（OnInitで計算）
 double g_pipMultiplier = 10.0;  // 5桁ブローカー: 1pip = 10points
@@ -1378,9 +1381,17 @@ void EnsureStopLossSync()
    if(!needsSync)
       return;  // 既に同期済み
 
-   // クールダウンチェック（5秒）
+   // ターゲット変更検出 → リトライカウントリセット
+   if(MathAbs(targetSL - g_lastSLSyncTarget) > (point / 2))
+   {
+      g_lastSLSyncTarget = targetSL;
+      g_slSyncRetryCount = 0;
+   }
+
+   // クールダウンチェック（通常5秒、3回連続失敗後60秒）
    datetime now = TimeCurrent();
-   if((now - g_lastSLSyncAttempt) < 5)
+   int interval = (g_slSyncRetryCount >= 3) ? 60 : 5;
+   if((now - g_lastSLSyncAttempt) < interval)
       return;  // クールダウン待機中
 
    g_lastSLSyncAttempt = now;
@@ -1388,13 +1399,21 @@ void EnsureStopLossSync()
    // 同期実行
    if(SafePositionModifySL(managedTicket, targetSL, tp, "SYNC"))
    {
+      g_slSyncRetryCount = 0;  // 成功時リセット
       CLogger::Log(LOG_INFO, StringFormat("[SL_SYNC] Success: Ticket=#%lld Stage=%d SL=%.5f -> %.5f",
             managedTicket, stage, currentSL, targetSL));
    }
    else
    {
-      CLogger::Log(LOG_WARN, StringFormat("[SL_SYNC] Failed: Ticket=#%lld Stage=%d TargetSL=%.5f",
-            managedTicket, stage, targetSL));
+      g_slSyncRetryCount++;  // 失敗カウント
+      // ログ抑制: 初回と60秒毎
+      datetime now = TimeCurrent();
+      if(g_slSyncRetryCount == 1 || (now - g_slSyncLastLogTime) >= 60)
+      {
+         CLogger::Log(LOG_WARN, StringFormat("[SL_SYNC] Failed (attempt %d): Ticket=#%lld Stage=%d TargetSL=%.5f",
+               g_slSyncRetryCount, managedTicket, stage, targetSL));
+         g_slSyncLastLogTime = now;
+      }
    }
 }
 
