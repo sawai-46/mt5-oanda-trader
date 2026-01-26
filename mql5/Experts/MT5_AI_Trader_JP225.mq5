@@ -331,12 +331,10 @@ void DumpEffectiveConfig_AI_HTTP_OLD()
                                       InpRiskPercent, InpBaseLotSize, InpMaxLotSize, BoolStr(InpEnableLotAdjustment)));
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] Slippage=%.1fyen MaxSpread=%dpt MaxPos=%d MinBars=%d MinConf=%.2f DebugLog=%s",
                                       InpMaxSlippageYen, (int)g_MaxSpreadPoints, InpMaxPositions, InpMinBarsSinceLastTrade, InpMinConfidence, BoolStr(InpShowDebugLog)));
-   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] SL=%.1fpt TP=%.1fpt ATR_Period=%d ATR_Th=%s (price units) / %s MT5pt ATR_now=%s (price units) / %s MT5pt",
+   CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] SL=%.1fpt TP=%.1fpt ATR_Period=%d ATR_now=%s (price units) / %s MT5pt ※ATR閾値はPython側で管理",
                                       g_StopLossPoints,
                                       g_TakeProfitPoints,
                                       InpATRPeriod,
-                                      DoubleToString(g_ATRThresholdPoints * point, _Digits),
-                                      DoubleToString(g_ATRThresholdPoints, 1),
                                       DoubleToString(atr, _Digits),
                                       DoubleToString(atrPoints, 1)));
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][AI_HTTP_MT5] TimeFilter=%s GMT_Offset=%d DST=%s Start=%02d:%02d End=%02d:%02d Fri=%s",
