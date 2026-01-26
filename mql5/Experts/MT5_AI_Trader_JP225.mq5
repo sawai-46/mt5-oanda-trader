@@ -93,7 +93,7 @@ input bool   InpShowDebugLog = false;      // デバッグログを出力する 
 
 //--- ATR設定
 input int    InpATRPeriod = 14;            // ATR期間
-input double InpATRThresholdYen = 10.0;    // ATR最低閾値(円。ログは price units / MT5pt を併記)
+// ※ATR閾値はPython側で管理（strategy_presets.py SYMBOL_ATR_THRESHOLDS）
 
 //--- Partial Close設定
 input bool   InpEnablePartialClose = true;     // 部分決済有効化
@@ -156,7 +156,6 @@ datetime g_slSyncLastLogTime = 0;  // 最後のSL同期失敗ログ出力時刻
 double g_MaxSpreadPoints = 0;
 double g_StopLossPoints = 0;
 double g_TakeProfitPoints = 0;
-double g_ATRThresholdPoints = 0;
 double g_PartialClose1Points = 0;
 double g_PartialClose2Points = 0;
 double g_PartialClose3Points = 0;
@@ -408,7 +407,6 @@ int OnInit()
    g_MaxSpreadPoints = InpMaxSpreadYen * yenToPoints;
    g_StopLossPoints = InpStopLossYen * yenToPoints;
    g_TakeProfitPoints = InpTakeProfitYen * yenToPoints;
-   g_ATRThresholdPoints = InpATRThresholdYen * yenToPoints;
    g_PartialClose1Points = InpPartialClose1Yen * yenToPoints;
    g_PartialClose2Points = InpPartialClose2Yen * yenToPoints;
    g_PartialClose3Points = InpPartialClose3Yen * yenToPoints;
@@ -673,16 +671,7 @@ void AnalyzeAndTrade()
       return;
    }
    
-   // ATR閾値チェック
-   double atr = GetATR(InpATRPeriod);
-   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-   double atr_points = atr / point;
-   
-   if(atr_points < g_ATRThresholdPoints)
-   {
-      LogSkipReason(StringFormat("ATR不足: %.1f pts < %.1f pts", atr_points, g_ATRThresholdPoints));
-      return;
-   }
+   // ※ATR閾値チェックはPython側で実施（strategy_presets.py）
    
    // エントリー実行
    ExecuteTrade(signal, confidence);
