@@ -45,7 +45,9 @@ input ENUM_PULLBACK_EMA_REF InpPullbackEmaRef = PULLBACK_EMA_25;  // プルバ�
 input bool   InpEnableTimeFilter = true;     // 時間フィルター有効
 input int    InpGMTOffset = 3;               // GMTオフセット
 input int    InpStartHour = 8;               // 開始時刻(JST)
+input int    InpStartMinute = 0;             // 開始分(JST)
 input int    InpEndHour = 21;                // 終了時刻(JST)
+input int    InpEndMinute = 0;               // 終了分(JST)
 input bool   InpUseDST = false;              // 夏時間有効
 input bool   InpTradeOnFriday = true;        // 金曜取引
 
@@ -349,8 +351,8 @@ int OnInit()
    filterCfg.EnableTimeFilter = InpEnableTimeFilter;
    filterCfg.GMTOffset = InpGMTOffset;
    filterCfg.UseDST = InpUseDST;
-   filterCfg.StartMinute = 0;
-   filterCfg.EndMinute = 0;
+   filterCfg.StartMinute = InpStartMinute;
+   filterCfg.EndMinute = InpEndMinute;
    filterCfg.StartHour = InpStartHour;
    filterCfg.EndHour = InpEndHour;
    filterCfg.TradeOnFriday = InpTradeOnFriday;
