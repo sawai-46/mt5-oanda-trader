@@ -51,8 +51,8 @@ input int    InpEndHour = 21;                // 終了時刻(JST)
 input bool   InpUseDST = false;              // 夏時間有効
 input bool   InpTradeOnFriday = true;        // 金曜取引
 
-//--- 金曜夜〜土曜早朝の全決済（JST）
-input bool   InpEnableFridayCloseJST = true;  // 金曜夜〜土曜早朝の全決済
+//--- 毎日指定時間の全決済（JST）
+input bool   InpEnableFridayCloseJST = true;  // 毎日指定時間の全決済
 input int    InpFridayCloseStartHour = 23;    // 開始時(時) JST
 input int    InpFridayCloseStartMinute = 0;   // 開始時(分) JST
 input int    InpFridayCloseEndHour = 4;       // 終了時(時) JST

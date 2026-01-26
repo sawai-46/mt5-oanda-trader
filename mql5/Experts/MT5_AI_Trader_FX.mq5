@@ -78,8 +78,8 @@ input int    InpCustom_End_Hour = 21;              // 稼働終了時(JST)
 input int    InpCustom_End_Minute = 0;             // 稼働終了分
 input bool   InpTradeOnFriday = true;              // 金曜取引許可
 
-//--- 金曜夜〜土曜早朝の全決済（JST）
-input bool   InpEnableFridayCloseJST = true;      // 金曜夜〜土曜早朝の全決済
+//--- 毎日指定時間の全決済（JST）
+input bool   InpEnableFridayCloseJST = true;      // 毎日指定時間の全決済
 input int    InpFridayCloseStartHour = 23;        // 開始時(時) JST
 input int    InpFridayCloseStartMinute = 0;       // 開始時(分) JST
 input int    InpFridayCloseEndHour = 4;           // 終了時(時) JST
@@ -176,14 +176,8 @@ bool IsFridayCloseWindowJST()
    int minutes = dt.hour * 60 + dt.min;
    int start = InpFridayCloseStartHour * 60 + InpFridayCloseStartMinute;
    int end = InpFridayCloseEndHour * 60 + InpFridayCloseEndMinute;
-   if(dt.day_of_week == 5)
-   {
-      if(start <= end) return (minutes >= start && minutes <= end);
-      return (minutes >= start);
-   }
-   if(dt.day_of_week == 6 && start > end)
-      return (minutes <= end);
-   return false;
+   if(start <= end) return (minutes >= start && minutes <= end);
+   return (minutes >= start || minutes <= end);
 }
 
 void CloseAllPositionsForSymbolMagic(const string reason)
@@ -517,7 +511,7 @@ void OnTick()
 
    if(IsFridayCloseWindowJST())
    {
-      CloseAllPositionsForSymbolMagic("JST Friday close window");
+      CloseAllPositionsForSymbolMagic("JST daily close window");
       return;
    }
 

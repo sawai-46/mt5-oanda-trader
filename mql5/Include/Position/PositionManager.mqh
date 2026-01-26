@@ -49,7 +49,7 @@ struct SPositionConfig
    double   TrailingATRMulti;
    int      ATRPeriod;
 
-   // Friday close window (JST)
+   // Daily close window (JST)
    bool     EnableFridayCloseJST;
    int      FridayCloseStartHour;
    int      FridayCloseStartMinute;
@@ -151,7 +151,7 @@ public:
    {
       if(m_cfg.EnableFridayCloseJST && IsFridayCloseWindowJST())
       {
-         CloseAllPositionsForSymbolMagic("JST Friday close window");
+         CloseAllPositionsForSymbolMagic("JST daily close window");
          return;
       }
 
@@ -250,14 +250,8 @@ private:
       int minutes = dt.hour * 60 + dt.min;
       int start = m_cfg.FridayCloseStartHour * 60 + m_cfg.FridayCloseStartMinute;
       int end = m_cfg.FridayCloseEndHour * 60 + m_cfg.FridayCloseEndMinute;
-      if(dt.day_of_week == 5)
-      {
-         if(start <= end) return (minutes >= start && minutes <= end);
-         return (minutes >= start);
-      }
-      if(dt.day_of_week == 6 && start > end)
-         return (minutes <= end);
-      return false;
+      if(start <= end) return (minutes >= start && minutes <= end);
+      return (minutes >= start || minutes <= end);
    }
 
    void CloseAllPositionsForSymbolMagic(const string reason)
