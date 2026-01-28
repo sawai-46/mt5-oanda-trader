@@ -85,6 +85,15 @@ hedge_mode:
     range: active
     high_vol: caution
 
+  # Hard filters to prevent wasteful entries
+  hard_filters:
+    duplicate_cooldown_sec: 300        # 5分間の重複シグナル抑制
+    trend_filter_enabled: true         # SMA200トレンドフィルター
+    trend_filter_period: 200           # SMA期間
+    adx_filter_enabled: true           # ADXボラティリティフィルター
+    adx_period: 14                     # ADX計算期間
+    adx_threshold: 20.0                # ADX最小閾値
+
 # オプション市場リスク監視設定（大きなドローダウン回避用）
 options_risk:
   enabled: true
