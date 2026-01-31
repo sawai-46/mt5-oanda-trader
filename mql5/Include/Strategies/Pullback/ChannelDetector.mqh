@@ -241,7 +241,7 @@ public:
       double width = (upperPrice - lowerPrice) / _Point;
       
       // 幅の範囲チェック
-      if(width < m_cfg.ChannelMinWidth || width > m_cfg.ChannelMaxWidth)
+      if(width < m_cfg.ChannelMinWidthPoints || width > m_cfg.ChannelMaxWidthPoints)
          return false;
       
       // チャネル方向判定

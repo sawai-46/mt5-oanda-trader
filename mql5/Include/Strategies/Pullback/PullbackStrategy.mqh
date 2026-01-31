@@ -35,6 +35,15 @@ private:
    datetime m_pullbackBarTime;          // プルバック検出時刻
    string   m_pullbackType;             // プルバックタイプ文字列
 
+   // === AIノイズ対策: 状態管理 ===
+   datetime m_atrSpikeDetectedTime;     // ATRスパイク検出時刻
+   int      m_atrSpikeWaitCounter;      // スパイク後待機カウンター
+   datetime m_firstTouchTime;           // 最初のタッチ時刻（2度目狙い用）
+   int      m_touchCount;               // タッチ回数
+   datetime m_stopHuntDetectedTime;     // ストップ狩り検出時刻
+   double   m_stopHuntLow;              // ストップ狩り時の安値
+   double   m_stopHuntHigh;             // ストップ狩り時の高値
+
 private:
    int EmaRefPeriod() const
    {
@@ -118,7 +127,202 @@ private:
          if(adx < m_cfg.ADXMinLevel) return false;
       }
 
+      // === AIノイズ対策: ATRスパイクフィルター ===
+      if(!CheckATRSpikeFilter()) return false;
+
       return true;
+   }
+
+   //+------------------------------------------------------------------+
+   //| AIノイズ対策: ATRスパイク検出 (モメンタム・イグニッション回避)     |
+   //| ドキュメント: セクション5.3, 7.2B                                  |
+   //+------------------------------------------------------------------+
+   bool CheckATRSpikeFilter()
+   {
+      if(!m_cfg.UseATRSpikeFilter)
+         return true;
+
+      // スパイク後の待機中か確認
+      if(m_atrSpikeWaitCounter > 0)
+      {
+         m_atrSpikeWaitCounter--;
+         CLogger::Log(LOG_DEBUG, StringFormat("ATRスパイク待機中: 残り%d本", m_atrSpikeWaitCounter));
+         return false;
+      }
+
+      // 現在ATRと過去平均ATRを比較
+      double atrCurrent = 0.0;
+      if(!Copy1(m_handleATR, 1, atrCurrent)) return true;
+
+      double atrSum = 0.0;
+      int validCount = 0;
+      for(int i = 2; i <= m_cfg.ATRSpikeAvgBars + 1; i++)
+      {
+         double atr = 0.0;
+         if(Copy1(m_handleATR, i, atr))
+         {
+            atrSum += atr;
+            validCount++;
+         }
+      }
+
+      if(validCount == 0) return true;
+
+      double atrAvg = atrSum / validCount;
+      double spikeRatio = atrCurrent / atrAvg;
+
+      // スパイク検出
+      if(spikeRatio >= m_cfg.ATRSpikeMultiplier)
+      {
+         m_atrSpikeDetectedTime = TimeCurrent();
+         m_atrSpikeWaitCounter = m_cfg.ATRSpikeWaitBars;
+         CLogger::Log(LOG_INFO, StringFormat("ATRスパイク検出: 現在ATR=%.1f, 平均ATR=%.1f, 比率=%.2f → %d本待機",
+            atrCurrent / _Point, atrAvg / _Point, spikeRatio, m_cfg.ATRSpikeWaitBars));
+         return false;
+      }
+
+      return true;
+   }
+
+   //+------------------------------------------------------------------+
+   //| AIノイズ対策: 2度目の動きを狙う (セクション9.2-5)                  |
+   //+------------------------------------------------------------------+
+   bool CheckSecondWaveEntry(bool isLong)
+   {
+      if(!m_cfg.UseSecondWaveEntry)
+         return true;  // 無効時は常に許可
+
+      datetime currentBarTime = iTime(m_symbol, m_timeframe, 1);
+
+      // 最初のタッチを記録
+      if(m_touchCount == 0)
+      {
+         m_firstTouchTime = currentBarTime;
+         m_touchCount = 1;
+         CLogger::Log(LOG_DEBUG, "2度目狙い: 1回目のタッチ記録");
+         return false;  // 1回目はスキップ
+      }
+
+      // 2回目のタッチ判定
+      int barsSinceFirst = (int)((currentBarTime - m_firstTouchTime) / PeriodSeconds(m_timeframe));
+
+      if(barsSinceFirst < m_cfg.SecondWaveMinBars)
+      {
+         CLogger::Log(LOG_DEBUG, StringFormat("2度目狙い: 間隔不足 (%d本 < %d本)", barsSinceFirst, m_cfg.SecondWaveMinBars));
+         return false;
+      }
+
+      if(barsSinceFirst > m_cfg.SecondWaveMaxBars)
+      {
+         // 期限切れ、リセット
+         m_touchCount = 1;
+         m_firstTouchTime = currentBarTime;
+         CLogger::Log(LOG_DEBUG, "2度目狙い: 期限切れ、リセット");
+         return false;
+      }
+
+      // 2回目の条件OK
+      m_touchCount++;
+      CLogger::Log(LOG_INFO, StringFormat("2度目狙い: %d回目のタッチ → エントリー許可", m_touchCount));
+      return true;
+   }
+
+   //+------------------------------------------------------------------+
+   //| AIノイズ対策: ストップ狩り検出 (セクション9.2-3)                   |
+   //+------------------------------------------------------------------+
+   bool DetectStopHunt()
+   {
+      if(!m_cfg.UsePostStopHuntEntry)
+         return false;
+
+      double spikeThreshold = m_cfg.StopHuntSpikePoints * _Point;
+
+      // 直近N本の高値安値を確認
+      for(int i = 1; i <= m_cfg.StopHuntRecoveryBars + 1; i++)
+      {
+         double high = iHigh(m_symbol, m_timeframe, i);
+         double low = iLow(m_symbol, m_timeframe, i);
+         double close = iClose(m_symbol, m_timeframe, i);
+         double open = iOpen(m_symbol, m_timeframe, i);
+
+         // 下ヒゲスパイク（ストップ狩り後の買いシグナル）
+         double lowerWick = MathMin(open, close) - low;
+         if(lowerWick >= spikeThreshold)
+         {
+            // 回復確認: 終値がオープン付近に戻っている
+            if(close > low + spikeThreshold * 0.5)
+            {
+               m_stopHuntDetectedTime = iTime(m_symbol, m_timeframe, i);
+               m_stopHuntLow = low;
+               CLogger::Log(LOG_INFO, StringFormat("ストップ狩り検出(下): Low=%.5f, Wick=%.1fpts", low, lowerWick / _Point));
+               return true;
+            }
+         }
+
+         // 上ヒゲスパイク（ストップ狩り後の売りシグナル）
+         double upperWick = high - MathMax(open, close);
+         if(upperWick >= spikeThreshold)
+         {
+            if(close < high - spikeThreshold * 0.5)
+            {
+               m_stopHuntDetectedTime = iTime(m_symbol, m_timeframe, i);
+               m_stopHuntHigh = high;
+               CLogger::Log(LOG_INFO, StringFormat("ストップ狩り検出(上): High=%.5f, Wick=%.1fpts", high, upperWick / _Point));
+               return true;
+            }
+         }
+      }
+
+      return false;
+   }
+
+   //+------------------------------------------------------------------+
+   //| AIノイズ対策: ストップ狩り後エントリー判定                         |
+   //+------------------------------------------------------------------+
+   bool CheckPostStopHuntEntry(bool isLong)
+   {
+      if(!m_cfg.UsePostStopHuntEntry)
+         return true;  // 無効時は常に許可
+
+      // ストップ狩り検出がなければスキップ
+      if(m_stopHuntDetectedTime == 0)
+         return true;
+
+      // ストップ狩り後の回復を確認
+      datetime currentBarTime = iTime(m_symbol, m_timeframe, 1);
+      int barsSinceHunt = (int)((currentBarTime - m_stopHuntDetectedTime) / PeriodSeconds(m_timeframe));
+
+      if(barsSinceHunt > m_cfg.StopHuntRecoveryBars)
+      {
+         // 回復確認OK
+         double close1 = iClose(m_symbol, m_timeframe, 1);
+
+         if(isLong && m_stopHuntLow > 0)
+         {
+            // 下方ストップ狩り後、価格が回復していればOK
+            if(close1 > m_stopHuntLow + m_cfg.StopHuntSpikePoints * _Point * 0.7)
+            {
+               CLogger::Log(LOG_INFO, "ストップ狩り後エントリー許可 [Buy]");
+               m_stopHuntDetectedTime = 0;  // リセット
+               m_stopHuntLow = 0;
+               return true;
+            }
+         }
+
+         if(!isLong && m_stopHuntHigh > 0)
+         {
+            // 上方ストップ狩り後、価格が回復していればOK
+            if(close1 < m_stopHuntHigh - m_cfg.StopHuntSpikePoints * _Point * 0.7)
+            {
+               CLogger::Log(LOG_INFO, "ストップ狩り後エントリー許可 [Sell]");
+               m_stopHuntDetectedTime = 0;
+               m_stopHuntHigh = 0;
+               return true;
+            }
+         }
+      }
+
+      return false;  // まだ待機
    }
 
    //+------------------------------------------------------------------+
@@ -691,7 +895,14 @@ public:
      m_isPullbackLong(false),
      m_pullbackEntryLevel(0.0),
      m_pullbackBarTime(0),
-     m_pullbackType("")
+     m_pullbackType(""),
+     m_atrSpikeDetectedTime(0),
+     m_atrSpikeWaitCounter(0),
+     m_firstTouchTime(0),
+     m_touchCount(0),
+     m_stopHuntDetectedTime(0),
+     m_stopHuntLow(0.0),
+     m_stopHuntHigh(0.0)
    {
       m_trade.Configure(m_cfg.MagicNumber, m_cfg.DeviationPoints, ORDER_FILLING_IOC);
       m_aiLogger.Configure(m_cfg.EnableAiLearningLog, m_cfg.TerminalId, m_cfg.AiLearningFolder);
@@ -728,6 +939,9 @@ public:
       m_confirmationBarValidated = false;
       m_pullbackEntryLevel = 0.0;
       m_pullbackType = "";
+      // AIノイズ対策: 2度目狙いのリセット
+      m_touchCount = 0;
+      m_firstTouchTime = 0;
    }
 
    //+------------------------------------------------------------------+

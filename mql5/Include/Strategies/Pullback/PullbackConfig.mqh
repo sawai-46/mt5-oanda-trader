@@ -105,6 +105,23 @@ public:
    bool            ChannelRequireParallel;      // 平行チャネル必須
    double          ChannelParallelTolerance;    // 平行許容度（傾き差の割合）
 
+   // === AIノイズ対策 (AI_MARKET_TRANSFORMATION.md準拠) ===
+   // モメンタム・イグニッション回避 (セクション5.3, 7.2B)
+   bool            UseATRSpikeFilter;           // ATRスパイク検出有効
+   double          ATRSpikeMultiplier;          // ATRスパイク判定倍率（平均比）
+   int             ATRSpikeAvgBars;             // ATR平均計算期間
+   int             ATRSpikeWaitBars;            // スパイク後の待機本数
+
+   // 2度目の動きを狙う (セクション9.2-5)
+   bool            UseSecondWaveEntry;          // 2度目のタッチでエントリー
+   int             SecondWaveMinBars;           // 最初のタッチからの最小間隔
+   int             SecondWaveMaxBars;           // 最初のタッチからの最大間隔
+
+   // ストップ狩り確認後エントリー (セクション9.2-3)
+   bool            UsePostStopHuntEntry;        // ストップ狩り後エントリー
+   double          StopHuntSpikePoints;         // ストップ狩りスパイク幅(Points)
+   int             StopHuntRecoveryBars;        // 回復確認バー数
+
    // Filters
    int             MaxSpreadPoints;
    int             ATRPeriod;
@@ -180,6 +197,16 @@ public:
      ChannelMaxWidthPoints(2000.0),        // 200pips相当
      ChannelRequireParallel(true),         // 設計書準拠: 平行必須
      ChannelParallelTolerance(0.3),        // 設計書準拠: 傾き差30%
+     UseATRSpikeFilter(true),              // AIノイズ対策: スパイク検出有効
+     ATRSpikeMultiplier(2.0),              // AIノイズ対策: ATR平均の2倍以上でスパイク
+     ATRSpikeAvgBars(10),                  // AIノイズ対策: 過去10本でATR平均
+     ATRSpikeWaitBars(3),                  // AIノイズ対策: スパイク後3本待機
+     UseSecondWaveEntry(false),            // AIノイズ対策: 2度目エントリー（デフォルトOFF）
+     SecondWaveMinBars(3),                 // AIノイズ対策: 最初のタッチから3本以上
+     SecondWaveMaxBars(10),                // AIノイズ対策: 最初のタッチから10本以内
+     UsePostStopHuntEntry(false),          // AIノイズ対策: ストップ狩り後（デフォルトOFF）
+     StopHuntSpikePoints(100.0),           // AIノイズ対策: 10pipsスパイク
+     StopHuntRecoveryBars(2),              // AIノイズ対策: 2本で回復確認
      MaxSpreadPoints(200),
      ATRPeriod(14),
      ATRThresholdPoints(30.0),

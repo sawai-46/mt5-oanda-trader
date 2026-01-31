@@ -77,6 +77,18 @@ input double InpChannelMaxWidth = 500.0;          // チャネル最大幅(point
 input bool   InpChannelRequireParallel = true;    // 平行チャネル必須
 input double InpChannelParallelTolerance = 0.5;   // 平行許容誤差
 
+//--- AIノイズ対策 (AI_MARKET_TRANSFORMATION.md準拠)
+input bool   InpUseATRSpikeFilter = true;         // ATRスパイク検出（モメンタム・イグニッション回避）
+input double InpATRSpikeMultiplier = 2.0;         // ATRスパイク判定倍率（平均比）
+input int    InpATRSpikeAvgBars = 10;             // ATR平均計算期間
+input int    InpATRSpikeWaitBars = 3;             // スパイク後の待機本数
+input bool   InpUseSecondWaveEntry = false;       // 2度目の動きを狙う
+input int    InpSecondWaveMinBars = 3;            // 1回目から2回目の最小間隔
+input int    InpSecondWaveMaxBars = 10;           // 1回目から2回目の最大間隔
+input bool   InpUsePostStopHuntEntry = false;     // ストップ狩り後エントリー
+input double InpStopHuntSpikePips = 10.0;         // ストップ狩りスパイク幅(pips)
+input int    InpStopHuntRecoveryBars = 2;         // 回復確認バー数
+
 //--- Time Filter (JST)
 input bool   InpEnableTimeFilter = true;     // 時間フィルター有効
 input int    InpGMTOffset = 3;               // GMTオフセット
@@ -394,10 +406,22 @@ int OnInit()
       cfg.TrendLineTolerancePoints = InpTrendLineTolerancePoints;
       cfg.TrendLineAutoUpdate = InpTrendLineAutoUpdate;
       cfg.ChannelReversalOnly = InpChannelReversalOnly;
-      cfg.ChannelMinWidth = InpChannelMinWidth;
-      cfg.ChannelMaxWidth = InpChannelMaxWidth;
+      cfg.ChannelMinWidthPoints = InpChannelMinWidth;
+      cfg.ChannelMaxWidthPoints = InpChannelMaxWidth;
       cfg.ChannelRequireParallel = InpChannelRequireParallel;
       cfg.ChannelParallelTolerance = InpChannelParallelTolerance;
+
+      // AIノイズ対策 (AI_MARKET_TRANSFORMATION.md準拠)
+      cfg.UseATRSpikeFilter = InpUseATRSpikeFilter;
+      cfg.ATRSpikeMultiplier = InpATRSpikeMultiplier;
+      cfg.ATRSpikeAvgBars = InpATRSpikeAvgBars;
+      cfg.ATRSpikeWaitBars = InpATRSpikeWaitBars;
+      cfg.UseSecondWaveEntry = InpUseSecondWaveEntry;
+      cfg.SecondWaveMinBars = InpSecondWaveMinBars;
+      cfg.SecondWaveMaxBars = InpSecondWaveMaxBars;
+      cfg.UsePostStopHuntEntry = InpUsePostStopHuntEntry;
+      cfg.StopHuntSpikePoints = InpStopHuntSpikePips * g_pipMultiplier;
+      cfg.StopHuntRecoveryBars = InpStopHuntRecoveryBars;
 
       cfg.MaxSpreadPoints = g_MaxSpreadPoints;
       cfg.UseADXFilter = InpUseADXFilter;
