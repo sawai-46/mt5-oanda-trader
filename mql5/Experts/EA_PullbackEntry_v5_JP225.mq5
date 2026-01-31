@@ -20,7 +20,7 @@
 //=== INPUT PARAMETERS ===
 
 //--- Preset Selection
-input ENUM_PULLBACK_PRESET InpPreset = PRESET_STANDARD;  // 戦略プリセット
+input ENUM_STRATEGY_PRESET InpPreset = PRESET_STANDARD;  // 戦略プリセット
 input int InpPresetApplyMode = 1;  // Preset適用モード: 0=使わない(Input優先), 1=未設定のみ補完★推奨, 2=全上書き
 
 //--- Basic Settings
@@ -221,7 +221,7 @@ long GenerateMagicNumber()
    return (long)(55000000 + (hash % 1000000));
 }
 
-void DumpEffectiveConfig(const ENUM_PULLBACK_PRESET preset,
+void DumpEffectiveConfig(const ENUM_STRATEGY_PRESET preset,
                          const CPullbackConfig &cfg)
 {
    CLogger::Log(LOG_INFO, StringFormat("[CONFIG][PBE_JP] Symbol=%s Magic=%lld Preset=%s", _Symbol, cfg.MagicNumber, GetPresetName(preset)));

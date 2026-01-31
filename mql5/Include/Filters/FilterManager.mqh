@@ -1,15 +1,26 @@
 //+------------------------------------------------------------------+
 //|                                             FilterManager.mqh    |
 //|                     Filter Management for Pullback Strategy      |
-//|                    Time / Spread / ADX / ATR / Channel Filters   |
+//|       Time / Spread / ADX / ATR / Channel / MTF / Pattern Filters|
+//|                     MT4 CommonEA互換・モジュラー設計              |
 //+------------------------------------------------------------------+
 #ifndef __FILTER_MANAGER_MQH__
 #define __FILTER_MANAGER_MQH__
+
+#include <Filters/IFilter.mqh>
+#include <Filters/FilterBase.mqh>
+#include <Filters/ADXFilter.mqh>
+#include <Filters/ATRFilter.mqh>
+#include <Filters/SpreadFilter.mqh>
+#include <Filters/TimeFilter.mqh>
+#include <Filters/CandlePatternFilter.mqh>
+#include <Filters/MTFTrendFilter.mqh>
 
 //--- Filter Configuration
 struct SFilterConfig
 {
    string   Symbol;
+   double   PipMultiplier;    // pips→points変換係数（FX=10.0, Index=1.0）
    
    // Time Filter (JST-based)
    bool     EnableTimeFilter;
@@ -29,6 +40,8 @@ struct SFilterConfig
    bool     EnableADXFilter;
    int      ADXPeriod;
    double   ADXMinLevel;
+   bool     ADXRequireRising;
+   double   DISpreadMin;
    
    // ATR Filter
    bool     EnableATRFilter;
@@ -49,10 +62,17 @@ struct SFilterConfig
    bool     UseMTFEmaShort;
    bool     UseMTFEmaMid;
    bool     UseMTFEmaLong;
+
+   // Candle Pattern Filter
+   bool     EnableCandlePatternFilter;
+   bool     DetectPinBar;
+   bool     DetectEngulfing;
+   double   MinWickRatio;
    
    // Default values
    SFilterConfig()
    : Symbol(""),
+     PipMultiplier(10.0),
      EnableTimeFilter(true),
      GMTOffset(3),
      UseDST(false),
@@ -65,7 +85,9 @@ struct SFilterConfig
      MaxSpreadPoints(200),
      EnableADXFilter(true),
      ADXPeriod(14),
-     ADXMinLevel(20.0),
+     ADXMinLevel(15.0),
+     ADXRequireRising(false),
+     DISpreadMin(0),
      EnableATRFilter(true),
      ATRPeriod(14),
      ATRMinPoints(30.0),
@@ -79,34 +101,45 @@ struct SFilterConfig
      MTFEmaLong(100),
      UseMTFEmaShort(true),
      UseMTFEmaMid(true),
-     UseMTFEmaLong(true)
+     UseMTFEmaLong(true),
+     EnableCandlePatternFilter(false),
+     DetectPinBar(true),
+     DetectEngulfing(true),
+     MinWickRatio(2.0)
    {
    }
 };
 
 //+------------------------------------------------------------------+
 //| CFilterManager - OOP Filter Management                           |
+//|              個別フィルタークラスを統合管理                       |
 //+------------------------------------------------------------------+
 class CFilterManager
 {
 private:
    SFilterConfig m_cfg;
-   int           m_handleADX;
-   int           m_handleATR;
-   int           m_handleMtfEmaS;
-   int           m_handleMtfEmaM;
-   int           m_handleMtfEmaL;
+   ENUM_TIMEFRAMES m_timeframe;
+   
+   // 個別フィルタークラス（モジュラー設計）
+   CTimeFilter          m_timeFilter;
+   CSpreadFilter        m_spreadFilter;
+   CADXFilter           m_adxFilter;
+   CATRFilter           m_atrFilter;
+   CCandlePatternFilter m_candlePattern;
+   CMTFTrendFilter      m_mtfFilter;
+   
+   // チャネルフィルター用ハンドル（独自実装）
+   int           m_handleChannelShort;
+   int           m_handleChannelLong;
    
    string        m_lastRejectReason;
 
 public:
    //--- Constructor
    CFilterManager()
-   : m_handleADX(INVALID_HANDLE),
-     m_handleATR(INVALID_HANDLE),
-     m_handleMtfEmaS(INVALID_HANDLE),
-     m_handleMtfEmaM(INVALID_HANDLE),
-     m_handleMtfEmaL(INVALID_HANDLE),
+   : m_timeframe(PERIOD_CURRENT),
+     m_handleChannelShort(INVALID_HANDLE),
+     m_handleChannelLong(INVALID_HANDLE),
      m_lastRejectReason("")
    {
    }
@@ -114,34 +147,90 @@ public:
    //--- Destructor
    ~CFilterManager()
    {
-      if(m_handleADX != INVALID_HANDLE) IndicatorRelease(m_handleADX);
-      if(m_handleATR != INVALID_HANDLE) IndicatorRelease(m_handleATR);
-      ReleaseMtfIndicators();
+      ReleaseChannelIndicators();
    }
 
-   void ReleaseMtfIndicators()
+   void ReleaseChannelIndicators()
    {
-      if(m_handleMtfEmaS != INVALID_HANDLE) { IndicatorRelease(m_handleMtfEmaS); m_handleMtfEmaS = INVALID_HANDLE; }
-      if(m_handleMtfEmaM != INVALID_HANDLE) { IndicatorRelease(m_handleMtfEmaM); m_handleMtfEmaM = INVALID_HANDLE; }
-      if(m_handleMtfEmaL != INVALID_HANDLE) { IndicatorRelease(m_handleMtfEmaL); m_handleMtfEmaL = INVALID_HANDLE; }
+      if(m_handleChannelShort != INVALID_HANDLE) { IndicatorRelease(m_handleChannelShort); m_handleChannelShort = INVALID_HANDLE; }
+      if(m_handleChannelLong != INVALID_HANDLE) { IndicatorRelease(m_handleChannelLong); m_handleChannelLong = INVALID_HANDLE; }
    }
    
    //--- Initialize with config
    void Init(const SFilterConfig &cfg, ENUM_TIMEFRAMES timeframe = PERIOD_CURRENT)
    {
       m_cfg = cfg;
+      m_timeframe = timeframe;
       
+      // Time Filter
+      if(m_cfg.EnableTimeFilter)
+      {
+         m_timeFilter.Init(m_cfg.StartHour, m_cfg.StartMinute, m_cfg.EndHour, m_cfg.EndMinute,
+                           m_cfg.GMTOffset, m_cfg.UseDST, m_cfg.TradeOnFriday);
+         m_timeFilter.SetEnabled(true);
+      }
+      else
+      {
+         m_timeFilter.SetEnabled(false);
+      }
+      
+      // Spread Filter
+      if(m_cfg.EnableSpreadFilter && StringLen(m_cfg.Symbol) > 0)
+      {
+         m_spreadFilter.Init(m_cfg.Symbol, m_cfg.MaxSpreadPoints, m_cfg.PipMultiplier);
+         m_spreadFilter.SetEnabled(true);
+      }
+      else
+      {
+         m_spreadFilter.SetEnabled(false);
+      }
+      
+      // ADX Filter
       if(m_cfg.EnableADXFilter && StringLen(m_cfg.Symbol) > 0)
-         m_handleADX = iADX(m_cfg.Symbol, timeframe, m_cfg.ADXPeriod);
+      {
+         m_adxFilter.Init(m_cfg.Symbol, timeframe, m_cfg.ADXPeriod, m_cfg.ADXMinLevel);
+         m_adxFilter.SetRequireRising(m_cfg.ADXRequireRising);
+         m_adxFilter.SetDISpreadMin(m_cfg.DISpreadMin);
+         m_adxFilter.SetEnabled(true);
+      }
+      else
+      {
+         m_adxFilter.SetEnabled(false);
+      }
       
-      if((m_cfg.EnableATRFilter || m_cfg.EnableChannelFilter) && StringLen(m_cfg.Symbol) > 0)
-         m_handleATR = iATR(m_cfg.Symbol, timeframe, m_cfg.ATRPeriod);
-
+      // ATR Filter
+      if(m_cfg.EnableATRFilter && StringLen(m_cfg.Symbol) > 0)
+      {
+         m_atrFilter.Init(m_cfg.Symbol, timeframe, m_cfg.ATRPeriod, m_cfg.ATRMinPoints, m_cfg.PipMultiplier);
+         m_atrFilter.SetEnabled(true);
+      }
+      else
+      {
+         m_atrFilter.SetEnabled(false);
+      }
+      
+      // MTF Filter
       if(m_cfg.EnableMTFFilter && StringLen(m_cfg.Symbol) > 0)
       {
-         m_handleMtfEmaS = iMA(m_cfg.Symbol, m_cfg.MTFTimeframe, m_cfg.MTFEmaShort, 0, MODE_EMA, PRICE_CLOSE);
-         m_handleMtfEmaM = iMA(m_cfg.Symbol, m_cfg.MTFTimeframe, m_cfg.MTFEmaMid, 0, MODE_EMA, PRICE_CLOSE);
-         m_handleMtfEmaL = iMA(m_cfg.Symbol, m_cfg.MTFTimeframe, m_cfg.MTFEmaLong, 0, MODE_EMA, PRICE_CLOSE);
+         m_mtfFilter.Init(m_cfg.Symbol, m_cfg.MTFTimeframe, 
+                          m_cfg.MTFEmaShort, m_cfg.MTFEmaMid, m_cfg.MTFEmaLong,
+                          m_cfg.UseMTFEmaShort, m_cfg.UseMTFEmaMid, m_cfg.UseMTFEmaLong);
+         m_mtfFilter.SetEnabled(true);
+      }
+      else
+      {
+         m_mtfFilter.SetEnabled(false);
+      }
+
+      // Candle Pattern Filter
+      if(m_cfg.EnableCandlePatternFilter && StringLen(m_cfg.Symbol) > 0)
+      {
+         m_candlePattern.Init(m_cfg.Symbol, timeframe, m_cfg.DetectPinBar, m_cfg.DetectEngulfing, m_cfg.MinWickRatio);
+         m_candlePattern.SetEnabled(true);
+      }
+      else
+      {
+         m_candlePattern.SetEnabled(false);
       }
    }
    
@@ -150,18 +239,35 @@ public:
    {
       m_lastRejectReason = "";
       
-      if(m_cfg.EnableTimeFilter && !CheckTimeFilter())
+      // Time Filter
+      if(!m_timeFilter.Check(TREND_NONE))
+      {
+         m_lastRejectReason = m_timeFilter.GetLastResult().message;
          return false;
+      }
       
-      if(m_cfg.EnableSpreadFilter && !CheckSpreadFilter())
+      // Spread Filter
+      if(!m_spreadFilter.Check(TREND_NONE))
+      {
+         m_lastRejectReason = m_spreadFilter.GetLastResult().message;
          return false;
+      }
       
-      if(m_cfg.EnableADXFilter && !CheckADXFilter())
+      // ADX Filter (direction-neutral check)
+      if(!m_adxFilter.Check(TREND_NONE))
+      {
+         m_lastRejectReason = m_adxFilter.GetLastResult().message;
          return false;
+      }
       
-      if(m_cfg.EnableATRFilter && !CheckATRFilter())
+      // ATR Filter
+      if(!m_atrFilter.Check(TREND_NONE))
+      {
+         m_lastRejectReason = m_atrFilter.GetLastResult().message;
          return false;
+      }
       
+      // Channel Filter（独自実装）
       if(m_cfg.EnableChannelFilter && !CheckChannelFilter())
          return false;
       
@@ -169,62 +275,17 @@ public:
    }
    
    //--- Check MTF Direction (returns true if direction is allowed)
-   //--- Check MTF Direction (returns true if direction is allowed)
    bool CheckMTF(ENUM_ORDER_TYPE orderType)
    {
       if(!m_cfg.EnableMTFFilter) return true;
-      if(m_handleMtfEmaS == INVALID_HANDLE || m_handleMtfEmaM == INVALID_HANDLE || m_handleMtfEmaL == INVALID_HANDLE) return true;
-
-      double s[], m[], l[];
-      ArraySetAsSeries(s, true); ArraySetAsSeries(m, true); ArraySetAsSeries(l, true);
-
-      if(CopyBuffer(m_handleMtfEmaS, 0, 1, 1, s) != 1) return true;
-      if(CopyBuffer(m_handleMtfEmaM, 0, 1, 1, m) != 1) return true;
-      if(CopyBuffer(m_handleMtfEmaL, 0, 1, 1, l) != 1) return true;
-
-      bool isUp = true;
-      bool isDown = true;
-
-      // Logic: If a pair is enabled, check order. If any check fails, flag becomes false.
-
-      // Up checks (S > M > L)
-      if(m_cfg.UseMTFEmaShort && m_cfg.UseMTFEmaMid)
+      
+      ENUM_TREND_DIRECTION trend = TREND_NONE;
+      if(orderType == ORDER_TYPE_BUY) trend = TREND_UP;
+      else if(orderType == ORDER_TYPE_SELL) trend = TREND_DOWN;
+      
+      if(!m_mtfFilter.Check(trend))
       {
-         if(s[0] <= m[0]) isUp = false;
-      }
-      if(m_cfg.UseMTFEmaMid && m_cfg.UseMTFEmaLong)
-      {
-         if(m[0] <= l[0]) isUp = false;
-      }
-      if(m_cfg.UseMTFEmaShort && m_cfg.UseMTFEmaLong && !m_cfg.UseMTFEmaMid)
-      {
-         if(s[0] <= l[0]) isUp = false;
-      }
-
-      // Down checks (S < M < L)
-      if(m_cfg.UseMTFEmaShort && m_cfg.UseMTFEmaMid)
-      {
-         if(s[0] >= m[0]) isDown = false;
-      }
-      if(m_cfg.UseMTFEmaMid && m_cfg.UseMTFEmaLong)
-      {
-         if(m[0] >= l[0]) isDown = false;
-      }
-      if(m_cfg.UseMTFEmaShort && m_cfg.UseMTFEmaLong && !m_cfg.UseMTFEmaMid)
-      {
-         if(s[0] >= l[0]) isDown = false;
-      }
-
-      if(orderType == ORDER_TYPE_BUY)
-      {
-         if(isUp) return true;
-         m_lastRejectReason = "MTF Filter: Trend condition not met (Up)";
-         return false;
-      }
-      else if(orderType == ORDER_TYPE_SELL)
-      {
-         if(isDown) return true;
-         m_lastRejectReason = "MTF Filter: Trend condition not met (Down)";
+         m_lastRejectReason = m_mtfFilter.GetLastResult().message;
          return false;
       }
       return true;
@@ -233,132 +294,58 @@ public:
    //--- Get last rejection reason
    string GetLastRejectReason() const { return m_lastRejectReason; }
 
+   //--- Check Candle Pattern (direction-aware)
+   bool CheckCandlePattern(ENUM_ORDER_TYPE orderType)
+   {
+      if(!m_cfg.EnableCandlePatternFilter) return true;
+      
+      ENUM_TREND_DIRECTION trend = TREND_NONE;
+      if(orderType == ORDER_TYPE_BUY) trend = TREND_UP;
+      else if(orderType == ORDER_TYPE_SELL) trend = TREND_DOWN;
+      
+      if(!m_candlePattern.Check(trend))
+      {
+         m_lastRejectReason = "Candle Pattern: No pattern detected";
+         return false;
+      }
+      return true;
+   }
+   
+   //--- Get detected pattern name (for logging)
+   string GetDetectedPatternName(ENUM_ORDER_TYPE orderType)
+   {
+      if(!m_cfg.EnableCandlePatternFilter) return "";
+      ENUM_TREND_DIRECTION trend = (orderType == ORDER_TYPE_BUY) ? TREND_UP : TREND_DOWN;
+      return m_candlePattern.GetDetectedPattern(trend);
+   }
+   
+   //--- 個別フィルター参照取得（拡張用）
+   CADXFilter*     GetADXFilter()     { return &m_adxFilter; }
+   CATRFilter*     GetATRFilter()     { return &m_atrFilter; }
+   CSpreadFilter*  GetSpreadFilter()  { return &m_spreadFilter; }
+   CTimeFilter*    GetTimeFilter()    { return &m_timeFilter; }
+   CMTFTrendFilter* GetMTFFilter()    { return &m_mtfFilter; }
+   CCandlePatternFilter* GetCandlePatternFilter() { return &m_candlePattern; }
+
 private:
-   //--- Time Filter (JST-based)
-   bool CheckTimeFilter()
-   {
-      MqlDateTime dt;
-      TimeCurrent(dt);
-      
-      // Friday check
-      if(dt.day_of_week == 5 && !m_cfg.TradeOnFriday)
-      {
-         m_lastRejectReason = "Friday trading disabled";
-         return false;
-      }
-      
-      // Convert to JST
-      int gmt_offset_seconds = m_cfg.GMTOffset * 3600;
-      if(m_cfg.UseDST) gmt_offset_seconds += 3600;
-      datetime jst_time = TimeCurrent() - gmt_offset_seconds + (9 * 3600);
-      MqlDateTime jst_dt;
-      TimeToStruct(jst_time, jst_dt);
-      
-      int current_minutes = jst_dt.hour * 60 + jst_dt.min;
-      int start_minutes = m_cfg.StartHour * 60 + m_cfg.StartMinute;
-      int end_minutes = m_cfg.EndHour * 60 + m_cfg.EndMinute;
-      
-      bool inTimeRange = false;
-      if(start_minutes <= end_minutes)
-      {
-         // Normal pattern (8:00 - 21:00)
-         inTimeRange = (current_minutes >= start_minutes && current_minutes <= end_minutes);
-      }
-      else
-      {
-         // Overnight pattern (22:00 - 6:00)
-         inTimeRange = (current_minutes >= start_minutes || current_minutes <= end_minutes);
-      }
-      
-      if(!inTimeRange)
-      {
-         m_lastRejectReason = "Outside trading hours (JST " + IntegerToString(jst_dt.hour) + ":" + 
-                              IntegerToString(jst_dt.min) + ")";
-         return false;
-      }
-      
-      return true;
-   }
-   
-   //--- Spread Filter
-   bool CheckSpreadFilter()
-   {
-      long spreadPoints = SymbolInfoInteger(m_cfg.Symbol, SYMBOL_SPREAD);
-      
-      if(spreadPoints > m_cfg.MaxSpreadPoints)
-      {
-         m_lastRejectReason = "Spread too wide: " + IntegerToString(spreadPoints) + " > " + 
-                              IntegerToString(m_cfg.MaxSpreadPoints) + " points";
-         return false;
-      }
-      
-      return true;
-   }
-   
-   //--- ADX Filter
-   bool CheckADXFilter()
-   {
-      if(m_handleADX == INVALID_HANDLE) return true;
-      
-      double adx[];
-      ArraySetAsSeries(adx, true);
-      if(CopyBuffer(m_handleADX, 0, 1, 1, adx) != 1) return true;
-      
-      if(adx[0] < m_cfg.ADXMinLevel)
-      {
-         m_lastRejectReason = "ADX too low: " + DoubleToString(adx[0], 1) + " < " + 
-                              DoubleToString(m_cfg.ADXMinLevel, 1);
-         return false;
-      }
-      
-      return true;
-   }
-   
-   //--- ATR Filter
-   bool CheckATRFilter()
-   {
-      if(m_handleATR == INVALID_HANDLE) return true;
-      
-      double atr[];
-      ArraySetAsSeries(atr, true);
-      if(CopyBuffer(m_handleATR, 0, 1, 1, atr) != 1) return true;
-      
-      double point = SymbolInfoDouble(m_cfg.Symbol, SYMBOL_POINT);
-      double atrPoints = atr[0] / point;
-      
-      if(atrPoints < m_cfg.ATRMinPoints)
-      {
-         m_lastRejectReason = "ATR too low: " + DoubleToString(atrPoints, 0) + " < " + 
-                              DoubleToString(m_cfg.ATRMinPoints, 0) + " points";
-         return false;
-      }
-      
-      return true;
-   }
-   
    //--- Channel Width Filter (EMA12-EMA100 range)
    bool CheckChannelFilter()
    {
-      // Calculate EMA12 and EMA100
-      int hShort = iMA(m_cfg.Symbol, PERIOD_CURRENT, 12, 0, MODE_EMA, PRICE_CLOSE);
-      int hLong = iMA(m_cfg.Symbol, PERIOD_CURRENT, 100, 0, MODE_EMA, PRICE_CLOSE);
+      // 遅延初期化
+      if(m_handleChannelShort == INVALID_HANDLE)
+         m_handleChannelShort = iMA(m_cfg.Symbol, m_timeframe, 12, 0, MODE_EMA, PRICE_CLOSE);
+      if(m_handleChannelLong == INVALID_HANDLE)
+         m_handleChannelLong = iMA(m_cfg.Symbol, m_timeframe, 100, 0, MODE_EMA, PRICE_CLOSE);
       
-      if(hShort == INVALID_HANDLE || hLong == INVALID_HANDLE)
-      {
-         if(hShort != INVALID_HANDLE) IndicatorRelease(hShort);
-         if(hLong != INVALID_HANDLE) IndicatorRelease(hLong);
+      if(m_handleChannelShort == INVALID_HANDLE || m_handleChannelLong == INVALID_HANDLE)
          return true;
-      }
       
       double emaShort[], emaLong[];
       ArraySetAsSeries(emaShort, true);
       ArraySetAsSeries(emaLong, true);
       
-      bool ok = (CopyBuffer(hShort, 0, 1, 1, emaShort) == 1 &&
-                 CopyBuffer(hLong, 0, 1, 1, emaLong) == 1);
-      
-      IndicatorRelease(hShort);
-      IndicatorRelease(hLong);
+      bool ok = (CopyBuffer(m_handleChannelShort, 0, 1, 1, emaShort) == 1 &&
+                 CopyBuffer(m_handleChannelLong, 0, 1, 1, emaLong) == 1);
       
       if(!ok) return true;
       
