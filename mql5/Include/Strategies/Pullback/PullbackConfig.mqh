@@ -105,7 +105,7 @@ public:
      UseEmaShort(true),
      UseEmaMid(true),
      UseEmaLong(true),
-     RequirePerfectOrder(false),  // MT4互換: パーフェクトオーダー不要
+     RequirePerfectOrder(true),   // MT4非OOP版準拠: パーフェクトオーダー必須
      UseTouchPullback(true),
      UseCrossPullback(true),
      UseBreakPullback(false),
@@ -117,7 +117,7 @@ public:
      ATRThresholdPoints(30.0),
      UseADXFilter(true),
      ADXPeriod(14),
-     ADXMinLevel(15.0),         // 緩和: 20→15 (MT4互換)
+     ADXMinLevel(20.0),        // MT4非OOP版準拠
      ADXRequireRising(false),
      DISpreadMin(0),
      UseATRSlopeFilter(false),

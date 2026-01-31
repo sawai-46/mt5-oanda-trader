@@ -36,7 +36,7 @@ input int    InpEmaMid = 25;                 // 中期EMA
 input bool   InpUseEmaMid = true;            // 中期EMA使用
 input int    InpEmaLong = 100;               // 長期EMA
 input bool   InpUseEmaLong = true;           // 長期EMA使用
-input bool   InpRequirePerfectOrder = false; // パーフェクトオーダー必須（MT4互換: false推奨）
+input bool   InpRequirePerfectOrder = true;  // パーフェクトオーダー必須（MT4非OOP版準拠）
 input bool   InpUseTouchPullback = true;     // タッチプルバック
 input bool   InpUseCrossPullback = true;     // クロスプルバック
 input bool   InpUseBreakPullback = false;    // ブレイクプルバック
@@ -73,9 +73,9 @@ input bool            InpUseMTFEmaLong = true;      // MTF長期EMA使用
 input int    InpMaxSpreadYen = 20;           // 最大スプレッド(円) ※OANDA推奨: 20円
 input bool   InpUseADXFilter = true;         // ADXフィルター
 input int    InpADXPeriod = 14;              // ADX期間
-input double InpADXMinLevel = 15.0;          // ADX最小値（MT4互換: 20→15に緩和）
+input double InpADXMinLevel = 20.0;          // ADX最小値（MT4非OOP版準拠）
 input int    InpATRPeriod = 14;              // ATR期間
-input double InpATRMinYen = 50.0;            // ATR最小値(円) ※M15推奨: 50-70円
+input double InpATRMinYen = 70.0;            // ATR最小値(円)（ドキュメント推奨: 70円）
 
 //--- SL/TP Settings
 input ENUM_SLTP_MODE InpSLTPMode = SLTP_FIXED;  // SL/TPモード
