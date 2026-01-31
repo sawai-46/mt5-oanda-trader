@@ -111,13 +111,19 @@ private:
 
    // ATR handle for trailing
    int              m_handleATR;
+   
+   // Daily close window flag (to avoid repeated execution)
+   bool             m_dailyCloseExecuted;
+   datetime         m_lastDailyCloseCheck;
 
 public:
    //--- Constructor
    CPositionManager()
    : m_handleATR(INVALID_HANDLE),
      m_lastPersistCleanup(0),
-     m_lastSLSyncAttempt(0)
+     m_lastSLSyncAttempt(0),
+     m_dailyCloseExecuted(false),
+     m_lastDailyCloseCheck(0)
    {
       ArrayResize(m_partialLevels, 1000); // 衝突回避のため拡張
       ArrayInitialize(m_partialLevels, 0);
@@ -149,10 +155,24 @@ public:
    //--- Main tick handler - call from EA's OnTick
    void OnTick()
    {
-      if(m_cfg.EnableFridayCloseJST && IsFridayCloseWindowJST())
+      if(m_cfg.EnableFridayCloseJST)
       {
-         CloseAllPositionsForSymbolMagic("JST daily close window");
-         return;
+         bool inWindow = IsFridayCloseWindowJST();
+         if(inWindow)
+         {
+            // ウィンドウ内で未実行なら1回だけ実行
+            if(!m_dailyCloseExecuted)
+            {
+               CloseAllPositionsForSymbolMagic("JST daily close window");
+               m_dailyCloseExecuted = true;
+            }
+            return;
+         }
+         else
+         {
+            // ウィンドウを抜けたらフラグをリセット
+            m_dailyCloseExecuted = false;
+         }
       }
 
       if(m_cfg.EnablePersistentTpState)
@@ -264,7 +284,8 @@ private:
          if(PositionGetString(POSITION_SYMBOL) != m_cfg.Symbol) continue;
          m_trade.PositionClose(ticket);
       }
-      if(m_cfg.LogPersistentTpStateEvents)
+      // テスター内ではログを抑制
+      if(m_cfg.LogPersistentTpStateEvents && !MQLInfoInteger(MQL_TESTER))
          CLogger::Log(LOG_INFO, StringFormat("[FRI_CLOSE][MT5_PM] %s magic=%lld", reason, m_cfg.MagicNumber));
    }
 

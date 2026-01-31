@@ -229,6 +229,9 @@ void DumpEffectiveConfig(const ENUM_STRATEGY_PRESET preset,
 
 void LogSkipReason(string reason)
 {
+   // テスター内ではスキップログを抑制（高速進行で大量出力されるため）
+   if(MQLInfoInteger(MQL_TESTER)) return;
+   
    static datetime last_skip_log_time = 0;
    static string last_skip_reason = "";
    if (InpSkipLogCooldown > 0) {
