@@ -43,6 +43,29 @@ input bool   InpUseTouchPullback = true;     // タッチプルバック
 input bool   InpUseCrossPullback = true;     // クロスプルバック
 input bool   InpUseBreakPullback = false;    // ブレイクプルバック
 input ENUM_PULLBACK_EMA_REF InpPullbackEmaRef = PULLBACK_EMA_25;  // プルバック基準EMA
+input int    InpPullbackLookback = 5;        // プルバック検出Lookback本数（MT4非OOP互換）
+
+//--- 確認足設定 (MT4非OOP互換: Use_Confirmation_Bar)
+input bool   InpUseConfirmationBar = false;  // 確認足検証を有効化
+input double InpConfirmBarMinDollars = 1.0;  // 確認足最小サイズ(ドル)
+input double InpConfirmBarMaxDollars = 0.0;  // 確認足最大サイズ(ドル) 0=無制限
+input bool   InpRequirePriceBreak = false;   // 価格ブレイク待機モード
+input double InpEntryBreakBufferDollars = 0.5; // エントリーバッファ(ドル)
+
+//--- EMA傾きフィルター (MT4非OOP互換: CheckEMASlope)
+input bool   InpUseEmaSlopeFilter = true;    // EMA傾きフィルター有効
+input double InpEmaMinSlopeFast = 0.0;       // 短期EMA最小傾き（0=無効）
+input double InpEmaMinSlopeSlow = 0.0;       // 長期EMA最小傾き（0=無効）
+input int    InpEmaSlopeBars = 3;            // 傾き計算バー数
+
+//--- ローソク足条件 (MT4非OOP互換: CheckCandleCondition)
+input bool   InpUseCandleCondition = true;   // ローソク足条件チェック有効
+input double InpMinCandleBodyPercent = 20.0; // 最小実体比率(%)
+
+//--- 強トレンドモード (MT4非OOP互換: Strong_Trend_Mode)
+input bool   InpUseStrongTrendMode = false;  // 強トレンドモード有効
+input double InpStrongTrendADXLevel = 30.0;  // 強トレンドADX閾値
+input bool   InpStrongTrendAutoActivate = false; // 自動判定モード
 
 //--- Time Filter (JST)
 input bool   InpEnableTimeFilter = true;     // 時間フィルター有効
@@ -338,6 +361,30 @@ int OnInit()
       cfg.UseCrossPullback = InpUseCrossPullback;
       cfg.UseBreakPullback = InpUseBreakPullback;
       cfg.PullbackEmaRef = InpPullbackEmaRef;
+      cfg.PullbackLookback = InpPullbackLookback;
+
+      // 確認足設定 (MT4非OOP互換) - USIndexはドル単位をポイントに変換
+      cfg.UseConfirmationBar = InpUseConfirmationBar;
+      cfg.ConfirmationBarMinPips = InpConfirmBarMinDollars / _Point;  // ドル→Points
+      cfg.ConfirmationBarMaxPips = InpConfirmBarMaxDollars / _Point;
+      cfg.RequirePriceBreak = InpRequirePriceBreak;
+      cfg.EntryBreakBufferPips = InpEntryBreakBufferDollars / _Point;
+
+      // EMA傾きフィルター (MT4非OOP互換)
+      cfg.UseEmaSlopeFilter = InpUseEmaSlopeFilter;
+      cfg.EmaMinSlopeFast = InpEmaMinSlopeFast;
+      cfg.EmaMinSlopeSlow = InpEmaMinSlopeSlow;
+      cfg.EmaSlopeBars = InpEmaSlopeBars;
+
+      // ローソク足条件 (MT4非OOP互換)
+      cfg.UseCandleCondition = InpUseCandleCondition;
+      cfg.MinCandleBodyPercent = InpMinCandleBodyPercent;
+
+      // 強トレンドモード (MT4非OOP互換)
+      cfg.UseStrongTrendMode = InpUseStrongTrendMode;
+      cfg.StrongTrendADXLevel = InpStrongTrendADXLevel;
+      cfg.StrongTrendAutoActivate = InpStrongTrendAutoActivate;
+
       cfg.MaxSpreadPoints = g_MaxSpreadPoints;
       cfg.UseADXFilter = InpUseADXFilter;
       cfg.ADXPeriod = InpADXPeriod;

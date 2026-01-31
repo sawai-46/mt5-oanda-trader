@@ -59,6 +59,27 @@ public:
    ENUM_PULLBACK_EMA_REF PullbackEmaRef;
    bool            RequirePriceBreak;
    double          EntryBreakBufferPips;
+   int             PullbackLookback;           // MT4非OOP互換: 過去N本を遡ってプルバック検出
+
+   // 確認足モード (MT4非OOP互換: Use_Confirmation_Bar)
+   bool            UseConfirmationBar;          // 確認足検証を有効化
+   double          ConfirmationBarMinPips;      // 確認足最小サイズ(pips)
+   double          ConfirmationBarMaxPips;      // 確認足最大サイズ(pips) 0=無制限
+
+   // EMA傾きチェック (MT4非OOP互換: CheckEMASlope)
+   bool            UseEmaSlopeFilter;           // EMA傾きフィルター有効
+   double          EmaMinSlopeFast;             // 短期EMA最小傾き
+   double          EmaMinSlopeSlow;             // 長期EMA最小傾き
+   int             EmaSlopeBars;                // 傾き計算バー数
+
+   // ローソク足条件 (MT4非OOP互換: CheckCandleCondition)
+   bool            UseCandleCondition;          // ローソク足条件チェック有効
+   double          MinCandleBodyPercent;        // 最小実体比率(%)
+
+   // 強トレンドモード (MT4非OOP互換: Strong_Trend_Mode)
+   bool            UseStrongTrendMode;          // 強トレンドモード有効
+   double          StrongTrendADXLevel;         // 強トレンドADX閾値
+   bool            StrongTrendAutoActivate;     // 自動判定モード
 
    // Filters
    int             MaxSpreadPoints;
@@ -112,6 +133,19 @@ public:
      PullbackEmaRef(PULLBACK_EMA_25),
      RequirePriceBreak(false),
      EntryBreakBufferPips(0.0),
+     PullbackLookback(5),                  // MT4非OOP互換: 過去5本をデフォルト
+     UseConfirmationBar(false),            // MT4非OOP互換: デフォルトfalse
+     ConfirmationBarMinPips(2.0),
+     ConfirmationBarMaxPips(0.0),          // 0=無制限
+     UseEmaSlopeFilter(true),              // MT4非OOP互換: 傾きチェック有効
+     EmaMinSlopeFast(0.0),                 // MT4非OOP互換: デフォルト0.0
+     EmaMinSlopeSlow(0.0),                 // MT4非OOP互換: デフォルト0.0
+     EmaSlopeBars(3),                      // MT4非OOP互換: 3本で傾き計算
+     UseCandleCondition(true),             // MT4非OOP互換: デフォルトtrue
+     MinCandleBodyPercent(20.0),           // MT4非OOP互換: 最小20%
+     UseStrongTrendMode(false),            // MT4非OOP互換: デフォルトfalse
+     StrongTrendADXLevel(30.0),            // MT4非OOP互換: ADX 30以上
+     StrongTrendAutoActivate(false),       // MT4非OOP互換: 自動判定オフ
      MaxSpreadPoints(200),
      ATRPeriod(14),
      ATRThresholdPoints(30.0),
