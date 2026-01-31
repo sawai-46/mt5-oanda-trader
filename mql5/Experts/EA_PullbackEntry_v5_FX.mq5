@@ -96,6 +96,17 @@ input bool   InpUsePostStopHuntEntry = false;     // ストップ狩り後エン
 input double InpStopHuntSpikePips = 10.0;         // ストップ狩りスパイク幅(pips)
 input int    InpStopHuntRecoveryBars = 2;         // 回復確認バー数
 
+//--- ラウンドナンバー (.00/.50) 設定
+input bool   InpUseRoundNumberLines = false;      // ラウンドナンバーライン使用
+input bool   InpRN_Use_00_Line = true;            // .00ライン使用
+input bool   InpRN_Use_50_Line = true;            // .50ライン使用
+input double InpRN_TouchBufferPips = 2.0;         // タッチ判定バッファ(pips)
+input int    InpRN_LookbackBars = 3;              // 検出期間(バー数)
+input bool   InpRN_CounterTrend = false;          // 逆張りモード（反転狙い）
+input int    InpRN_DigitLevel = 2;                // 桁数レベル（0=整数, 2=2桁, 3=3桁）
+input bool   InpRN_AvoidEntryNear = false;        // .00/.50付近でのエントリー回避
+input double InpRN_AvoidBufferPips = 5.0;         // 回避範囲(pips)
+
 //--- Time Filter (JST)
 input bool   InpEnableTimeFilter = true;     // 時間フィルター有効
 input int    InpGMTOffset = 3;               // GMTオフセット
@@ -434,6 +445,17 @@ int OnInit()
       cfg.UsePostStopHuntEntry = InpUsePostStopHuntEntry;
       cfg.StopHuntSpikePoints = InpStopHuntSpikePips * g_pipMultiplier;
       cfg.StopHuntRecoveryBars = InpStopHuntRecoveryBars;
+
+      // ラウンドナンバー設定
+      cfg.UseRoundNumberLines = InpUseRoundNumberLines;
+      cfg.RN_Use_00_Line = InpRN_Use_00_Line;
+      cfg.RN_Use_50_Line = InpRN_Use_50_Line;
+      cfg.RN_TouchBufferPoints = InpRN_TouchBufferPips * g_pipMultiplier;
+      cfg.RN_LookbackBars = InpRN_LookbackBars;
+      cfg.RN_CounterTrend = InpRN_CounterTrend;
+      cfg.RN_DigitLevel = InpRN_DigitLevel;
+      cfg.RN_AvoidEntryNear = InpRN_AvoidEntryNear;
+      cfg.RN_AvoidBufferPoints = InpRN_AvoidBufferPips * g_pipMultiplier;
 
       cfg.MaxSpreadPoints = g_MaxSpreadPoints;
       cfg.UseADXFilter = InpUseADXFilter;

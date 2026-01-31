@@ -129,6 +129,19 @@ public:
    double          StopHuntSpikePoints;         // ストップ狩りスパイク幅(Points)
    int             StopHuntRecoveryBars;        // 回復確認バー数
 
+   // === ラウンドナンバー (.00/.50) 設定 ===
+   bool            UseRoundNumberLines;         // ラウンドナンバーライン使用
+   bool            RN_Use_00_Line;              // .00ライン使用
+   bool            RN_Use_50_Line;              // .50ライン使用
+   double          RN_TouchBufferPoints;        // タッチ判定バッファ(Points)
+   int             RN_LookbackBars;             // 検出期間(バー数)
+   bool            RN_CounterTrend;             // 逆張りモード（反転狙い）
+   int             RN_DigitLevel;               // 桁数レベル（0=整数, 2=2桁, 3=3桁）
+
+   // ラウンドナンバー付近エントリー回避
+   bool            RN_AvoidEntryNear;           // .00/.50付近でのエントリー回避
+   double          RN_AvoidBufferPoints;        // 回避範囲(Points)
+
    // Filters
    int             MaxSpreadPoints;
    int             ATRPeriod;
@@ -219,6 +232,15 @@ public:
      UsePostStopHuntEntry(false),          // AIノイズ対策: ストップ狩り後（デフォルトOFF）
      StopHuntSpikePoints(100.0),           // AIノイズ対策: 10pipsスパイク
      StopHuntRecoveryBars(2),              // AIノイズ対策: 2本で回復確認
+     UseRoundNumberLines(false),           // ラウンドナンバーライン（デフォルトOFF）
+     RN_Use_00_Line(true),                 // .00ライン使用
+     RN_Use_50_Line(true),                 // .50ライン使用
+     RN_TouchBufferPoints(20.0),           // タッチバッファ2pips相当
+     RN_LookbackBars(3),                   // 検出期間3本
+     RN_CounterTrend(false),               // 順張りモード
+     RN_DigitLevel(2),                     // FX: 2桁（100.00）
+     RN_AvoidEntryNear(false),             // 付近回避（デフォルトOFF）
+     RN_AvoidBufferPoints(50.0),           // 回避範囲5pips相当
      MaxSpreadPoints(200),
      ATRPeriod(14),
      ATRThresholdPoints(30.0),

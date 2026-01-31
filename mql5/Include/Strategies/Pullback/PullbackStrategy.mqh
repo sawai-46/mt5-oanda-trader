@@ -729,8 +729,234 @@ private:
       return false;
    }
 
+   //+------------------------------------------------------------------+
+   //| ラウンドナンバー: 最も近いラウンドナンバーライン取得               |
+   //+------------------------------------------------------------------+
+   double GetNearestRoundNumber(double price, bool is_00_line)
+   {
+      double increment = is_00_line ? 1.0 : 0.5;
+
+      // 桁数レベルに応じた調整
+      if(m_cfg.RN_DigitLevel == 3)
+         increment = is_00_line ? 1.0 : 0.5;     // FX: 150.000, 150.500
+      else if(m_cfg.RN_DigitLevel == 2)
+         increment = is_00_line ? 1.0 : 0.5;     // FX: 150.00, 150.50
+      else if(m_cfg.RN_DigitLevel == 0)
+         increment = is_00_line ? 1000.0 : 500.0; // 日経225など整数価格
+
+      // 現在価格を基準に最も近いラウンドナンバー計算
+      double rounded = MathFloor(price / increment) * increment;
+      double upper = rounded + increment;
+
+      if(MathAbs(price - rounded) < MathAbs(price - upper))
+         return rounded;
+      else
+         return upper;
+   }
+
+   //+------------------------------------------------------------------+
+   //| ラウンドナンバー: 付近チェック（エントリー回避判定）               |
+   //+------------------------------------------------------------------+
+   bool IsNearRoundNumber(double price)
+   {
+      if(!m_cfg.RN_AvoidEntryNear)
+         return false;  // 機能無効時はOK
+
+      double buffer = m_cfg.RN_AvoidBufferPoints * _Point;
+
+      // .00ラインチェック
+      if(m_cfg.RN_Use_00_Line)
+      {
+         double rn_00 = GetNearestRoundNumber(price, true);
+         if(MathAbs(price - rn_00) <= buffer)
+            return true;  // 付近にいる
+      }
+
+      // .50ラインチェック
+      if(m_cfg.RN_Use_50_Line)
+      {
+         double rn_50 = GetNearestRoundNumber(price, false);
+         if(MathAbs(price - rn_50) <= buffer)
+            return true;  // 付近にいる
+      }
+
+      return false;  // 付近にいない
+   }
+
+   //+------------------------------------------------------------------+
+   //| ラウンドナンバー: 反発確認（陽線）                                 |
+   //+------------------------------------------------------------------+
+   bool CheckBullishReversal(int barIndex)
+   {
+      double open_i = iOpen(m_symbol, m_timeframe, barIndex);
+      double close_i = iClose(m_symbol, m_timeframe, barIndex);
+      double close_curr = iClose(m_symbol, m_timeframe, 1);
+      double low_i = iLow(m_symbol, m_timeframe, barIndex);
+
+      // 陽線で終わっている、または現在価格がタッチポイントより上
+      return (close_i > open_i) || (close_curr > low_i);
+   }
+
+   //+------------------------------------------------------------------+
+   //| ラウンドナンバー: 反落確認（陰線）                                 |
+   //+------------------------------------------------------------------+
+   bool CheckBearishReversal(int barIndex)
+   {
+      double open_i = iOpen(m_symbol, m_timeframe, barIndex);
+      double close_i = iClose(m_symbol, m_timeframe, barIndex);
+      double close_curr = iClose(m_symbol, m_timeframe, 1);
+      double high_i = iHigh(m_symbol, m_timeframe, barIndex);
+
+      // 陰線で終わっている、または現在価格がタッチポイントより下
+      return (close_i < open_i) || (close_curr < high_i);
+   }
+
+   //+------------------------------------------------------------------+
+   //| ラウンドナンバープルバック検出                                     |
+   //| ★重要: タッチだけでなく反発確認が必須                            |
+   //+------------------------------------------------------------------+
+   bool DetectRoundNumberPullback(bool isLong)
+   {
+      if(!m_cfg.UseRoundNumberLines)
+         return false;
+
+      double buffer = m_cfg.RN_TouchBufferPoints * _Point;
+
+      // 過去N本でラウンドナンバープルバック検出
+      for(int i = 1; i <= m_cfg.RN_LookbackBars; i++)
+      {
+         double barHigh = iHigh(m_symbol, m_timeframe, i);
+         double barLow = iLow(m_symbol, m_timeframe, i);
+
+         // .00ラインチェック
+         if(m_cfg.RN_Use_00_Line)
+         {
+            double rn_00 = GetNearestRoundNumber(barLow, true);
+
+            if(!m_cfg.RN_CounterTrend)
+            {
+               // 順張りモード: トレンド方向のプルバック＋反発確認必須
+               // ロング: .00ラインタッチ後の反発
+               if(isLong && barLow <= (rn_00 + buffer) && barLow >= (rn_00 - buffer))
+               {
+                  if(CheckBullishReversal(i))
+                  {
+                     m_pullbackType = "RoundNumber_00_Touch_Long";
+                     m_roundNumberEntryDetected = true;
+                     return true;
+                  }
+               }
+
+               // ショート: .00ラインタッチ後の反落
+               if(!isLong && barHigh >= (rn_00 - buffer) && barHigh <= (rn_00 + buffer))
+               {
+                  if(CheckBearishReversal(i))
+                  {
+                     m_pullbackType = "RoundNumber_00_Touch_Short";
+                     m_roundNumberEntryDetected = true;
+                     return true;
+                  }
+               }
+            }
+            else
+            {
+               // 逆張りモード: ラウンドナンバーでの反転
+               if(barLow <= (rn_00 + buffer) && barLow >= (rn_00 - buffer))
+               {
+                  if(CheckBullishReversal(i))
+                  {
+                     m_pullbackType = "RoundNumber_00_Reversal_Long";
+                     m_roundNumberEntryDetected = true;
+                     return true;
+                  }
+               }
+               if(barHigh >= (rn_00 - buffer) && barHigh <= (rn_00 + buffer))
+               {
+                  if(CheckBearishReversal(i))
+                  {
+                     m_pullbackType = "RoundNumber_00_Reversal_Short";
+                     m_roundNumberEntryDetected = true;
+                     return true;
+                  }
+               }
+            }
+         }
+
+         // .50ラインチェック
+         if(m_cfg.RN_Use_50_Line)
+         {
+            double rn_50 = GetNearestRoundNumber(barLow, false);
+
+            if(!m_cfg.RN_CounterTrend)
+            {
+               // 順張りモード
+               if(isLong && barLow <= (rn_50 + buffer) && barLow >= (rn_50 - buffer))
+               {
+                  if(CheckBullishReversal(i))
+                  {
+                     m_pullbackType = "RoundNumber_50_Touch_Long";
+                     m_roundNumberEntryDetected = true;
+                     return true;
+                  }
+               }
+               if(!isLong && barHigh >= (rn_50 - buffer) && barHigh <= (rn_50 + buffer))
+               {
+                  if(CheckBearishReversal(i))
+                  {
+                     m_pullbackType = "RoundNumber_50_Touch_Short";
+                     m_roundNumberEntryDetected = true;
+                     return true;
+                  }
+               }
+            }
+            else
+            {
+               // 逆張りモード
+               if(barLow <= (rn_50 + buffer) && barLow >= (rn_50 - buffer))
+               {
+                  if(CheckBullishReversal(i))
+                  {
+                     m_pullbackType = "RoundNumber_50_Reversal_Long";
+                     m_roundNumberEntryDetected = true;
+                     return true;
+                  }
+               }
+               if(barHigh >= (rn_50 - buffer) && barHigh <= (rn_50 + buffer))
+               {
+                  if(CheckBearishReversal(i))
+                  {
+                     m_pullbackType = "RoundNumber_50_Reversal_Short";
+                     m_roundNumberEntryDetected = true;
+                     return true;
+                  }
+               }
+            }
+         }
+      }
+
+      return false;
+   }
+
+   //+------------------------------------------------------------------+
+   //| ラウンドナンバー付近エントリー回避チェック                         |
+   //| 戻り値: true=エントリーOK, false=エントリー回避                   |
+   //+------------------------------------------------------------------+
+   bool CheckRoundNumberAvoidance(double entryPrice)
+   {
+      // ラウンドナンバープルバック検出時は回避しない
+      if(m_roundNumberEntryDetected)
+         return true;
+
+      // 付近にいる場合は回避
+      if(IsNearRoundNumber(entryPrice))
+         return false;
+
+      return true;
+   }
+
    bool m_allowBuy;
    bool m_allowSell;
+   bool m_roundNumberEntryDetected;  // ラウンドナンバープルバック検出フラグ
 
    bool TrendIsBuy()
    {
@@ -1131,6 +1357,7 @@ public:
      m_cfg(cfg),
      m_allowBuy(true),
      m_allowSell(true),
+     m_roundNumberEntryDetected(false),
      m_handleEmaShort(INVALID_HANDLE),
      m_handleEmaMid(INVALID_HANDLE),
      m_handleEmaLong(INVALID_HANDLE),
@@ -1483,6 +1710,9 @@ public:
    //+------------------------------------------------------------------+
    void ProcessEmaMode()
    {
+      // ラウンドナンバーエントリー検出フラグリセット
+      m_roundNumberEntryDetected = false;
+
       // === プルバック検出 ===
       bool buyTrend  = TrendIsBuy();
       bool sellTrend = TrendIsSell();
@@ -1518,6 +1748,22 @@ public:
          return;
       }
 
+      // === ラウンドナンバープルバック検出（買いトレンド時） ===
+      if(buyTrend && DetectRoundNumberPullback(true))
+      {
+         if(!CheckCandleCondition(true))
+         {
+            CLogger::Log(LOG_DEBUG, "ローソク足条件不適合 [RN Buy]");
+            return;
+         }
+
+         m_pullbackDetected = true;
+         m_isPullbackLong = true;
+         m_pullbackBarTime = iTime(m_symbol, m_timeframe, 1);
+         ExecuteEntry(true);
+         return;
+      }
+
       if(sellTrend && PullbackSellSignal())
       {
          // ローソク足条件チェック
@@ -1545,6 +1791,22 @@ public:
             return;
          }
 
+         ExecuteEntry(false);
+         return;
+      }
+
+      // === ラウンドナンバープルバック検出（売りトレンド時） ===
+      if(sellTrend && DetectRoundNumberPullback(false))
+      {
+         if(!CheckCandleCondition(false))
+         {
+            CLogger::Log(LOG_DEBUG, "ローソク足条件不適合 [RN Sell]");
+            return;
+         }
+
+         m_pullbackDetected = true;
+         m_isPullbackLong = false;
+         m_pullbackBarTime = iTime(m_symbol, m_timeframe, 1);
          ExecuteEntry(false);
          return;
       }

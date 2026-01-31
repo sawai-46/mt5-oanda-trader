@@ -96,6 +96,17 @@ input bool   InpUsePostStopHuntEntry = false;     // ストップ狩り後エン
 input double InpStopHuntSpikeYen = 50.0;          // ストップ狩りスパイク幅(円)
 input int    InpStopHuntRecoveryBars = 2;         // 回復確認バー数
 
+//--- ラウンドナンバー (1000/500円) 設定
+input bool   InpUseRoundNumberLines = false;      // ラウンドナンバーライン使用
+input bool   InpRN_Use_00_Line = true;            // 1000円ライン使用
+input bool   InpRN_Use_50_Line = true;            // 500円ライン使用
+input double InpRN_TouchBufferYen = 20.0;         // タッチ判定バッファ(円)
+input int    InpRN_LookbackBars = 3;              // 検出期間(バー数)
+input bool   InpRN_CounterTrend = false;          // 逆張りモード（反転狙い）
+input int    InpRN_DigitLevel = 0;                // 桁数レベル（0=整数, 日索225）
+input bool   InpRN_AvoidEntryNear = false;        // ラウンドナンバー付近でのエントリー回避
+input double InpRN_AvoidBufferYen = 50.0;         // 回避範囲(円)
+
 //--- Time Filter (JST)
 input bool   InpEnableTimeFilter = true;     // 時間フィルター有効
 input int    InpGMTOffset = 3;               // GMTオフセット
@@ -440,6 +451,17 @@ int OnInit()
       cfg.UsePostStopHuntEntry = InpUsePostStopHuntEntry;
       cfg.StopHuntSpikePoints = InpStopHuntSpikeYen;  // JP225は1point=1円
       cfg.StopHuntRecoveryBars = InpStopHuntRecoveryBars;
+
+      // ラウンドナンバー設定 (JP225: 1000/500円)
+      cfg.UseRoundNumberLines = InpUseRoundNumberLines;
+      cfg.RN_Use_00_Line = InpRN_Use_00_Line;
+      cfg.RN_Use_50_Line = InpRN_Use_50_Line;
+      cfg.RN_TouchBufferPoints = InpRN_TouchBufferYen;  // JP225は1point=1円
+      cfg.RN_LookbackBars = InpRN_LookbackBars;
+      cfg.RN_CounterTrend = InpRN_CounterTrend;
+      cfg.RN_DigitLevel = InpRN_DigitLevel;
+      cfg.RN_AvoidEntryNear = InpRN_AvoidEntryNear;
+      cfg.RN_AvoidBufferPoints = InpRN_AvoidBufferYen;  // JP225は1point=1円
 
       cfg.MaxSpreadPoints = g_MaxSpreadPoints;
       cfg.UseADXFilter = InpUseADXFilter;
