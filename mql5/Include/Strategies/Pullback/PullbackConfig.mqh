@@ -27,7 +27,10 @@ enum ENUM_STRATEGY_PRESET
    PRESET_MULTI_LAYER,         // マルチレイヤー (全EMA使用)
    PRESET_SESSION,             // セッション重視 (時間帯依存)
    PRESET_FULL_EDGE,           // フルエッジ (全フィルタON)
-   PRESET_CUSTOM               // カスタム
+   PRESET_TRENDLINE,           // トレンドライン追従型
+   PRESET_CHANNEL,             // チャネル逆張り型
+   PRESET_AI_NOISE,            // AIノイズ対策型
+   PRESET_CUSTOM = 99          // カスタム
 };
 
 //--- トレンドライン/チャネルモード (設計書セクション12-13)
