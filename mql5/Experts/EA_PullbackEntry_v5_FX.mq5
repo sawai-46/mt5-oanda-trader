@@ -65,6 +65,18 @@ input bool   InpUseStrongTrendMode = false;  // 強トレンドモード有効
 input double InpStrongTrendADXLevel = 30.0;  // 強トレンドADX閾値
 input bool   InpStrongTrendAutoActivate = false; // 自動判定モード
 
+//--- トレンドライン/チャネルモード (設計書セクション12-13)
+input ENUM_TL_CHANNEL_MODE InpTLChannelMode = MODE_EMA_ONLY;  // トレンドライン/チャネルモード
+input int    InpTrendLineLookbackBars = 100;      // トレンドライン検出バー数
+input int    InpTrendLineMinTouches = 3;          // トレンドライン最小タッチ回数
+input int    InpTrendLineTolerancePoints = 10;    // トレンドライン許容誤差(points)
+input bool   InpTrendLineAutoUpdate = true;       // トレンドライン自動更新
+input bool   InpChannelReversalOnly = true;       // チャネル逆張りのみ
+input double InpChannelMinWidth = 50.0;           // チャネル最小幅(points)
+input double InpChannelMaxWidth = 500.0;          // チャネル最大幅(points)
+input bool   InpChannelRequireParallel = true;    // 平行チャネル必須
+input double InpChannelParallelTolerance = 0.5;   // 平行許容誤差
+
 //--- Time Filter (JST)
 input bool   InpEnableTimeFilter = true;     // 時間フィルター有効
 input int    InpGMTOffset = 3;               // GMTオフセット
@@ -374,6 +386,18 @@ int OnInit()
       cfg.UseStrongTrendMode = InpUseStrongTrendMode;
       cfg.StrongTrendADXLevel = InpStrongTrendADXLevel;
       cfg.StrongTrendAutoActivate = InpStrongTrendAutoActivate;
+
+      // トレンドライン/チャネルモード (設計書セクション12-13)
+      cfg.TLChannelMode = InpTLChannelMode;
+      cfg.TrendLineLookbackBars = InpTrendLineLookbackBars;
+      cfg.TrendLineMinTouches = InpTrendLineMinTouches;
+      cfg.TrendLineTolerancePoints = InpTrendLineTolerancePoints;
+      cfg.TrendLineAutoUpdate = InpTrendLineAutoUpdate;
+      cfg.ChannelReversalOnly = InpChannelReversalOnly;
+      cfg.ChannelMinWidth = InpChannelMinWidth;
+      cfg.ChannelMaxWidth = InpChannelMaxWidth;
+      cfg.ChannelRequireParallel = InpChannelRequireParallel;
+      cfg.ChannelParallelTolerance = InpChannelParallelTolerance;
 
       cfg.MaxSpreadPoints = g_MaxSpreadPoints;
       cfg.UseADXFilter = InpUseADXFilter;

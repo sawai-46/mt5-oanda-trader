@@ -5,6 +5,8 @@
 #include <Integration/Logger.mqh>
 #include <Integration/AiLearningLogger.mqh>
 #include <Strategies/Pullback/PullbackConfig.mqh>
+#include <Strategies/Pullback/TrendLineDetector.mqh>
+#include <Strategies/Pullback/ChannelDetector.mqh>
 
 class CPullbackStrategy : public CStrategyBase
 {
@@ -20,6 +22,10 @@ private:
    int m_handleATR;
 
    datetime m_lastBarTime;
+
+   // === トレンドライン/チャネル検出器 ===
+   CTrendLineDetector m_trendLineDetector;
+   CChannelDetector   m_channelDetector;
 
    // === MT4非OOP互換: プルバック検出状態管理 ===
    bool     m_pullbackDetected;         // プルバック検出フラグ
@@ -667,6 +673,8 @@ public:
       m_allowSell = allowSell;
    }
 
+   CPullbackConfig* GetCfgPointer() { return &m_cfg; }
+
    CPullbackStrategy(string symbol, ENUM_TIMEFRAMES timeframe, const CPullbackConfig &cfg)
    : CStrategyBase(symbol, timeframe),
      m_cfg(cfg),
@@ -696,6 +704,10 @@ public:
          m_handleADX = iADX(m_symbol, m_timeframe, m_cfg.ADXPeriod);
 
       m_handleATR = iATR(m_symbol, m_timeframe, m_cfg.ATRPeriod);
+
+      // トレンドライン/チャネル検出器の初期化
+      m_trendLineDetector.Init(m_symbol, m_timeframe, GetCfgPointer());
+      m_channelDetector.Init(m_symbol, m_timeframe, GetCfgPointer());
    }
 
    virtual ~CPullbackStrategy()
@@ -815,6 +827,268 @@ public:
       ResetPullbackState();
    }
 
+   //+------------------------------------------------------------------+
+   //| トレンドラインモード: プルバック検出                               |
+   //+------------------------------------------------------------------+
+   bool TrendLinePullbackBuySignal()
+   {
+      int signalType = 0;
+      if(m_trendLineDetector.DetectTrendlinePullback(true, signalType))
+      {
+         switch(signalType)
+         {
+            case 1: m_pullbackType = "TL_touch"; break;
+            case 2: m_pullbackType = "TL_cross"; break;
+            case 3: m_pullbackType = "TL_break"; break;
+         }
+         m_pullbackEntryLevel = iHigh(m_symbol, m_timeframe, 1);
+         return true;
+      }
+      return false;
+   }
+
+   bool TrendLinePullbackSellSignal()
+   {
+      int signalType = 0;
+      if(m_trendLineDetector.DetectTrendlinePullback(false, signalType))
+      {
+         switch(signalType)
+         {
+            case 1: m_pullbackType = "TL_touch"; break;
+            case 2: m_pullbackType = "TL_cross"; break;
+            case 3: m_pullbackType = "TL_break"; break;
+         }
+         m_pullbackEntryLevel = iLow(m_symbol, m_timeframe, 1);
+         return true;
+      }
+      return false;
+   }
+
+   //+------------------------------------------------------------------+
+   //| チャネルモード: 逆張りシグナル検出                                 |
+   //+------------------------------------------------------------------+
+   int ChannelReversalSignal()
+   {
+      int signalType = 0;
+      int direction = m_channelDetector.DetectChannelReversalSignal(signalType);
+      
+      if(direction != 0)
+      {
+         switch(signalType)
+         {
+            case 1: m_pullbackType = "CH_touch"; break;
+            case 2: m_pullbackType = "CH_cross"; break;
+            case 3: m_pullbackType = "CH_break"; break;
+         }
+         
+         if(direction > 0)
+            m_pullbackEntryLevel = iHigh(m_symbol, m_timeframe, 1);
+         else
+            m_pullbackEntryLevel = iLow(m_symbol, m_timeframe, 1);
+      }
+      
+      return direction;  // 1=ロング, -1=ショート, 0=なし
+   }
+
+   //+------------------------------------------------------------------+
+   //| トレンドラインモード処理                                          |
+   //+------------------------------------------------------------------+
+   void ProcessTrendLineMode()
+   {
+      // トレンドライン更新（新バー時）
+      m_trendLineDetector.Update();
+
+      // トレンドラインでトレンド判定
+      int trend = m_trendLineDetector.CheckTrendWithTrendLine();
+
+      // Buy処理
+      if(trend > 0 && m_allowBuy && TrendLinePullbackBuySignal())
+      {
+         if(!CheckCandleCondition(true)) return;
+
+         m_pullbackDetected = true;
+         m_isPullbackLong = true;
+         m_pullbackBarTime = iTime(m_symbol, m_timeframe, 1);
+
+         if(m_cfg.UseConfirmationBar)
+         {
+            CLogger::Log(LOG_DEBUG, StringFormat("TLプルバック検出 [Buy/%s] → 確認足待機", m_pullbackType));
+            m_confirmationBarValidated = false;
+            return;
+         }
+
+         if(m_cfg.RequirePriceBreak)
+         {
+            CLogger::Log(LOG_DEBUG, StringFormat("TLプルバック検出 [Buy/%s] → ブレイク待機", m_pullbackType));
+            return;
+         }
+
+         ExecuteEntry(true);
+         return;
+      }
+
+      // Sell処理
+      if(trend < 0 && m_allowSell && TrendLinePullbackSellSignal())
+      {
+         if(!CheckCandleCondition(false)) return;
+
+         m_pullbackDetected = true;
+         m_isPullbackLong = false;
+         m_pullbackBarTime = iTime(m_symbol, m_timeframe, 1);
+
+         if(m_cfg.UseConfirmationBar)
+         {
+            CLogger::Log(LOG_DEBUG, StringFormat("TLプルバック検出 [Sell/%s] → 確認足待機", m_pullbackType));
+            m_confirmationBarValidated = false;
+            return;
+         }
+
+         if(m_cfg.RequirePriceBreak)
+         {
+            CLogger::Log(LOG_DEBUG, StringFormat("TLプルバック検出 [Sell/%s] → ブレイク待機", m_pullbackType));
+            return;
+         }
+
+         ExecuteEntry(false);
+      }
+   }
+
+   //+------------------------------------------------------------------+
+   //| チャネルモード処理（逆張り）                                       |
+   //+------------------------------------------------------------------+
+   void ProcessChannelMode()
+   {
+      // チャネル更新
+      m_channelDetector.Update();
+
+      if(!m_channelDetector.HasValidChannel())
+         return;
+
+      // 逆張りシグナル検出
+      int signal = ChannelReversalSignal();
+
+      if(signal > 0 && m_allowBuy)
+      {
+         if(!CheckCandleCondition(true)) return;
+
+         m_pullbackDetected = true;
+         m_isPullbackLong = true;
+         m_pullbackBarTime = iTime(m_symbol, m_timeframe, 1);
+
+         if(m_cfg.UseConfirmationBar)
+         {
+            CLogger::Log(LOG_DEBUG, StringFormat("CHリバーサル検出 [Buy/%s] → 確認足待機", m_pullbackType));
+            m_confirmationBarValidated = false;
+            return;
+         }
+
+         if(m_cfg.RequirePriceBreak)
+         {
+            CLogger::Log(LOG_DEBUG, StringFormat("CHリバーサル検出 [Buy/%s] → ブレイク待機", m_pullbackType));
+            return;
+         }
+
+         ExecuteEntry(true);
+         return;
+      }
+
+      if(signal < 0 && m_allowSell)
+      {
+         if(!CheckCandleCondition(false)) return;
+
+         m_pullbackDetected = true;
+         m_isPullbackLong = false;
+         m_pullbackBarTime = iTime(m_symbol, m_timeframe, 1);
+
+         if(m_cfg.UseConfirmationBar)
+         {
+            CLogger::Log(LOG_DEBUG, StringFormat("CHリバーサル検出 [Sell/%s] → 確認足待機", m_pullbackType));
+            m_confirmationBarValidated = false;
+            return;
+         }
+
+         if(m_cfg.RequirePriceBreak)
+         {
+            CLogger::Log(LOG_DEBUG, StringFormat("CHリバーサル検出 [Sell/%s] → ブレイク待機", m_pullbackType));
+            return;
+         }
+
+         ExecuteEntry(false);
+      }
+   }
+
+   //+------------------------------------------------------------------+
+   //| EMAモード処理（従来のロジック）                                    |
+   //+------------------------------------------------------------------+
+   void ProcessEmaMode()
+   {
+      // === プルバック検出 ===
+      bool buyTrend  = TrendIsBuy();
+      bool sellTrend = TrendIsSell();
+
+      if(buyTrend && PullbackBuySignal())
+      {
+         // ローソク足条件チェック
+         if(!CheckCandleCondition(true))
+         {
+            CLogger::Log(LOG_DEBUG, "ローソク足条件不適合 [Buy]");
+            return;
+         }
+
+         m_pullbackDetected = true;
+         m_isPullbackLong = true;
+         m_pullbackBarTime = iTime(m_symbol, m_timeframe, 1);
+
+         if(m_cfg.UseConfirmationBar)
+         {
+            CLogger::Log(LOG_DEBUG, StringFormat("プルバック検出 [Buy/%s] → 確認足待機", m_pullbackType));
+            m_confirmationBarValidated = false;
+            return;
+         }
+
+         if(m_cfg.RequirePriceBreak)
+         {
+            CLogger::Log(LOG_DEBUG, StringFormat("プルバック検出 [Buy/%s] → ブレイク待機 (Level=%s)", 
+               m_pullbackType, DoubleToString(m_pullbackEntryLevel, (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS))));
+            return;
+         }
+
+         ExecuteEntry(true);
+         return;
+      }
+
+      if(sellTrend && PullbackSellSignal())
+      {
+         // ローソク足条件チェック
+         if(!CheckCandleCondition(false))
+         {
+            CLogger::Log(LOG_DEBUG, "ローソク足条件不適合 [Sell]");
+            return;
+         }
+
+         m_pullbackDetected = true;
+         m_isPullbackLong = false;
+         m_pullbackBarTime = iTime(m_symbol, m_timeframe, 1);
+
+         if(m_cfg.UseConfirmationBar)
+         {
+            CLogger::Log(LOG_DEBUG, StringFormat("プルバック検出 [Sell/%s] → 確認足待機", m_pullbackType));
+            m_confirmationBarValidated = false;
+            return;
+         }
+
+         if(m_cfg.RequirePriceBreak)
+         {
+            CLogger::Log(LOG_DEBUG, StringFormat("プルバック検出 [Sell/%s] → ブレイク待機 (Level=%s)", 
+               m_pullbackType, DoubleToString(m_pullbackEntryLevel, (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS))));
+            return;
+         }
+
+         ExecuteEntry(false);
+         return;
+      }
+   }
+
    virtual void OnTick()
    {
       // ポジションチェック
@@ -857,74 +1131,21 @@ public:
          }
       }
 
-      // === プルバック検出 ===
-      bool buyTrend  = TrendIsBuy();
-      bool sellTrend = TrendIsSell();
-
-      if(buyTrend && PullbackBuySignal())
+      // === モード別処理 ===
+      switch(m_cfg.TLChannelMode)
       {
-         // ローソク足条件チェック
-         if(!CheckCandleCondition(true))
-         {
-            CLogger::Log(LOG_DEBUG, "ローソク足条件不適合 [Buy]");
-            return;
-         }
-
-         m_pullbackDetected = true;
-         m_isPullbackLong = true;
-         m_pullbackBarTime = iTime(m_symbol, m_timeframe, 1);
-         // m_pullbackEntryLevel はPullbackBuySignal()内で設定済み
-
-         if(m_cfg.UseConfirmationBar)
-         {
-            // 確認足モード: 次の足を待つ
-            CLogger::Log(LOG_DEBUG, StringFormat("プルバック検出 [Buy/%s] → 確認足待機", m_pullbackType));
-            m_confirmationBarValidated = false;
-            return;
-         }
-
-         if(m_cfg.RequirePriceBreak)
-         {
-            // 価格ブレイクモード: ブレイク待機
-            CLogger::Log(LOG_DEBUG, StringFormat("プルバック検出 [Buy/%s] → ブレイク待機 (Level=%s)", 
-               m_pullbackType, DoubleToString(m_pullbackEntryLevel, (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS))));
-            return;
-         }
-
-         // 即座エントリー
-         ExecuteEntry(true);
-         return;
-      }
-
-      if(sellTrend && PullbackSellSignal())
-      {
-         // ローソク足条件チェック
-         if(!CheckCandleCondition(false))
-         {
-            CLogger::Log(LOG_DEBUG, "ローソク足条件不適合 [Sell]");
-            return;
-         }
-
-         m_pullbackDetected = true;
-         m_isPullbackLong = false;
-         m_pullbackBarTime = iTime(m_symbol, m_timeframe, 1);
-
-         if(m_cfg.UseConfirmationBar)
-         {
-            CLogger::Log(LOG_DEBUG, StringFormat("プルバック検出 [Sell/%s] → 確認足待機", m_pullbackType));
-            m_confirmationBarValidated = false;
-            return;
-         }
-
-         if(m_cfg.RequirePriceBreak)
-         {
-            CLogger::Log(LOG_DEBUG, StringFormat("プルバック検出 [Sell/%s] → ブレイク待機 (Level=%s)", 
-               m_pullbackType, DoubleToString(m_pullbackEntryLevel, (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS))));
-            return;
-         }
-
-         ExecuteEntry(false);
-         return;
+         case MODE_TRENDLINE_TREND:
+            ProcessTrendLineMode();
+            break;
+            
+         case MODE_CHANNEL_RANGE:
+            ProcessChannelMode();
+            break;
+            
+         case MODE_EMA_ONLY:
+         default:
+            ProcessEmaMode();
+            break;
       }
    }
 };

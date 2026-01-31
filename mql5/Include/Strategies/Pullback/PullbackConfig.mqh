@@ -30,6 +30,14 @@ enum ENUM_STRATEGY_PRESET
    PRESET_CUSTOM               // カスタム
 };
 
+//--- トレンドライン/チャネルモード (設計書セクション12-13)
+enum ENUM_TL_CHANNEL_MODE
+{
+   MODE_EMA_ONLY = 0,          // EMAモードのみ（デフォルト）
+   MODE_TRENDLINE_TREND,       // トレンドライン順張り
+   MODE_CHANNEL_RANGE          // チャネル逆張り
+};
+
 class CPullbackConfig
 {
 public:
@@ -80,6 +88,22 @@ public:
    bool            UseStrongTrendMode;          // 強トレンドモード有効
    double          StrongTrendADXLevel;         // 強トレンドADX閾値
    bool            StrongTrendAutoActivate;     // 自動判定モード
+
+   // === トレンドライン/チャネル設定 (設計書セクション12-13) ===
+   ENUM_TL_CHANNEL_MODE TLChannelMode;          // モード選択
+
+   // トレンドライン設定
+   int             TrendLineLookbackBars;       // トレンドライン検出範囲
+   int             TrendLineMinTouches;         // 最小タッチ回数
+   double          TrendLineTolerancePoints;    // タッチ許容幅(Points)
+   bool            TrendLineAutoUpdate;         // 自動更新
+
+   // チャネル設定
+   bool            ChannelReversalOnly;         // 逆張り専用
+   double          ChannelMinWidthPoints;       // 最小チャネル幅(Points)
+   double          ChannelMaxWidthPoints;       // 最大チャネル幅(Points)
+   bool            ChannelRequireParallel;      // 平行チャネル必須
+   double          ChannelParallelTolerance;    // 平行許容度（傾き差の割合）
 
    // Filters
    int             MaxSpreadPoints;
@@ -146,6 +170,16 @@ public:
      UseStrongTrendMode(false),            // MT4非OOP互換: デフォルトfalse
      StrongTrendADXLevel(30.0),            // MT4非OOP互換: ADX 30以上
      StrongTrendAutoActivate(false),       // MT4非OOP互換: 自動判定オフ
+     TLChannelMode(MODE_EMA_ONLY),         // デフォルト: EMAモードのみ
+     TrendLineLookbackBars(50),            // 設計書準拠: 50本
+     TrendLineMinTouches(2),               // 設計書準拠: 最小2回
+     TrendLineTolerancePoints(50.0),       // 5pips相当
+     TrendLineAutoUpdate(true),            // 自動更新有効
+     ChannelReversalOnly(true),            // 設計書準拠: 逆張り専用
+     ChannelMinWidthPoints(200.0),         // 20pips相当
+     ChannelMaxWidthPoints(2000.0),        // 200pips相当
+     ChannelRequireParallel(true),         // 設計書準拠: 平行必須
+     ChannelParallelTolerance(0.3),        // 設計書準拠: 傾き差30%
      MaxSpreadPoints(200),
      ATRPeriod(14),
      ATRThresholdPoints(30.0),
