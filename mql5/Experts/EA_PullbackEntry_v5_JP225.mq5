@@ -60,10 +60,17 @@ input int    InpEmaSlopeBars = 3;            // 傾き計算バー数
 input bool   InpUseCandleCondition = true;   // ローソク足条件チェック有効
 input double InpMinCandleBodyPercent = 20.0; // 最小実体比率(%)
 
-//--- 強トレンドモード (MT4非OOP互換: Strong_Trend_Mode)
+//--- 強トレンドモード (MT4非OOP互換 + Al Brooks理論拡張)
 input bool   InpUseStrongTrendMode = false;  // 強トレンドモード有効
 input double InpStrongTrendADXLevel = 30.0;  // 強トレンドADX閾値
 input bool   InpStrongTrendAutoActivate = false; // 自動判定モード
+
+//--- Al Brooks強トレンド理論
+input int    InpConsecutiveBarsCount = 3;       // 連続陽線/陰線の最小本数
+input double InpLargeCandleMultiplier = 1.5;    // 大陽線/大陰線判定 (ATR倍率)
+input double InpShallowPullbackPercent = 40.0;  // 浅いプルバック許容率(%)
+input bool   InpUseBreakoutBarEntry = false;    // ブレイクアウトバー即エントリー
+input double InpMinBarBodyRatio = 60.0;         // 最小ボディ比率(%, ヒゲ少)
 
 //--- トレンドライン/チャネルモード (設計書セクション12-13)
 input ENUM_TL_CHANNEL_MODE InpTLChannelMode = MODE_EMA_ONLY;  // トレンドライン/チャネルモード
@@ -400,10 +407,15 @@ int OnInit()
       cfg.UseCandleCondition = InpUseCandleCondition;
       cfg.MinCandleBodyPercent = InpMinCandleBodyPercent;
 
-      // 強トレンドモード (MT4非OOP互換)
+      // 強トレンドモード (MT4非OOP互換 + Al Brooks理論拡張)
       cfg.UseStrongTrendMode = InpUseStrongTrendMode;
       cfg.StrongTrendADXLevel = InpStrongTrendADXLevel;
       cfg.StrongTrendAutoActivate = InpStrongTrendAutoActivate;
+      cfg.ConsecutiveBarsCount = InpConsecutiveBarsCount;
+      cfg.LargeCandleMultiplier = InpLargeCandleMultiplier;
+      cfg.ShallowPullbackPercent = InpShallowPullbackPercent;
+      cfg.UseBreakoutBarEntry = InpUseBreakoutBarEntry;
+      cfg.MinBarBodyRatio = InpMinBarBodyRatio;
 
       // トレンドライン/チャネルモード (設計書セクション12-13)
       cfg.TLChannelMode = InpTLChannelMode;

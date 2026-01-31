@@ -442,7 +442,216 @@ private:
    }
 
    //+------------------------------------------------------------------+
-   //| MT4非OOP互換: 強トレンドモードでのプルバック検出                    |
+   //| Al Brooks理論: 連続陽線/陰線の検出                                 |
+   //| N本連続で同方向の足があれば強トレンドと判断                          |
+   //+------------------------------------------------------------------+
+   bool DetectConsecutiveBars(bool isLong, int lookback = 10)
+   {
+      int consecutiveCount = 0;
+      int requiredCount = m_cfg.ConsecutiveBarsCount;
+      if(requiredCount <= 0) requiredCount = 3;  // デフォルト3本
+
+      for(int i = 1; i <= lookback; i++)
+      {
+         double open = iOpen(m_symbol, m_timeframe, i);
+         double close = iClose(m_symbol, m_timeframe, i);
+
+         bool isBullish = close > open;
+         bool isBearish = close < open;
+
+         if(isLong && isBullish)
+         {
+            consecutiveCount++;
+            if(consecutiveCount >= requiredCount)
+               return true;
+         }
+         else if(!isLong && isBearish)
+         {
+            consecutiveCount++;
+            if(consecutiveCount >= requiredCount)
+               return true;
+         }
+         else
+         {
+            consecutiveCount = 0;  // リセット
+         }
+      }
+
+      return false;
+   }
+
+   //+------------------------------------------------------------------+
+   //| Al Brooks理論: 大陽線/大陰線の検出                                 |
+   //| ATRの指定倍数以上の大きなローソク足を検出                           |
+   //+------------------------------------------------------------------+
+   bool DetectLargeCandle(bool isLong, int lookback = 5)
+   {
+      double multiplier = m_cfg.LargeCandleMultiplier;
+      if(multiplier <= 0) multiplier = 1.5;  // デフォルト1.5倍
+
+      double atrBuffer[];
+      if(CopyBuffer(m_handleATR, 0, 1, 1, atrBuffer) != 1)
+         return false;
+      double atr = atrBuffer[0];
+
+      double threshold = atr * multiplier;
+
+      for(int i = 1; i <= lookback; i++)
+      {
+         double open = iOpen(m_symbol, m_timeframe, i);
+         double close = iClose(m_symbol, m_timeframe, i);
+         double bodySize = MathAbs(close - open);
+
+         bool isBullish = close > open;
+         bool isBearish = close < open;
+
+         if(bodySize >= threshold)
+         {
+            if(isLong && isBullish)
+               return true;
+            if(!isLong && isBearish)
+               return true;
+         }
+      }
+
+      return false;
+   }
+
+   //+------------------------------------------------------------------+
+   //| Al Brooks理論: 浅いプルバック検出                                  |
+   //| 直近のスイングからShallowPullbackPercent%以下の戻しでエントリー許可  |
+   //+------------------------------------------------------------------+
+   bool DetectShallowPullback(bool isLong)
+   {
+      double pullbackPercent = m_cfg.ShallowPullbackPercent;
+      if(pullbackPercent <= 0) pullbackPercent = 40.0;  // デフォルト40%
+
+      // 直近10本でスイングハイ/ローを探す
+      double swingHigh = 0.0, swingLow = DBL_MAX;
+      for(int i = 1; i <= 10; i++)
+      {
+         double high = iHigh(m_symbol, m_timeframe, i);
+         double low = iLow(m_symbol, m_timeframe, i);
+         if(high > swingHigh) swingHigh = high;
+         if(low < swingLow) swingLow = low;
+      }
+
+      double swingRange = swingHigh - swingLow;
+      if(swingRange <= 0) return false;
+
+      double currentClose = iClose(m_symbol, m_timeframe, 1);
+
+      if(isLong)
+      {
+         // ロング: 高値からの戻し率を計算
+         double pullbackFromHigh = swingHigh - currentClose;
+         double retracementPercent = (pullbackFromHigh / swingRange) * 100.0;
+         // 浅い戻し(pullbackPercent%以下)ならtrue
+         if(retracementPercent > 0 && retracementPercent <= pullbackPercent)
+         {
+            m_pullbackType = "ShallowPullback";
+            return true;
+         }
+      }
+      else
+      {
+         // ショート: 安値からの戻し率を計算
+         double pullbackFromLow = currentClose - swingLow;
+         double retracementPercent = (pullbackFromLow / swingRange) * 100.0;
+         // 浅い戻し(pullbackPercent%以下)ならtrue
+         if(retracementPercent > 0 && retracementPercent <= pullbackPercent)
+         {
+            m_pullbackType = "ShallowPullback";
+            return true;
+         }
+      }
+
+      return false;
+   }
+
+   //+------------------------------------------------------------------+
+   //| Al Brooks理論: ブレイクアウトバー検出                              |
+   //| 直近のレジサポをブレイクした大きな足でプルバック待たずにエントリー     |
+   //+------------------------------------------------------------------+
+   bool CheckBreakoutBarEntry(bool isLong)
+   {
+      if(!m_cfg.UseBreakoutBarEntry)
+         return false;
+
+      double bar1High = iHigh(m_symbol, m_timeframe, 1);
+      double bar1Low = iLow(m_symbol, m_timeframe, 1);
+      double bar1Open = iOpen(m_symbol, m_timeframe, 1);
+      double bar1Close = iClose(m_symbol, m_timeframe, 1);
+      double bar1Body = MathAbs(bar1Close - bar1Open);
+      double bar1Range = bar1High - bar1Low;
+
+      // ボディ比率チェック
+      double minBodyRatio = m_cfg.MinBarBodyRatio;
+      if(minBodyRatio <= 0) minBodyRatio = 60.0;
+      if(bar1Range > 0)
+      {
+         double bodyRatio = (bar1Body / bar1Range) * 100.0;
+         if(bodyRatio < minBodyRatio)
+            return false;
+      }
+
+      // 過去10本の高値/安値を探す（バー1を除く）
+      double prevHigh = 0.0, prevLow = DBL_MAX;
+      for(int i = 2; i <= 11; i++)
+      {
+         double h = iHigh(m_symbol, m_timeframe, i);
+         double l = iLow(m_symbol, m_timeframe, i);
+         if(h > prevHigh) prevHigh = h;
+         if(l < prevLow) prevLow = l;
+      }
+
+      if(isLong)
+      {
+         // ロング: 直近高値を超えてブレイクアウト
+         if(bar1Close > prevHigh && bar1Close > bar1Open)
+         {
+            m_pullbackType = "BreakoutBarEntry";
+            return true;
+         }
+      }
+      else
+      {
+         // ショート: 直近安値を割ってブレイクアウト
+         if(bar1Close < prevLow && bar1Close < bar1Open)
+         {
+            m_pullbackType = "BreakoutBarEntry";
+            return true;
+         }
+      }
+
+      return false;
+   }
+
+   //+------------------------------------------------------------------+
+   //| Al Brooks理論: ボディ比率チェック                                  |
+   //| ヒゲが少ない（ボディ比率が高い）足を検出                            |
+   //+------------------------------------------------------------------+
+   bool CheckBarBodyRatio(int barIndex = 1)
+   {
+      double high = iHigh(m_symbol, m_timeframe, barIndex);
+      double low = iLow(m_symbol, m_timeframe, barIndex);
+      double open = iOpen(m_symbol, m_timeframe, barIndex);
+      double close = iClose(m_symbol, m_timeframe, barIndex);
+
+      double range = high - low;
+      if(range <= 0) return false;
+
+      double body = MathAbs(close - open);
+      double bodyRatio = (body / range) * 100.0;
+
+      double minBodyRatio = m_cfg.MinBarBodyRatio;
+      if(minBodyRatio <= 0) minBodyRatio = 60.0;
+
+      return (bodyRatio >= minBodyRatio);
+   }
+
+   //+------------------------------------------------------------------+
+   //| MT4非OOP互換 + Al Brooks拡張: 強トレンドモードでのプルバック検出     |
    //+------------------------------------------------------------------+
    bool DetectStrongTrendPullback(bool isLong)
    {
@@ -454,7 +663,45 @@ private:
       if(adx <= m_cfg.StrongTrendADXLevel)
          return false;
 
-      // 過去5本以内にEMA12タッチがあるかチェック
+      // === Al Brooks理論: ブレイクアウトバーエントリー（最優先） ===
+      if(CheckBreakoutBarEntry(isLong))
+         return true;
+
+      // === Al Brooks理論: 連続陽線/陰線でトレンド確認 ===
+      bool hasConsecutiveBars = DetectConsecutiveBars(isLong);
+
+      // === Al Brooks理論: 大陽線/大陰線でモメンタム確認 ===
+      bool hasLargeCandle = DetectLargeCandle(isLong);
+
+      // 連続足または大足が検出された場合
+      if(hasConsecutiveBars || hasLargeCandle)
+      {
+         // 浅いプルバックでエントリー許可
+         if(DetectShallowPullback(isLong))
+         {
+            if(hasConsecutiveBars && hasLargeCandle)
+               m_pullbackType = "StrongTrend_Consecutive+Large+Shallow";
+            else if(hasConsecutiveBars)
+               m_pullbackType = "StrongTrend_Consecutive+Shallow";
+            else
+               m_pullbackType = "StrongTrend_Large+Shallow";
+            return true;
+         }
+
+         // ボディ比率の高い足でエントリー許可
+         if(CheckBarBodyRatio(1))
+         {
+            if(hasConsecutiveBars && hasLargeCandle)
+               m_pullbackType = "StrongTrend_Consecutive+Large+BodyRatio";
+            else if(hasConsecutiveBars)
+               m_pullbackType = "StrongTrend_Consecutive+BodyRatio";
+            else
+               m_pullbackType = "StrongTrend_Large+BodyRatio";
+            return true;
+         }
+      }
+
+      // === 従来のEMA12タッチ検出（フォールバック） ===
       for(int i = 1; i <= 5; i++)
       {
          double barHigh = iHigh(m_symbol, m_timeframe, i);

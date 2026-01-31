@@ -84,10 +84,17 @@ public:
    bool            UseCandleCondition;          // ローソク足条件チェック有効
    double          MinCandleBodyPercent;        // 最小実体比率(%)
 
-   // 強トレンドモード (MT4非OOP互換: Strong_Trend_Mode)
+   // 強トレンドモード (MT4非OOP互換: Strong_Trend_Mode + Al Brooks理論拡張)
    bool            UseStrongTrendMode;          // 強トレンドモード有効
    double          StrongTrendADXLevel;         // 強トレンドADX閾値
    bool            StrongTrendAutoActivate;     // 自動判定モード
+   
+   // === Al Brooks強トレンド理論拡張 ===
+   int             ConsecutiveBarsCount;        // 連続陽線/陰線の最小本数
+   double          LargeCandleMultiplier;       // 大陽線/大陰線判定 (ATR倍率)
+   double          ShallowPullbackPercent;      // 浅いプルバック許容率 (30-50%)
+   bool            UseBreakoutBarEntry;         // ブレイクアウトバー即エントリー
+   double          MinBarBodyRatio;             // 最小ボディ比率 (ヒゲ少ない足)
 
    // === トレンドライン/チャネル設定 (設計書セクション12-13) ===
    ENUM_TL_CHANNEL_MODE TLChannelMode;          // モード選択
@@ -187,6 +194,11 @@ public:
      UseStrongTrendMode(false),            // MT4非OOP互換: デフォルトfalse
      StrongTrendADXLevel(30.0),            // MT4非OOP互換: ADX 30以上
      StrongTrendAutoActivate(false),       // MT4非OOP互換: 自動判定オフ
+     ConsecutiveBarsCount(3),              // Al Brooks: 3本連続でトレンド確認
+     LargeCandleMultiplier(1.5),           // Al Brooks: ATR1.5倍で大足判定
+     ShallowPullbackPercent(40.0),         // Al Brooks: 40%戻しでエントリー
+     UseBreakoutBarEntry(false),           // Al Brooks: ブレイクアウトバー即エントリー
+     MinBarBodyRatio(60.0),                // Al Brooks: ボディ60%以上（ヒゲ少）
      TLChannelMode(MODE_EMA_ONLY),         // デフォルト: EMAモードのみ
      TrendLineLookbackBars(50),            // 設計書準拠: 50本
      TrendLineMinTouches(2),               // 設計書準拠: 最小2回
