@@ -50,6 +50,7 @@ public:
    bool            UseEmaShort;
    bool            UseEmaMid;
    bool            UseEmaLong;
+   bool            RequirePerfectOrder;  // MT4互換: falseならパーフェクトオーダー不要
 
    // Pullback
    bool            UseTouchPullback;
@@ -104,6 +105,7 @@ public:
      UseEmaShort(true),
      UseEmaMid(true),
      UseEmaLong(true),
+     RequirePerfectOrder(false),  // MT4互換: パーフェクトオーダー不要
      UseTouchPullback(true),
      UseCrossPullback(true),
      UseBreakPullback(false),

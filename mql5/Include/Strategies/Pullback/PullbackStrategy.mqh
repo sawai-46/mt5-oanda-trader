@@ -116,6 +116,17 @@ private:
       
       double s, m, l;
       if(!GetEmaValues(1, s, m, l)) return false;
+      
+      // MT4互換: RequirePerfectOrder=falseなら価格がEMA上にあればOK
+      if(!m_cfg.RequirePerfectOrder)
+      {
+         double close1 = iClose(m_symbol, m_timeframe, 1);
+         // 少なくとも1つの有効EMAより上にあればトレンドアップとみなす
+         if(m_cfg.UseEmaShort && close1 > s) return true;
+         if(m_cfg.UseEmaMid && close1 > m) return true;
+         if(m_cfg.UseEmaLong && close1 > l) return true;
+         return false;
+      }
 
       // Check adjacent pairs if both are enabled
       // Sequence: Short -> Mid -> Long
@@ -149,6 +160,17 @@ private:
 
       double s, m, l;
       if(!GetEmaValues(1, s, m, l)) return false;
+
+      // MT4互換: RequirePerfectOrder=falseなら価格がEMA下にあればOK
+      if(!m_cfg.RequirePerfectOrder)
+      {
+         double close1 = iClose(m_symbol, m_timeframe, 1);
+         // 少なくとも1つの有効EMAより下にあればトレンドダウンとみなす
+         if(m_cfg.UseEmaShort && close1 < s) return true;
+         if(m_cfg.UseEmaMid && close1 < m) return true;
+         if(m_cfg.UseEmaLong && close1 < l) return true;
+         return false;
+      }
 
       // Short vs Mid
       if(m_cfg.UseEmaShort && m_cfg.UseEmaMid)
