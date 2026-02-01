@@ -78,11 +78,11 @@ input double InpMinBarBodyRatio = 60.0;         // 最小ボディ比率(%, ヒ�
 input ENUM_TL_CHANNEL_MODE InpTLChannelMode = MODE_EMA_ONLY;  // トレンドライン/チャネルモード
 input int    InpTrendLineLookbackBars = 100;      // トレンドライン検出バー数
 input int    InpTrendLineMinTouches = 3;          // トレンドライン最小タッチ回数
-input int    InpTrendLineTolerancePoints = 20;    // トレンドライン許容誤差(points)
+input double InpTrendLineToleranceATR = 0.1;      // トレンドライン許容誤差(ATR倍率)
 input bool   InpTrendLineAutoUpdate = true;       // トレンドライン自動更新
 input bool   InpChannelReversalOnly = true;       // チャネル逆張りのみ
-input double InpChannelMinWidth = 100.0;          // チャネル最小幅(points)
-input double InpChannelMaxWidth = 1000.0;         // チャネル最大幅(points)
+input double InpChannelMinWidthATR = 0.5;         // チャネル最小幅(ATR倍率)
+input double InpChannelMaxWidthATR = 3.0;         // チャネル最大幅(ATR倍率)
 input bool   InpChannelRequireParallel = true;    // 平行チャネル必須
 input double InpChannelParallelTolerance = 0.5;   // 平行許容誤差
 
@@ -436,11 +436,11 @@ int OnInit()
       cfg.TLChannelMode = InpTLChannelMode;
       cfg.TrendLineLookbackBars = InpTrendLineLookbackBars;
       cfg.TrendLineMinTouches = InpTrendLineMinTouches;
-      cfg.TrendLineTolerancePoints = InpTrendLineTolerancePoints;
+      cfg.TrendLineToleranceATR = InpTrendLineToleranceATR;
       cfg.TrendLineAutoUpdate = InpTrendLineAutoUpdate;
       cfg.ChannelReversalOnly = InpChannelReversalOnly;
-      cfg.ChannelMinWidthPoints = InpChannelMinWidth;
-      cfg.ChannelMaxWidthPoints = InpChannelMaxWidth;
+      cfg.ChannelMinWidthATR = InpChannelMinWidthATR;
+      cfg.ChannelMaxWidthATR = InpChannelMaxWidthATR;
       cfg.ChannelRequireParallel = InpChannelRequireParallel;
       cfg.ChannelParallelTolerance = InpChannelParallelTolerance;
 

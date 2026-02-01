@@ -52,6 +52,19 @@ private:
    datetime          m_lastUpdateTime;
    
    //+------------------------------------------------------------------+
+   //| ATR値を取得                                                      |
+   //+------------------------------------------------------------------+
+   double GetATR(int period = 14, int shift = 1)
+   {
+      int handle = iATR(m_symbol, m_timeframe, period);
+      if(handle == INVALID_HANDLE) return 0.0;
+      double buffer[1];
+      if(CopyBuffer(handle, 0, shift, 1, buffer) <= 0) return 0.0;
+      IndicatorRelease(handle);
+      return buffer[0];
+   }
+   
+   //+------------------------------------------------------------------+
    //| スイングロー（極小点）検出                                        |
    //+------------------------------------------------------------------+
    int FindSwingLows(int &swingBars[], double &swingPrices[], int lookback)
@@ -234,14 +247,19 @@ public:
       if(!CheckParallel(lowerSlope, upperSlope))
          return false;
       
+      // ATRを取得して幅計算に使用
+      double atr = GetATR(m_cfg.ATRPeriod, 1);
+      
       // チャネル幅計算（中間バーでの幅）
       int midBar = m_cfg.TrendLineLookbackBars / 2;
       double upperPrice = upperIntercept + upperSlope * midBar;
       double lowerPrice = lowerIntercept + lowerSlope * midBar;
-      double width = (upperPrice - lowerPrice) / _Point;
+      double width = upperPrice - lowerPrice;  // 価格差
       
-      // 幅の範囲チェック
-      if(width < m_cfg.ChannelMinWidthPoints || width > m_cfg.ChannelMaxWidthPoints)
+      // ATR倍率で幅の範囲チェック
+      double minWidth = atr * m_cfg.ChannelMinWidthATR;
+      double maxWidth = atr * m_cfg.ChannelMaxWidthATR;
+      if(width < minWidth || width > maxWidth)
          return false;
       
       // チャネル方向判定

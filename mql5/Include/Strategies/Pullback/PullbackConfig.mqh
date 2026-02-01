@@ -105,13 +105,13 @@ public:
    // トレンドライン設定
    int             TrendLineLookbackBars;       // トレンドライン検出範囲
    int             TrendLineMinTouches;         // 最小タッチ回数
-   double          TrendLineTolerancePoints;    // タッチ許容幅(Points)
+   double          TrendLineToleranceATR;       // タッチ許容幅(ATR倍率)
    bool            TrendLineAutoUpdate;         // 自動更新
 
    // チャネル設定
    bool            ChannelReversalOnly;         // 逆張り専用
-   double          ChannelMinWidthPoints;       // 最小チャネル幅(Points)
-   double          ChannelMaxWidthPoints;       // 最大チャネル幅(Points)
+   double          ChannelMinWidthATR;          // 最小チャネル幅(ATR倍率)
+   double          ChannelMaxWidthATR;          // 最大チャネル幅(ATR倍率)
    bool            ChannelRequireParallel;      // 平行チャネル必須
    double          ChannelParallelTolerance;    // 平行許容度（傾き差の割合）
 
@@ -218,11 +218,11 @@ public:
      TLChannelMode(MODE_EMA_ONLY),         // デフォルト: EMAモードのみ
      TrendLineLookbackBars(50),            // 設計書準拠: 50本
      TrendLineMinTouches(2),               // 設計書準拠: 最小2回
-     TrendLineTolerancePoints(50.0),       // 5pips相当
+     TrendLineToleranceATR(0.1),           // ATR*0.1
      TrendLineAutoUpdate(true),            // 自動更新有効
      ChannelReversalOnly(true),            // 設計書準拠: 逆張り専用
-     ChannelMinWidthPoints(200.0),         // 20pips相当
-     ChannelMaxWidthPoints(2000.0),        // 200pips相当
+     ChannelMinWidthATR(0.5),              // ATR*0.5
+     ChannelMaxWidthATR(3.0),              // ATR*3.0
      ChannelRequireParallel(true),         // 設計書準拠: 平行必須
      ChannelParallelTolerance(0.3),        // 設計書準拠: 傾き差30%
      UseATRSpikeFilter(true),              // AIノイズ対策: スパイク検出有効

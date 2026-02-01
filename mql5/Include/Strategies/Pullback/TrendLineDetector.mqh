@@ -44,6 +44,28 @@ private:
    datetime          m_lastUpdateTime;
    
    //+------------------------------------------------------------------+
+   //| ATR値を取得                                                      |
+   //+------------------------------------------------------------------+
+   double GetATR(int period = 14, int shift = 1)
+   {
+      int handle = iATR(m_symbol, m_timeframe, period);
+      if(handle == INVALID_HANDLE) return 0.0;
+      double buffer[1];
+      if(CopyBuffer(handle, 0, shift, 1, buffer) <= 0) return 0.0;
+      IndicatorRelease(handle);
+      return buffer[0];
+   }
+   
+   //+------------------------------------------------------------------+
+   //| タッチ許容幅を取得（ATR倍率で計算）                                  |
+   //+------------------------------------------------------------------+
+   double GetTolerance()
+   {
+      double atr = GetATR(m_cfg.ATRPeriod, 1);
+      return atr * m_cfg.TrendLineToleranceATR;
+   }
+   
+   //+------------------------------------------------------------------+
    //| スイングロー（極小点）検出                                        |
    //+------------------------------------------------------------------+
    int FindSwingLows(int &swingBars[], int lookback)
@@ -107,7 +129,7 @@ private:
    int CountLineTouches(double slope, double intercept, int lookback, bool isSupport)
    {
       int touches = 0;
-      double tolerance = m_cfg.TrendLineTolerancePoints * _Point;
+      double tolerance = GetTolerance();
       
       for(int i = 1; i < lookback; i++)
       {
@@ -330,7 +352,7 @@ public:
       if(!isLong && !m_downTrendLine.isValid)
          return false;
          
-      double tolerance = m_cfg.TrendLineTolerancePoints * _Point;
+      double tolerance = GetTolerance();
       
       for(int i = 1; i <= lookback; i++)
       {
