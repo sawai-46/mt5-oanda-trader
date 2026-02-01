@@ -310,7 +310,7 @@ public:
       if(!m_channel.isValid)
          return false;
          
-      double tolerance = m_cfg.TrendLineTolerancePoints * _Point;
+      double tolerance = GetATR() * m_cfg.TrendLineToleranceATR;
       
       for(int i = 1; i <= lookback; i++)
       {
@@ -332,7 +332,7 @@ public:
       if(!m_channel.isValid)
          return false;
          
-      double tolerance = m_cfg.TrendLineTolerancePoints * _Point;
+      double tolerance = GetATR() * m_cfg.TrendLineToleranceATR;
       
       for(int i = 1; i <= lookback; i++)
       {

@@ -3,6 +3,9 @@
 
 // Pullback設定（MT4 CommonEA互換・フル機能版）
 
+// ENUM_TRAILING_MODE は PositionManager.mqh で定義
+#include <Position/PositionManager.mqh>
+
 enum ENUM_PULLBACK_EMA_REF
 {
    PULLBACK_EMA_12  = 0,
@@ -182,6 +185,29 @@ public:
    double          StopLossAtrMulti;
    double          TakeProfitAtrMulti;
 
+   // === 段階利確設定 (MT4互換) ===
+   bool            EnablePartialClose;          // 段階利確有効
+   double          PartialCloseLevel1Pips;      // Stage1到達pips
+   double          PartialClosePercent1;        // Stage1決済比率(%)
+   double          PartialCloseLevel2Pips;      // Stage2到達pips
+   double          PartialClosePercent2;        // Stage2決済比率(%)
+   double          PartialCloseLevel3Pips;      // Stage3到達pips
+   double          PartialClosePercent3;        // Stage3決済比率(%)
+   
+   // === BE移動設定 (MT4互換) ===
+   bool            MoveToBreakEvenAfterStage1;  // Stage1後にBE移動
+   double          BreakEvenOffsetPips;         // BEオフセット(pips)
+   
+   // === トレーリング設定 (MT4互換) ===
+   ENUM_TRAILING_MODE TrailingMode;             // トレーリングモード
+   double          TrailingStopPips;            // 固定トレーリング幅(pips)
+   double          TrailingStopATRMulti;        // ATR倍率
+   double          TrailingActivationPips;      // トレーリング開始利益(pips)
+   
+   // === 永続化設定 (再起動耐性) ===
+   bool            EnablePersistentTpState;     // 段階利確状態を永続化
+   bool            LogPersistentTpStateEvents;  // 復元イベントログ出力
+
    // 実運用の初期値（OANDA MT5: Points単位）
    CPullbackConfig()
    : MagicNumber(0),
@@ -274,7 +300,26 @@ public:
      StopLossFixedPoints(150.0),
      TakeProfitFixedPoints(400.0), // MT4互換: RR 1:2.67
      StopLossAtrMulti(1.5),
-     TakeProfitAtrMulti(2.0)
+     TakeProfitAtrMulti(2.0),
+     // 段階利確設定 (MT4互換)
+     EnablePartialClose(true),
+     PartialCloseLevel1Pips(15.0),
+     PartialClosePercent1(50.0),
+     PartialCloseLevel2Pips(30.0),
+     PartialClosePercent2(50.0),
+     PartialCloseLevel3Pips(0.0),            // 0=Stage3未使用
+     PartialClosePercent3(0.0),
+     // BE移動設定
+     MoveToBreakEvenAfterStage1(true),
+     BreakEvenOffsetPips(0.0),
+     // トレーリング設定
+     TrailingMode(TRAILING_DISABLED),
+     TrailingStopPips(15.0),
+     TrailingStopATRMulti(1.5),
+     TrailingActivationPips(10.0),
+     // 永続化設定
+     EnablePersistentTpState(true),
+     LogPersistentTpStateEvents(false)
    {
    }
 };

@@ -19,13 +19,13 @@ void ApplyCommonDefaults(CPullbackConfig &cfg)
    // TrendLine設定
    cfg.TrendLineLookbackBars = 100;
    cfg.TrendLineMinTouches = 2;
-   cfg.TrendLineTolerancePoints = 20;
+   cfg.TrendLineToleranceATR = 0.1;
    cfg.TrendLineAutoUpdate = true;
    
    // Channel設定
    cfg.ChannelReversalOnly = true;
-   cfg.ChannelMinWidthPoints = 50;
-   cfg.ChannelMaxWidthPoints = 500;
+   cfg.ChannelMinWidthATR = 0.5;
+   cfg.ChannelMaxWidthATR = 3.0;
    cfg.ChannelRequireParallel = true;
    cfg.ChannelParallelTolerance = 0.0005;
    
@@ -307,7 +307,7 @@ void ApplyPreset(CPullbackConfig &cfg, ENUM_STRATEGY_PRESET preset)
          cfg.TLChannelMode = MODE_TRENDLINE_TREND;
          cfg.TrendLineLookbackBars = 100;
          cfg.TrendLineMinTouches = 2;
-         cfg.TrendLineTolerancePoints = 20;
+         cfg.TrendLineToleranceATR = 0.1;
          cfg.TrendLineAutoUpdate = true;
          // AIノイズ対策: ATRスパイクのみ
          cfg.UseATRSpikeFilter = true;
@@ -341,8 +341,8 @@ void ApplyPreset(CPullbackConfig &cfg, ENUM_STRATEGY_PRESET preset)
          cfg.TLChannelMode = MODE_CHANNEL_RANGE;
          cfg.TrendLineLookbackBars = 80;  // チャネルは短めのルックバック
          cfg.ChannelReversalOnly = true;
-         cfg.ChannelMinWidthPoints = 50;
-         cfg.ChannelMaxWidthPoints = 400;
+         cfg.ChannelMinWidthATR = 0.5;
+         cfg.ChannelMaxWidthATR = 3.0;
          cfg.ChannelRequireParallel = true;
          cfg.ChannelParallelTolerance = 0.0005;
          // AIノイズ対策: ストップ狩り検出有効（逆張りに有効）
