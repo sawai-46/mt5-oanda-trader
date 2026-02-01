@@ -500,7 +500,7 @@ public:
    //+------------------------------------------------------------------+
    //| ゲッター                                                          |
    //+------------------------------------------------------------------+
-   const SChannel& GetChannel() const { return m_channel; }
+   SChannel GetChannel() const { return m_channel; }
    bool HasValidChannel() const { return m_channel.isValid; }
    int GetChannelDirection() const { return m_channel.direction; }
    double GetChannelWidth() const { return m_channel.width; }

@@ -324,16 +324,17 @@ public:
    //+------------------------------------------------------------------+
    bool DetectTrendLineTouchPullback(bool isLong, int lookback = 5)
    {
-      STrendLine &line = isLong ? m_upTrendLine : m_downTrendLine;
-      
-      if(!line.isValid)
+      // MQL5: 構造体参照をローカル変数に代入できないため直接アクセス
+      if(isLong && !m_upTrendLine.isValid)
+         return false;
+      if(!isLong && !m_downTrendLine.isValid)
          return false;
          
       double tolerance = m_cfg.TrendLineTolerancePoints * _Point;
       
       for(int i = 1; i <= lookback; i++)
       {
-         double linePrice = GetLinePriceAtBar(line, i);
+         double linePrice = isLong ? GetLinePriceAtBar(m_upTrendLine, i) : GetLinePriceAtBar(m_downTrendLine, i);
          
          if(isLong)
          {
@@ -363,15 +364,16 @@ public:
    //+------------------------------------------------------------------+
    bool DetectTrendLineCrossPullback(bool isLong, int lookback = 5)
    {
-      STrendLine &line = isLong ? m_upTrendLine : m_downTrendLine;
-      
-      if(!line.isValid)
+      // MQL5: 構造体参照をローカル変数に代入できないため直接アクセス
+      if(isLong && !m_upTrendLine.isValid)
+         return false;
+      if(!isLong && !m_downTrendLine.isValid)
          return false;
          
       for(int i = 1; i <= lookback; i++)
       {
-         double linePrice_i = GetLinePriceAtBar(line, i);
-         double linePrice_prev = GetLinePriceAtBar(line, i + 1);
+         double linePrice_i = isLong ? GetLinePriceAtBar(m_upTrendLine, i) : GetLinePriceAtBar(m_downTrendLine, i);
+         double linePrice_prev = isLong ? GetLinePriceAtBar(m_upTrendLine, i + 1) : GetLinePriceAtBar(m_downTrendLine, i + 1);
          
          if(isLong)
          {
@@ -401,15 +403,16 @@ public:
    //+------------------------------------------------------------------+
    bool DetectTrendLineBreakPullback(bool isLong, int lookback = 5)
    {
-      STrendLine &line = isLong ? m_upTrendLine : m_downTrendLine;
-      
-      if(!line.isValid)
+      // MQL5: 構造体参照をローカル変数に代入できないため直接アクセス
+      if(isLong && !m_upTrendLine.isValid)
+         return false;
+      if(!isLong && !m_downTrendLine.isValid)
          return false;
          
       for(int i = 1; i <= lookback; i++)
       {
-         double linePrice_i = GetLinePriceAtBar(line, i);
-         double linePrice_prev = GetLinePriceAtBar(line, i + 1);
+         double linePrice_i = isLong ? GetLinePriceAtBar(m_upTrendLine, i) : GetLinePriceAtBar(m_downTrendLine, i);
+         double linePrice_prev = isLong ? GetLinePriceAtBar(m_upTrendLine, i + 1) : GetLinePriceAtBar(m_downTrendLine, i + 1);
          
          double close_i = iClose(m_symbol, m_timeframe, i);
          double close_prev = iClose(m_symbol, m_timeframe, i + 1);
@@ -494,8 +497,8 @@ public:
    //+------------------------------------------------------------------+
    //| ゲッター                                                          |
    //+------------------------------------------------------------------+
-   const STrendLine& GetUpTrendLine() const { return m_upTrendLine; }
-   const STrendLine& GetDownTrendLine() const { return m_downTrendLine; }
+   STrendLine GetUpTrendLine() const { return m_upTrendLine; }
+   STrendLine GetDownTrendLine() const { return m_downTrendLine; }
    bool HasValidUpTrendLine() const { return m_upTrendLine.isValid; }
    bool HasValidDownTrendLine() const { return m_downTrendLine.isValid; }
 };
