@@ -514,24 +514,24 @@ private:
          else
             profitPoints = (openPrice - currentPrice) / point;
          
-         // Determine target level
+         // Determine target level (Points=0は未使用として判定対象外)
          int newLevel = currentLevel;
          double closePercent = 0;
          double targetPoints = 0;
          
-         if(currentLevel == 0 && profitPoints >= m_cfg.PartialClose1Points)
+         if(currentLevel == 0 && m_cfg.PartialClose1Points > 0 && profitPoints >= m_cfg.PartialClose1Points)
          {
             targetPoints = m_cfg.PartialClose1Points;
             closePercent = m_cfg.PartialClose1Percent;
             newLevel = 1;
          }
-         else if(currentLevel == 1 && profitPoints >= m_cfg.PartialClose2Points)
+         else if(currentLevel == 1 && m_cfg.PartialClose2Points > 0 && profitPoints >= m_cfg.PartialClose2Points)
          {
             targetPoints = m_cfg.PartialClose2Points;
             closePercent = (maxLevel == 2) ? 100.0 : m_cfg.PartialClose2Percent;
             newLevel = 2;
          }
-         else if(maxLevel >= 3 && currentLevel == 2 && profitPoints >= m_cfg.PartialClose3Points)
+         else if(maxLevel >= 3 && currentLevel == 2 && m_cfg.PartialClose3Points > 0 && profitPoints >= m_cfg.PartialClose3Points)
          {
             targetPoints = m_cfg.PartialClose3Points;
             closePercent = m_cfg.PartialClose3Percent;
