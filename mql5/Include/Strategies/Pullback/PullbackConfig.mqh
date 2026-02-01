@@ -30,6 +30,12 @@ enum ENUM_STRATEGY_PRESET
    PRESET_TRENDLINE,           // トレンドライン追従型
    PRESET_CHANNEL,             // チャネル逆張り型
    PRESET_AI_NOISE,            // AIノイズ対策型
+   PRESET_SCALPING,            // スキャルピング型 (M5/M15短期)
+   PRESET_SWING,               // スイング型 (H1/H4中長期)
+   PRESET_ROUND_NUMBER,        // ラウンドナンバー重視型
+   PRESET_STRONG_TREND,        // 強トレンド型 (Al Brooks理論)
+   PRESET_PARTIAL_CLOSE,       // 段階利確重視型
+   PRESET_TRAIL_PROFIT,        // トレーリング重視型
    PRESET_CUSTOM = 99          // カスタム
 };
 

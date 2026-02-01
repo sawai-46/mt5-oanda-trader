@@ -392,6 +392,232 @@ void ApplyPreset(CPullbackConfig &cfg, ENUM_STRATEGY_PRESET preset)
          cfg.StopHuntRecoveryBars = 5;
          break;
          
+      //=================================================================
+      // 新プリセット: 用途別・戦略別
+      //=================================================================
+      
+      case PRESET_SCALPING:
+         // スキャルピング型: M5/M15、狭いSL/TP、高頻度
+         cfg.EmaShortPeriod = 8;
+         cfg.EmaMidPeriod = 20;
+         cfg.EmaLongPeriod = 50;
+         cfg.UseEmaShort = true;
+         cfg.UseEmaMid = true;
+         cfg.UseEmaLong = false;  // 短期なのでEMA100不要
+         cfg.UseTouchPullback = true;
+         cfg.UseCrossPullback = true;
+         cfg.UseBreakPullback = true;  // ブレイクも狙う
+         cfg.UseADXFilter = false;  // フィルタ少なめで頻度重視
+         cfg.ADXMinLevel = 0.0;
+         cfg.StopLossFixedPoints = 80.0;   // 狭いSL
+         cfg.TakeProfitFixedPoints = 120.0; // 狭いTP (RR 1:1.5)
+         // Edge filters: 最小限
+         cfg.ADXRequireRising = false;
+         cfg.DISpreadMin = 0;
+         cfg.UseATRSlopeFilter = false;
+         cfg.UseFibFilter = false;
+         cfg.UseCandlePattern = true;  // パターンのみ
+         cfg.PatternPinBar = true;
+         cfg.PatternEngulfing = false;
+         cfg.UseDivergenceFilter = false;
+         // 段階利確: 素早く利確
+         cfg.EnablePartialClose = true;
+         cfg.PartialCloseLevel1Pips = 6.0;
+         cfg.PartialClosePercent1 = 50.0;
+         cfg.PartialCloseLevel2Pips = 10.0;
+         cfg.PartialClosePercent2 = 50.0;
+         cfg.MoveToBreakEvenAfterStage1 = true;
+         break;
+         
+      case PRESET_SWING:
+         // スイング型: H1/H4、広いSL/TP、低頻度・高精度
+         cfg.EmaShortPeriod = 20;
+         cfg.EmaMidPeriod = 50;
+         cfg.EmaLongPeriod = 200;
+         cfg.UseEmaShort = true;
+         cfg.UseEmaMid = true;
+         cfg.UseEmaLong = true;
+         cfg.UseTouchPullback = true;
+         cfg.UseCrossPullback = true;
+         cfg.UseBreakPullback = false;
+         cfg.UseADXFilter = true;
+         cfg.ADXMinLevel = 20.0;
+         cfg.StopLossFixedPoints = 300.0;   // 広いSL
+         cfg.TakeProfitFixedPoints = 600.0; // 広いTP (RR 1:2)
+         // Edge filters: 厳格
+         cfg.ADXRequireRising = true;
+         cfg.DISpreadMin = 5.0;
+         cfg.UseATRSlopeFilter = true;
+         cfg.ATRSlopeRequireRising = true;
+         cfg.UseFibFilter = true;
+         cfg.FibSwingPeriod = 30;
+         cfg.FibMinRatio = 38.2;
+         cfg.FibMaxRatio = 61.8;
+         cfg.UseCandlePattern = true;
+         cfg.PatternPinBar = true;
+         cfg.PatternEngulfing = true;
+         cfg.UseDivergenceFilter = true;
+         // 段階利確: ゆっくり利確
+         cfg.EnablePartialClose = true;
+         cfg.PartialCloseLevel1Pips = 30.0;
+         cfg.PartialClosePercent1 = 30.0;
+         cfg.PartialCloseLevel2Pips = 50.0;
+         cfg.PartialClosePercent2 = 40.0;
+         cfg.PartialCloseLevel3Pips = 70.0;
+         cfg.PartialClosePercent3 = 30.0;
+         cfg.MoveToBreakEvenAfterStage1 = true;
+         // トレーリング有効
+         cfg.TrailingMode = TRAILING_FIXED;
+         cfg.TrailingStopPips = 25.0;
+         cfg.TrailingActivationPips = 40.0;
+         break;
+         
+      case PRESET_ROUND_NUMBER:
+         // ラウンドナンバー重視型: .00/.50レベルを活用
+         cfg.EmaShortPeriod = 12;
+         cfg.EmaMidPeriod = 25;
+         cfg.EmaLongPeriod = 100;
+         cfg.UseEmaShort = true;
+         cfg.UseEmaMid = true;
+         cfg.UseEmaLong = true;
+         cfg.UseTouchPullback = true;
+         cfg.UseCrossPullback = true;
+         cfg.UseBreakPullback = false;
+         cfg.UseADXFilter = true;
+         cfg.ADXMinLevel = 15.0;
+         cfg.StopLossFixedPoints = 150.0;
+         cfg.TakeProfitFixedPoints = 300.0;
+         // Edge filters
+         cfg.ADXRequireRising = false;
+         cfg.DISpreadMin = 0;
+         cfg.UseATRSlopeFilter = false;
+         cfg.UseFibFilter = false;
+         cfg.UseCandlePattern = true;
+         cfg.PatternPinBar = true;
+         cfg.PatternEngulfing = true;
+         cfg.UseDivergenceFilter = false;
+         // === ラウンドナンバー機能有効 ===
+         cfg.UseRoundNumberLines = true;
+         cfg.RN_Use_00_Line = true;
+         cfg.RN_Use_50_Line = true;
+         cfg.RN_TouchBufferPoints = 100;
+         cfg.RN_LookbackBars = 5;
+         cfg.RN_CounterTrend = false;
+         cfg.RN_DigitLevel = 2;
+         cfg.RN_AvoidEntryNear = true;
+         cfg.RN_AvoidBufferPoints = 50;
+         break;
+         
+      case PRESET_STRONG_TREND:
+         // 強トレンド型: Al Brooks理論、連続バー・浅いプルバック
+         cfg.EmaShortPeriod = 12;
+         cfg.EmaMidPeriod = 25;
+         cfg.EmaLongPeriod = 100;
+         cfg.UseEmaShort = true;
+         cfg.UseEmaMid = true;
+         cfg.UseEmaLong = true;
+         cfg.UseTouchPullback = true;
+         cfg.UseCrossPullback = false;  // 強トレンドではタッチのみ
+         cfg.UseBreakPullback = true;   // ブレイクアウトバー即エントリー
+         cfg.UseADXFilter = true;
+         cfg.ADXMinLevel = 25.0;  // 強トレンド要求
+         cfg.StopLossFixedPoints = 150.0;
+         cfg.TakeProfitFixedPoints = 400.0;
+         // Edge filters
+         cfg.ADXRequireRising = true;
+         cfg.DISpreadMin = 10.0;  // DI差が大きいことを要求
+         cfg.UseATRSlopeFilter = true;
+         cfg.ATRSlopeRequireRising = true;
+         cfg.UseFibFilter = false;  // 強トレンドではFib不要
+         cfg.UseCandlePattern = true;
+         cfg.PatternPinBar = true;
+         cfg.PatternEngulfing = true;
+         cfg.UseDivergenceFilter = false;
+         // === 強トレンドモード有効 ===
+         cfg.UseStrongTrendMode = true;
+         cfg.StrongTrendADXLevel = 30.0;
+         cfg.StrongTrendAutoActivate = true;
+         cfg.ConsecutiveBarsCount = 3;
+         cfg.LargeCandleMultiplier = 1.5;
+         cfg.ShallowPullbackPercent = 40.0;
+         cfg.UseBreakoutBarEntry = true;
+         cfg.MinBarBodyRatio = 60.0;
+         break;
+         
+      case PRESET_PARTIAL_CLOSE:
+         // 段階利確重視型: 3段階で細かく利確
+         cfg.EmaShortPeriod = 12;
+         cfg.EmaMidPeriod = 25;
+         cfg.EmaLongPeriod = 100;
+         cfg.UseEmaShort = true;
+         cfg.UseEmaMid = true;
+         cfg.UseEmaLong = true;
+         cfg.UseTouchPullback = true;
+         cfg.UseCrossPullback = true;
+         cfg.UseBreakPullback = false;
+         cfg.UseADXFilter = true;
+         cfg.ADXMinLevel = 18.0;
+         cfg.StopLossFixedPoints = 150.0;
+         cfg.TakeProfitFixedPoints = 500.0;  // 広めのTP（段階利確で徐々に回収）
+         // Edge filters
+         cfg.ADXRequireRising = false;
+         cfg.DISpreadMin = 0;
+         cfg.UseATRSlopeFilter = false;
+         cfg.UseFibFilter = false;
+         cfg.UseCandlePattern = true;
+         cfg.PatternPinBar = true;
+         cfg.PatternEngulfing = true;
+         cfg.UseDivergenceFilter = false;
+         // === 段階利確設定: 3段階フル活用 ===
+         cfg.EnablePartialClose = true;
+         cfg.PartialCloseLevel1Pips = 15.0;
+         cfg.PartialClosePercent1 = 30.0;
+         cfg.PartialCloseLevel2Pips = 30.0;
+         cfg.PartialClosePercent2 = 30.0;
+         cfg.PartialCloseLevel3Pips = 50.0;
+         cfg.PartialClosePercent3 = 40.0;
+         cfg.MoveToBreakEvenAfterStage1 = true;
+         cfg.BreakEvenOffsetPips = 2.0;
+         break;
+         
+      case PRESET_TRAIL_PROFIT:
+         // トレーリング重視型: 利益を伸ばす戦略
+         cfg.EmaShortPeriod = 12;
+         cfg.EmaMidPeriod = 25;
+         cfg.EmaLongPeriod = 100;
+         cfg.UseEmaShort = true;
+         cfg.UseEmaMid = true;
+         cfg.UseEmaLong = true;
+         cfg.UseTouchPullback = true;
+         cfg.UseCrossPullback = true;
+         cfg.UseBreakPullback = false;
+         cfg.UseADXFilter = true;
+         cfg.ADXMinLevel = 20.0;
+         cfg.StopLossFixedPoints = 150.0;
+         cfg.TakeProfitFixedPoints = 0.0;  // TPなし（トレーリングで決済）
+         // Edge filters
+         cfg.ADXRequireRising = true;  // トレンド継続を確認
+         cfg.DISpreadMin = 5.0;
+         cfg.UseATRSlopeFilter = true;
+         cfg.ATRSlopeRequireRising = true;
+         cfg.UseFibFilter = false;
+         cfg.UseCandlePattern = true;
+         cfg.PatternPinBar = true;
+         cfg.PatternEngulfing = true;
+         cfg.UseDivergenceFilter = false;
+         // === トレーリング設定: ATRベース ===
+         cfg.TrailingMode = TRAILING_ATR;
+         cfg.TrailingStopATRMulti = 1.5;
+         cfg.TrailingActivationPips = 20.0;
+         // 段階利確: 最初だけ回収
+         cfg.EnablePartialClose = true;
+         cfg.PartialCloseLevel1Pips = 20.0;
+         cfg.PartialClosePercent1 = 30.0;
+         cfg.PartialCloseLevel2Pips = 0.0;
+         cfg.PartialClosePercent2 = 0.0;
+         cfg.MoveToBreakEvenAfterStage1 = true;
+         break;
+         
       case PRESET_CUSTOM:
       default:
          // カスタム: 共通デフォルトのみ（個別設定はユーザー任せ）
@@ -417,6 +643,12 @@ string GetPresetName(ENUM_STRATEGY_PRESET preset)
       case PRESET_TRENDLINE:    return "TrendLine";
       case PRESET_CHANNEL:      return "Channel";
       case PRESET_AI_NOISE:     return "AI Noise";
+      case PRESET_SCALPING:     return "Scalping";
+      case PRESET_SWING:        return "Swing";
+      case PRESET_ROUND_NUMBER: return "Round Number";
+      case PRESET_STRONG_TREND: return "Strong Trend";
+      case PRESET_PARTIAL_CLOSE:return "Partial Close";
+      case PRESET_TRAIL_PROFIT: return "Trail Profit";
       case PRESET_CUSTOM:       return "Custom";
       default:                  return "Unknown";
    }
@@ -451,6 +683,18 @@ string GetPresetDescription(ENUM_STRATEGY_PRESET preset)
          return "チャネル型: 自動チャネル検出、境界逆張り";
       case PRESET_AI_NOISE:
          return "AIノイズ対策型: ATRスパイク/2度目狙い/ストップ狩り検出";
+      case PRESET_SCALPING:
+         return "スキャルピング型: M5/M15短期、狭いSL/TP、高頻度";
+      case PRESET_SWING:
+         return "スイング型: H1/H4中長期、広いSL/TP、トレーリング有効";
+      case PRESET_ROUND_NUMBER:
+         return "ラウンドナンバー型: .00/.50レベルを活用";
+      case PRESET_STRONG_TREND:
+         return "強トレンド型: Al Brooks理論、連続バー・浅いプルバック";
+      case PRESET_PARTIAL_CLOSE:
+         return "段階利確型: 3段階で細かく利確、リスク管理重視";
+      case PRESET_TRAIL_PROFIT:
+         return "トレーリング型: ATRトレール、利益を伸ばす戦略";
       case PRESET_CUSTOM:
          return "カスタム: 全パラメータ手動設定";
       default:
