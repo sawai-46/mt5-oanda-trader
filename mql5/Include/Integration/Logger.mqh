@@ -138,6 +138,18 @@ public:
       Print(line);
       WriteToFile(line);
    }
+
+   static void LogTrade(string action, string symbol, ulong ticket, double lots,
+                        double price, double sl = 0, double tp = 0, long magic = 0, string comment = "")
+   {
+      string msg = StringFormat("[TRADE] %s %s Ticket=%I64u Lots=%.2f Price=%.5f",
+                                action, symbol, ticket, lots, price);
+      if(sl > 0) msg += StringFormat(" SL=%.5f", sl);
+      if(tp > 0) msg += StringFormat(" TP=%.5f", tp);
+      if(magic > 0) msg += StringFormat(" Magic=%I64d", magic);
+      if(comment != "") msg += StringFormat(" Comment=%s", comment);
+      Log(LOG_INFO, msg);
+   }
 };
 
 // Static member definitions
