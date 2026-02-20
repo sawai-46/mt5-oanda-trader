@@ -121,3 +121,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 tmpclaude-*-cwd
+
+# Machine-specific workspace files
+*.code-workspace
