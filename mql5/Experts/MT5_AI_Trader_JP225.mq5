@@ -629,7 +629,7 @@ void AnalyzeAndTrade()
       return;
    }
    
-   if(InpShowDebugLog && showStatus) CLogger::Log(LOG_DEBUG, "推論リクエスト送信中...");
+   if(InpShowDebugLog && showStatus) CLogger::Log(LOG_DEBUG, StringFormat("[REQUEST] 推論リクエスト送信中... url=%s", g_inferenceServerUrl));
 
    // HTTP POSTリクエスト送信
    string responseStr = "";
@@ -652,9 +652,13 @@ void AnalyzeAndTrade()
    }
    
    // レスポンス出力
-   if(InpShowDebugLog || signal != 0)
+   if(signal != 0)
    {
-      CLogger::Log(LOG_DEBUG, StringFormat("Response: sig=%d conf=%s reason=%s", signal, DoubleToString(confidence, 3), reason));
+      CLogger::Log(LOG_INFO, StringFormat("[RESPONSE] sig=%d conf=%s reason=%s", signal, DoubleToString(confidence, 3), reason));
+   }
+   else if(InpShowDebugLog)
+   {
+      CLogger::Log(LOG_DEBUG, StringFormat("[RESPONSE] sig=%d conf=%s reason=%s", signal, DoubleToString(confidence, 3), reason));
    }
    
    // エントリー判定
