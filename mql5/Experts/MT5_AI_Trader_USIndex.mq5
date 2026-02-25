@@ -506,10 +506,19 @@ void OnTick()
       last_export = now_export;
    }
 
+   static bool s_dailyCloseExecuted = false;
    if(IsFridayCloseWindowJST())
    {
-      CloseAllPositionsForSymbolMagic("JST daily close window");
+      if(!s_dailyCloseExecuted)
+      {
+         CloseAllPositionsForSymbolMagic("JST daily close window");
+         s_dailyCloseExecuted = true;
+      }
       return;
+   }
+   else
+   {
+      s_dailyCloseExecuted = false;
    }
 
    // 1. ポジション監視（利確・SL移動）は常に実行
