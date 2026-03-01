@@ -134,7 +134,7 @@ $env:USE_ANTIGRAVITY = "1"
 $env:MODEL_TYPE = "transformer"
 
 # mt4-pullback-trader 側の antigravity を import できるようにする
-$env:MT4_PULLBACK_TRADER_PYTHON = "C:\\Users\\chanm\\OneDrive\\VS Code\\mt4-pullback-trader\\python"
+$env:MT4_PULLBACK_TRADER_PYTHON = "E:\\VS Code\\mt4-pullback-trader\\python"
 
 # 9銘柄M15のモデル割当（キーは JP225/US30/US500/NQ100 を基準に統一）
 $env:TRANSFORMER_MODEL_PATHS_JSON = '{"USDJPY_M15":"antigravity/data/transformer_model_USDJPY_15.pt","EURUSD_M15":"antigravity/data/transformer_model_EURUSD_15.pt","AUDUSD_M15":"antigravity/data/transformer_model_AUDUSD_15.pt","EURJPY_M15":"antigravity/data/transformer_model_EURJPY_15.pt","AUDJPY_M15":"antigravity/data/transformer_model_AUDJPY_15.pt","JP225_M15":"antigravity/data/transformer_model_JP225.mt4_15.pt","US30_M15":"antigravity/data/transformer_model_US30.mt4_15.pt","US500_M15":"antigravity/data/transformer_model_US500.mt4_15.pt","NQ100_M15":"antigravity/data/transformer_model_NQ100.mt4_15.pt"}'

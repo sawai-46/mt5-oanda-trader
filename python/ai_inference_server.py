@@ -275,7 +275,7 @@ def main():
     parser.add_argument(
         'data_dir',
         nargs='?',
-        default=r"C:\Users\chanm\OneDrive\VS Code\mt4-pullback-trader\python\data",
+        default=r"E:\VS Code\mt4-pullback-trader\python\data",
         help="CSVデータディレクトリパス"
     )
     

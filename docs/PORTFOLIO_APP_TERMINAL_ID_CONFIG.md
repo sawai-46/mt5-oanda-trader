@@ -127,7 +127,7 @@ PC固有の物理情報（パス/URL/DB）を管理します。
 
 ```yaml
 paths:
-  ea_logs_root: "C:\\Users\\chanm\\OneDrive\\EA_Logs"
+  ea_logs_root: "D:\\EA_Logs_Local"
 
 mt5_http:
   base_url: "http://127.0.0.1:5001"
