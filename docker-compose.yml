@@ -6,7 +6,7 @@ services:
     image: mt5-oanda-trader-inference-http:local
     container_name: mt5-inference-http
     ports:
-      - "5001:5001"
+      - "15001:5001"
     environment:
       PORT: "5001"
 
