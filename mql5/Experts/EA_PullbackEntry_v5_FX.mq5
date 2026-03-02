@@ -177,7 +177,7 @@ input ENUM_LOG_LEVEL InpLogMinLevel = LOG_INFO;       // 最小ログレベル
 input bool   InpLogToFile = true;                     // ファイル出力
 input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
 input string InpLogFileName = "OneDriveLogs\\logs\\EA_PullbackEntry_v5.log"; // ログファイル名（MQL5/Files配下）
-input int    InpSkipLogCooldown = 300;                // 同一スキップログの抑制秒数（5分）
+input int    InpSkipLogCooldown = 3600;               // 同一スキップログの抑制秒数（1時間）
 input int    InpMainLogicIntervalSec = 60;            // メインロジック実行間隔(秒)
 
 //--- Data collection (MT4 log sync compatible)
@@ -303,7 +303,7 @@ void LogSkipReason(string reason)
       int colonPos = StringFind(category, ":");
       if(colonPos > 0) category = StringSubstr(category, 0, colonPos);
       
-      if (last_skip_category == category && TimeCurrent() - last_skip_log_time < InpSkipLogCooldown) return;
+      if (last_skip_category == category && TimeCurrent() - last_skip_log_time <= InpSkipLogCooldown) return;
       last_skip_category = category;
    }
    last_skip_log_time = TimeCurrent();
