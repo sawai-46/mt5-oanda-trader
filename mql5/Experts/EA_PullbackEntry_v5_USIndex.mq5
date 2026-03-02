@@ -179,7 +179,7 @@ input ENUM_LOG_LEVEL InpLogMinLevel = LOG_INFO;       // 最小ログレベル
 input bool   InpLogToFile = true;                     // ファイル出力
 input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
 input string InpLogFileName = "OneDriveLogs\\logs\\EA_PullbackEntry_v5.log"; // ログファイル名（MQL5/Files配下）
-input int    InpSkipLogCooldown = 60;                 // 同一スキップログの抑制秒数
+input int    InpSkipLogCooldown = 300;                // 同一スキップログの抑制秒数（5分）
 input int    InpMainLogicIntervalSec = 60;            // メインロジック実行間隔(秒)
 
 //--- Data collection (MT4 log sync compatible)
@@ -299,11 +299,19 @@ void LogSkipReason(string reason)
    if(MQLInfoInteger(MQL_TESTER)) return;
    
    static datetime last_skip_log_time = 0;
-   static string last_skip_reason = "";
+   static string last_skip_category = "";
    if (InpSkipLogCooldown > 0) {
-      if (last_skip_reason == reason && TimeCurrent() - last_skip_log_time < InpSkipLogCooldown) return;
+      // カテゴリ抽出: "Filter rejected: Outside trading hours: 05:27 ..." → "Outside trading hours"
+      // 時刻等の動的部分を除外し、同一カテゴリの連続ログを抑制
+      string category = reason;
+      int prefixPos = StringFind(category, "Filter rejected: ");
+      if(prefixPos == 0) category = StringSubstr(category, 17);
+      int colonPos = StringFind(category, ":");
+      if(colonPos > 0) category = StringSubstr(category, 0, colonPos);
+      
+      if (last_skip_category == category && TimeCurrent() - last_skip_log_time < InpSkipLogCooldown) return;
+      last_skip_category = category;
    }
-   last_skip_reason = reason;
    last_skip_log_time = TimeCurrent();
    CLogger::Log(LOG_INFO, ">>> スキップ: " + reason);
 }
