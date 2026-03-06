@@ -1,0 +1,39 @@
+diff --git a/mql5/Experts/MT5_AI_Trader_FX.mq5 b/mql5/Experts/MT5_AI_Trader_FX.mq5
+index 9feb157..d39d48c 100644
+--- a/mql5/Experts/MT5_AI_Trader_FX.mq5
++++ b/mql5/Experts/MT5_AI_Trader_FX.mq5
+@@ -126,7 +126,7 @@ input bool   InpLogToFile = true;                   // ファイルへのログ
+ input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
+ input string InpLogFileName = "OneDriveLogs\\logs\\MT5_AI_Trader.log";   // ログファイル名（MQL5/Files配下）
+ input int    InpSkipLogCooldown = 60;                 // 同一スキップログの抑制秒数
+-input int    InpMainLogicIntervalSec = 60;            // メインロジック実行間隔(秒)
++input int    InpMainLogicIntervalSec = 300;           // メインロジック実行間隔(秒)
+ 
+ //--- Trade History CSV
+ input bool   InpEnableCsvTradeLog = true;             // Trade_History CSV 出力
+diff --git a/mql5/Experts/MT5_AI_Trader_JP225.mq5 b/mql5/Experts/MT5_AI_Trader_JP225.mq5
+index 9588e31..1cf78c0 100644
+--- a/mql5/Experts/MT5_AI_Trader_JP225.mq5
++++ b/mql5/Experts/MT5_AI_Trader_JP225.mq5
+@@ -126,7 +126,7 @@ input bool   InpLogToFile = true;                   // ファイルへのログ
+ input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
+ input string InpLogFileName = "OneDriveLogs\\logs\\MT5_AI_Trader.log";   // ログファイル名（MQL5/Files配下）
+ input int    InpSkipLogCooldown = 60;                 // 同一スキップログの抑制秒数
+-input int    InpMainLogicIntervalSec = 60;            // メインロジック実行間隔(秒)
++input int    InpMainLogicIntervalSec = 300;           // メインロジック実行間隔(秒)
+ 
+ //--- Trade History CSV
+ input bool   InpEnableCsvTradeLog = true;             // Trade_History CSV 出力
+diff --git a/mql5/Experts/MT5_AI_Trader_USIndex.mq5 b/mql5/Experts/MT5_AI_Trader_USIndex.mq5
+index d89659b..5318113 100644
+--- a/mql5/Experts/MT5_AI_Trader_USIndex.mq5
++++ b/mql5/Experts/MT5_AI_Trader_USIndex.mq5
+@@ -126,7 +126,7 @@ input bool   InpLogToFile = true;                   // ファイルへのログ
+ input bool   InpLogUseCommonFolder = false;           // Commonフォルダ使用（OneDriveLogs配下に出したい場合はfalse推奨）
+ input string InpLogFileName = "OneDriveLogs\\logs\\MT5_AI_Trader.log";   // ログファイル名（MQL5/Files配下）
+ input int    InpSkipLogCooldown = 60;                 // 同一スキップログの抑制秒数
+-input int    InpMainLogicIntervalSec = 60;            // メインロジック実行間隔(秒)
++input int    InpMainLogicIntervalSec = 300;           // メインロジック実行間隔(秒)
+ 
+ //--- Trade History CSV
+ input bool   InpEnableCsvTradeLog = true;             // Trade_History CSV 出力
