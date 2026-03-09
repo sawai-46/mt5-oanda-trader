@@ -1,0 +1,105 @@
+diff --git a/mql5/Experts/EA_PullbackEntry_v5_FX.mq5 b/mql5/Experts/EA_PullbackEntry_v5_FX.mq5
+index f6739c2..90df805 100644
+--- a/mql5/Experts/EA_PullbackEntry_v5_FX.mq5
++++ b/mql5/Experts/EA_PullbackEntry_v5_FX.mq5
+@@ -570,7 +570,7 @@ void OnTick()
+ {
+    static datetime last_export = 0;
+    datetime now_export = TimeCurrent();
+-   if(now_export - last_export >= 60)
++   if(now_export - last_export >= 300)
+    {
+       ExportAccountStatusWithTerminalId(InpTerminalId);
+       last_export = now_export;
+diff --git a/mql5/Experts/EA_PullbackEntry_v5_JP225.mq5 b/mql5/Experts/EA_PullbackEntry_v5_JP225.mq5
+index 60584ce..52239b6 100644
+--- a/mql5/Experts/EA_PullbackEntry_v5_JP225.mq5
++++ b/mql5/Experts/EA_PullbackEntry_v5_JP225.mq5
+@@ -576,7 +576,7 @@ void OnTick()
+ {
+    static datetime last_export = 0;
+    datetime now_export = TimeCurrent();
+-   if(now_export - last_export >= 60)
++   if(now_export - last_export >= 300)
+    {
+       ExportAccountStatusWithTerminalId(InpTerminalId);
+       last_export = now_export;
+diff --git a/mql5/Experts/EA_PullbackEntry_v5_USIndex.mq5 b/mql5/Experts/EA_PullbackEntry_v5_USIndex.mq5
+index 7e68a1f..8140541 100644
+--- a/mql5/Experts/EA_PullbackEntry_v5_USIndex.mq5
++++ b/mql5/Experts/EA_PullbackEntry_v5_USIndex.mq5
+@@ -580,7 +580,7 @@ void OnTick()
+ {
+    static datetime last_export = 0;
+    datetime now_export = TimeCurrent();
+-   if(now_export - last_export >= 60)
++   if(now_export - last_export >= 300)
+    {
+       ExportAccountStatusWithTerminalId(InpTerminalId);
+       last_export = now_export;
+diff --git a/mql5/Experts/MT5_AI_Trader_FX.mq5 b/mql5/Experts/MT5_AI_Trader_FX.mq5
+index 4f8728d..2926aa0 100644
+--- a/mql5/Experts/MT5_AI_Trader_FX.mq5
++++ b/mql5/Experts/MT5_AI_Trader_FX.mq5
+@@ -505,7 +505,7 @@ void OnTick()
+ {
+    static datetime last_export = 0;
+    datetime now_export = TimeCurrent();
+-   if(now_export - last_export >= 60)
++   if(now_export - last_export >= 300)
+    {
+       ExportAccountStatusWithTerminalId(GetAccountStatusTerminalId());
+       last_export = now_export;
+@@ -561,7 +561,7 @@ void AnalyzeAndTrade()
+    // デバッグログ用のタイマー
+    static datetime lastDebugTime = 0;
+    datetime now = TimeCurrent();
+-   bool showStatus = InpShowDebugLog && (now - lastDebugTime >= 60);
++   bool showStatus = InpShowDebugLog && (now - lastDebugTime >= 300);
+    
+    if(showStatus)
+    {
+diff --git a/mql5/Experts/MT5_AI_Trader_JP225.mq5 b/mql5/Experts/MT5_AI_Trader_JP225.mq5
+index 9bdbc16..048b856 100644
+--- a/mql5/Experts/MT5_AI_Trader_JP225.mq5
++++ b/mql5/Experts/MT5_AI_Trader_JP225.mq5
+@@ -542,7 +542,7 @@ void OnTick()
+ {
+    static datetime last_export = 0;
+    datetime now_export = TimeCurrent();
+-   if(now_export - last_export >= 60)
++   if(now_export - last_export >= 300)
+    {
+       ExportAccountStatusWithTerminalId(GetAccountStatusTerminalId());
+       last_export = now_export;
+@@ -598,7 +598,7 @@ void AnalyzeAndTrade()
+    // デバッグログ用のタイマー
+    static datetime lastDebugTime = 0;
+    datetime now = TimeCurrent();
+-   bool showStatus = InpShowDebugLog && (now - lastDebugTime >= 60);
++   bool showStatus = InpShowDebugLog && (now - lastDebugTime >= 300);
+    
+    if(showStatus)
+    {
+diff --git a/mql5/Experts/MT5_AI_Trader_USIndex.mq5 b/mql5/Experts/MT5_AI_Trader_USIndex.mq5
+index 26d0171..6cbeea3 100644
+--- a/mql5/Experts/MT5_AI_Trader_USIndex.mq5
++++ b/mql5/Experts/MT5_AI_Trader_USIndex.mq5
+@@ -504,7 +504,7 @@ void OnTick()
+ {
+    static datetime last_export = 0;
+    datetime now_export = TimeCurrent();
+-   if(now_export - last_export >= 60)
++   if(now_export - last_export >= 300)
+    {
+       ExportAccountStatusWithTerminalId(GetAccountStatusTerminalId());
+       last_export = now_export;
+@@ -560,7 +560,7 @@ void AnalyzeAndTrade()
+    // デバッグログ用のタイマー
+    static datetime lastDebugTime = 0;
+    datetime now = TimeCurrent();
+-   bool showStatus = InpShowDebugLog && (now - lastDebugTime >= 60);
++   bool showStatus = InpShowDebugLog && (now - lastDebugTime >= 300);
+    
+    if(showStatus)
+    {
