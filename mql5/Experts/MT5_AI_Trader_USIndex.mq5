@@ -31,6 +31,8 @@
 enum PresetOption
 {
    PRESET_antigravity_pullback = 0,   // antigravity_pullback (推奨)
+   PRESET_antigravity_pullback_aggressive, // antigravity_pullback_aggressive
+   PRESET_antigravity_pullback_conservative, // antigravity_pullback_conservative
    PRESET_antigravity_only,           // antigravity_only
    PRESET_antigravity_hedge,          // antigravity_hedge
    PRESET_quantitative_pure,          // quantitative_pure
@@ -322,6 +324,8 @@ string GetPresetName()
 {
    switch(InpPreset)
    {
+      case PRESET_antigravity_pullback_aggressive:   return "antigravity_pullback_aggressive";
+      case PRESET_antigravity_pullback_conservative: return "antigravity_pullback_conservative";
       case PRESET_antigravity_only:   return "antigravity_only";
       case PRESET_antigravity_hedge:  return "antigravity_hedge";
       case PRESET_quantitative_pure:  return "quantitative_pure";

@@ -8,6 +8,8 @@ AI Trader (Python) は金融工学的アプローチに特化する
 プリセット:
 - antigravity_only: AI予測のみ（フィルターなし）
 - antigravity_pullback: AI + プルバック戦略
+- antigravity_pullback_aggressive: AI + プルバック戦略（攻め寄り）
+- antigravity_pullback_conservative: AI + プルバック戦略（保守寄り）
 - antigravity_hedge: ヘッジモード特化
 - quantitative_pure: クオンツ純粋戦略
 - full: 全モジュール有効（現行互換）
@@ -73,6 +75,77 @@ STRATEGY_PRESETS: Dict[str, Dict[str, Any]] = {
             'trend': 0.05,
         },
         'description': 'AI + プルバック戦略'
+    },
+
+    'antigravity_pullback_aggressive': {
+        'modules': {
+            # ===== AI Core (Transformer + KAN) =====
+            'antigravity_core': True,
+            'antigravity_transformer': True,
+            'antigravity_kan': True,
+            # ===== プルバック・テクニカル =====
+            'pullback': True,
+            'technical': True,
+            'trend': True,
+            # ===== チャート・パターン系 =====
+            'chart_patterns': True,
+            'false_breakout': True,
+            'candle_patterns': True,
+            'wave_structure': True,
+            'structural': True,
+            # ===== ボラティリティ =====
+            'volatility': True,
+            'gk_volatility': True,
+            'volatility_breakout': True,
+            # ===== クオンツ =====
+            'momentum': True,
+            'mean_reversion': True,
+        },
+        'weights': {
+            'antigravity_core': 0.45,
+            'pullback': 0.12,
+            'technical': 0.07,
+            'trend': 0.06,
+            'chart_patterns': 0.06,
+            'false_breakout': 0.05,
+            'wave_structure': 0.04,
+            'structural': 0.02,
+            'candle_patterns': 0.03,
+            'momentum': 0.04,
+            'mean_reversion': 0.03,
+            'volatility_breakout': 0.03,
+        },
+        'description': '攻め寄り: 全16モジュール有効・AIコア主軸(Transformer+KAN 45%)'
+    },
+
+    'antigravity_pullback_conservative': {
+        'modules': {
+            'antigravity_core': True,
+            'antigravity_transformer': True,
+            'antigravity_kan': True,
+            'pullback': True,
+            'technical': True,
+            'trend': True,
+            'false_breakout': True,
+            'gk_volatility': True,
+            'volatility': True,
+            # 無効化
+            'chart_patterns': False,
+            'wave_structure': False,
+            'structural': False,
+            'candle_patterns': False,
+            'momentum': False,
+            'mean_reversion': False,
+            'volatility_breakout': False,
+        },
+        'weights': {
+            'antigravity_core': 0.55,
+            'pullback': 0.20,
+            'false_breakout': 0.12,
+            'technical': 0.08,
+            'trend': 0.05,
+        },
+        'description': '保守寄り: AI主軸 + Pullback + FalseBreakout + Volatility Filter'
     },
     
     'antigravity_hedge': {
