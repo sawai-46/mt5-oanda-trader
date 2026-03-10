@@ -576,7 +576,7 @@ void OnTick()
 {
    static datetime last_export = 0;
    datetime now_export = TimeCurrent();
-   if(now_export - last_export >= 60)
+   if(now_export - last_export >= 300)
    {
       ExportAccountStatusWithTerminalId(InpTerminalId);
       last_export = now_export;

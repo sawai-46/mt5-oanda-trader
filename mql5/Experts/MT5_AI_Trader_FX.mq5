@@ -505,7 +505,7 @@ void OnTick()
 {
    static datetime last_export = 0;
    datetime now_export = TimeCurrent();
-   if(now_export - last_export >= 60)
+   if(now_export - last_export >= 300)
    {
       ExportAccountStatusWithTerminalId(GetAccountStatusTerminalId());
       last_export = now_export;
@@ -561,7 +561,7 @@ void AnalyzeAndTrade()
    // デバッグログ用のタイマー
    static datetime lastDebugTime = 0;
    datetime now = TimeCurrent();
-   bool showStatus = InpShowDebugLog && (now - lastDebugTime >= 60);
+   bool showStatus = InpShowDebugLog && (now - lastDebugTime >= 300);
    
    if(showStatus)
    {
