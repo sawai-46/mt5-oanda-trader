@@ -138,15 +138,23 @@ ATR: {atr}
         confidence = 0.5
         reason = response
         
-        response_upper = response.upper()
-        
-        # シグナル判定
-        if "BUY" in response_upper:
-            signal = 1
-        elif "SELL" in response_upper:
-            signal = -1
-        elif "WAIT" in response_upper:
-            signal = 0
+        # 判定部分を正規表現で厳密に抽出（理由文の"BUY"等に誤爆しないように）
+        import re
+        match = re.search(r'判定[:：\s]*(BUY|SELL|WAIT)', response.upper())
+        if match:
+            decision = match.group(1)
+            if decision == "BUY":
+                signal = 1
+            elif decision == "SELL":
+                signal = -1
+            else:
+                signal = 0
+        else:
+            first_word = response.strip().split()[0].upper() if response.strip() else ""
+            if first_word == "BUY":
+                signal = 1
+            elif first_word == "SELL":
+                signal = -1
         
         # 確信度抽出（簡易版）
         import re
